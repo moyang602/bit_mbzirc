@@ -115,6 +115,8 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
+  include ${catkin_INCLUDE_DIRS}
+  include/bit_control_tool
 # include
   ${catkin_INCLUDE_DIRS}
 )
@@ -203,3 +205,25 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+
+add_executable(io_control
+  src/io_control.cpp
+)
+
+add_dependencies(io_control 
+  ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+  ${catkin_EXPORTED_TARGETS}
+  
+)
+target_link_libraries(io_control
+  ${catkin_LIBRARIES}
+)
+
+add_executable(ardu_remoter_pub
+  src/ardu_remoter.cpp
+)
+add_dependencies(ardu_remoter_pub ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(ardu_remoter_pub
+  ${catkin_LIBRARIES}
+)
