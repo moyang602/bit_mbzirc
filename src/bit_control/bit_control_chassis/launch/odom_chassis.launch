@@ -1,14 +1,14 @@
 <launch>
 
   
-  <include file="$(find io_control)/launch/ardu_remoter.launch" />
+  <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
   <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.362 0 0 0  /car_link /velodyne  10" />
-  <node pkg="tf" type="static_transform_publisher" name="car_link_to_world" args="0 0 0 0 0 0  /world /odom  10" />
+  <node pkg="tf" type="static_transform_publisher" name="car_link_to_world" args="0 0 0 0 0 0  /world /map  10" />
   
  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" output="screen" respawn="false" />
 
-  <include file="$(find robotcarMoveitConfig)/launch/display.launch" />
+  <include file="$(find bit_description)/robotcar_moveit_config/launch/display.launch" />
   
   <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 </launch>

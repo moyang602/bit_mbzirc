@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>robotcar</name>
+  <name>bit_robotcar</name>
   <version>0.0.0</version>
   <description>The robotcar package</description>
 
