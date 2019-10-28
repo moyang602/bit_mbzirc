@@ -8,7 +8,11 @@
   
  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" output="screen" respawn="false" />
 
+
   <include file="$(find bit_description)/robotcar_moveit_config/launch/display.launch" />
+
+  <include file="$(find robotcar_moveit_config)/launch/display.launch" />
+
   
   <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 </launch>
