@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>328</width>
+    <height>375</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Set joint angle</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">background:white</string>
+  </property>
+  <widget class="QPushButton" name="pushButton_set">
+   <property name="geometry">
+    <rect>
+     <x>205</x>
+     <y>30</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true"/>
+   </property>
+   <property name="text">
+    <string>Set</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="gridLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>55</x>
+     <y>70</y>
+     <width>211</width>
+     <height>231</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="2" column="1">
+     <widget class="QLineEdit" name="lineEdit_jt_1">
+      <property name="maximumSize">
+       <size>
+        <width>60</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="placeholderText">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QPushButton" name="pushButton_jt_0_down">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#F76677;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>-</string>
+      </property>
+      <property name="default">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QPushButton" name="pushButton_jt_b_down">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>22</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#F76677;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>-</string>
+      </property>
+      <property name="default">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0">
+     <widget class="QPushButton" name="pushButton_jt_3_down">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#F76677;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>-</string>
+      </property>
+      <property name="default">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QPushButton" name="pushButton_jt_1_down">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#F76677;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>-</string>
+      </property>
+      <property name="default">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="2">
+     <widget class="QPushButton" name="pushButton_jt_0_up">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string extracomment="haha"/>
+      </property>
+      <property name="whatsThis">
+       <string extracomment="haha"/>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#6DDF6D;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>+</string>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="2">
+     <widget class="QPushButton" name="pushButton_jt_3_up">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string extracomment="haha"/>
+      </property>
+      <property name="whatsThis">
+       <string extracomment="haha"/>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#6DDF6D;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>+</string>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="2">
+     <widget class="QPushButton" name="pushButton_jt_2_up">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string extracomment="haha"/>
+      </property>
+      <property name="whatsThis">
+       <string extracomment="haha"/>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#6DDF6D;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>+</string>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="2">
+     <widget class="QPushButton" name="pushButton_jt_1_up">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string extracomment="haha"/>
+      </property>
+      <property name="whatsThis">
+       <string extracomment="haha"/>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#6DDF6D;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>+</string>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="QPushButton" name="pushButton_jt_2_down">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#F76677;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>-</string>
+      </property>
+      <property name="default">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLineEdit" name="lineEdit_jt_2">
+      <property name="maximumSize">
+       <size>
+        <width>60</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="placeholderText">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="1">
+     <widget class="QLineEdit" name="lineEdit_jt_3">
+      <property name="maximumSize">
+       <size>
+        <width>60</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="placeholderText">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QLineEdit" name="lineEdit_jt_0">
+      <property name="maximumSize">
+       <size>
+        <width>60</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="placeholderText">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="2">
+     <widget class="QPushButton" name="pushButton_jt_b_up">
+      <property name="minimumSize">
+       <size>
+        <width>22</width>
+        <height>22</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>22</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string extracomment="haha"/>
+      </property>
+      <property name="whatsThis">
+       <string extracomment="haha"/>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background:#6DDF6D;border-radius:5px;</string>
+      </property>
+      <property name="text">
+       <string>+</string>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QLineEdit" name="lineEdit_jt_b">
+      <property name="maximumSize">
+       <size>
+        <width>60</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="placeholderText">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QComboBox" name="comboBox_finger">
+   <property name="geometry">
+    <rect>
+     <x>35</x>
+     <y>30</y>
+     <width>79</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">border:1pt solid gray</string>
+   </property>
+   <item>
+    <property name="text">
+     <string>Finger1</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Finger2</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Finger3</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Finger4</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Finger5</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit_delta_jtAngle">
+   <property name="geometry">
+    <rect>
+     <x>130</x>
+     <y>30</y>
+     <width>60</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">border:1px solid gray</string>
+   </property>
+   <property name="placeholderText">
+    <string>1</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>pushButton_jt_b_up</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>231</x>
+     <y>96</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>290</x>
+     <y>87</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_0_up</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>236</x>
+     <y>140</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>299</x>
+     <y>135</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_1_up</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>239</x>
+     <y>183</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>301</x>
+     <y>179</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_2_up</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>233</x>
+     <y>227</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>302</x>
+     <y>222</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_3_up</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>235</x>
+     <y>273</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>297</x>
+     <y>265</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_b_down</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>95</x>
+     <y>98</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>14</x>
+     <y>93</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_0_down</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>85</x>
+     <y>138</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>11</x>
+     <y>135</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_1_down</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>85</x>
+     <y>179</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>8</x>
+     <y>181</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_2_down</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>91</x>
+     <y>228</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>6</x>
+     <y>223</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_jt_3_down</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>97</x>
+     <y>272</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>4</x>
+     <y>264</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_set</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>increase_jt_angle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>244</x>
+     <y>42</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>305</x>
+     <y>15</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>increase_jt_angle()</slot>
+ </slots>
+</ui>

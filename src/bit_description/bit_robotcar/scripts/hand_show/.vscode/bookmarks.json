@@ -1,0 +1,17 @@
+[
+	{
+		"path": "/home/zhangqb/ws_moveit/src/hand_moveit/hand_description/urdf/panda_arm_bumper",
+		"bookmarks": [
+			{
+				"line": 7,
+				"column": 14,
+				"label": "link f13  contact sensor"
+			},
+			{
+				"line": 21,
+				"column": 16,
+				"label": "jt_f1 joint sensor"
+			}
+		]
+	}
+]

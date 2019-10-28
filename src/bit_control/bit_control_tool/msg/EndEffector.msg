@@ -1,0 +1,2 @@
+int16 MagState
+int16 PumpState

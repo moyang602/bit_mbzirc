@@ -1,0 +1,100 @@
+# -*- coding: utf-8 -*-
+
+# Form implementation generated from reading ui file 'hand_jt_angle.ui'
+#
+# Created by: PyQt5 UI code generator 5.6
+#
+# WARNING! All changes made in this file will be lost!
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+class Ui_MainWindow(object):
+    def hello(self):
+        print 'Ui_MainWindow_hello'
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(1045, 687)
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label.setGeometry(QtCore.QRect(60, 60, 91, 16))
+        self.label.setObjectName("label")
+        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2.setGeometry(QtCore.QRect(170, 60, 91, 16))
+        self.label_2.setObjectName("label_2")
+        self.label_3 = QtWidgets.QLabel(self.centralwidget)
+        self.label_3.setGeometry(QtCore.QRect(300, 60, 91, 16))
+        self.label_3.setObjectName("label_3")
+        self.label_4 = QtWidgets.QLabel(self.centralwidget)
+        self.label_4.setGeometry(QtCore.QRect(430, 60, 91, 16))
+        self.label_4.setObjectName("label_4")
+        self.label_5 = QtWidgets.QLabel(self.centralwidget)
+        self.label_5.setGeometry(QtCore.QRect(540, 60, 91, 16))
+        self.label_5.setObjectName("label_5")
+        self.label_6 = QtWidgets.QLabel(self.centralwidget)
+        self.label_6.setGeometry(QtCore.QRect(670, 60, 91, 16))
+        self.label_6.setObjectName("label_6")
+        self.label_7 = QtWidgets.QLabel(self.centralwidget)
+        self.label_7.setGeometry(QtCore.QRect(810, 60, 91, 16))
+        self.label_7.setObjectName("label_7")
+        self.lineEdit_jt_f11 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_jt_f11.setGeometry(QtCore.QRect(60, 90, 81, 22))
+        self.lineEdit_jt_f11.setReadOnly(True)
+        self.lineEdit_jt_f11.setObjectName("lineEdit_jt_f11")
+        self.lineEdit__jt_f12 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit__jt_f12.setGeometry(QtCore.QRect(170, 90, 81, 22))
+        self.lineEdit__jt_f12.setReadOnly(True)
+        self.lineEdit__jt_f12.setObjectName("lineEdit__jt_f12")
+        self.lineEdit__jt_f13 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit__jt_f13.setGeometry(QtCore.QRect(300, 90, 81, 22))
+        self.lineEdit__jt_f13.setReadOnly(True)
+        self.lineEdit__jt_f13.setObjectName("lineEdit__jt_f13")
+        self.lineEdit__jt_f20 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit__jt_f20.setGeometry(QtCore.QRect(430, 90, 81, 22))
+        self.lineEdit__jt_f20.setReadOnly(True)
+        self.lineEdit__jt_f20.setObjectName("lineEdit__jt_f20")
+        self.lineEdit__jt_f21 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit__jt_f21.setGeometry(QtCore.QRect(540, 90, 81, 22))
+        self.lineEdit__jt_f21.setReadOnly(True)
+        self.lineEdit__jt_f21.setObjectName("lineEdit__jt_f21")
+        self.lineEdit__jt_f22 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit__jt_f22.setGeometry(QtCore.QRect(670, 90, 81, 22))
+        self.lineEdit__jt_f22.setReadOnly(True)
+        self.lineEdit__jt_f22.setObjectName("lineEdit__jt_f22")
+        self.lineEdit__jt_f23 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit__jt_f23.setGeometry(QtCore.QRect(810, 90, 81, 22))
+        self.lineEdit__jt_f23.setReadOnly(True)
+        self.lineEdit__jt_f23.setObjectName("lineEdit__jt_f23")
+        self.pushButton_jt_f11_up = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_jt_f11_up.setGeometry(QtCore.QRect(60, 30, 80, 22))
+        self.pushButton_jt_f11_up.setObjectName("pushButton_jt_f11_up")
+        self.pushButton_jt_f11_down = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_jt_f11_down.setGeometry(QtCore.QRect(60, 140, 80, 22))
+        self.pushButton_jt_f11_down.setObjectName("pushButton_jt_f11_down")
+        MainWindow.setCentralWidget(self.centralwidget)
+        self.menubar = QtWidgets.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1045, 19))
+        self.menubar.setObjectName("menubar")
+        MainWindow.setMenuBar(self.menubar)
+        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        self.statusbar.setObjectName("statusbar")
+        MainWindow.setStatusBar(self.statusbar)
+
+        self.retranslateUi(MainWindow)
+        self.pushButton_jt_f11_down.clicked.connect(self.set_jt_angle)
+        self.pushButton_jt_f11_up.clicked.connect(self.set_jt_angle)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.label.setText(_translate("MainWindow", "jt_f11_angle"))
+        self.label_2.setText(_translate("MainWindow", "jt_f12_angle"))
+        self.label_3.setText(_translate("MainWindow", "jt_f13_angle"))
+        self.label_4.setText(_translate("MainWindow", "jt_f20_angle"))
+        self.label_5.setText(_translate("MainWindow", "jt_f21_angle"))
+        self.label_6.setText(_translate("MainWindow", "jt_f22_angle"))
+        self.label_7.setText(_translate("MainWindow", "jt_f23_angle"))
+        self.pushButton_jt_f11_up.setText(_translate("MainWindow", "angle +"))
+        self.pushButton_jt_f11_down.setText(_translate("MainWindow", "angle -"))
+
