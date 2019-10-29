@@ -1,12 +1,10 @@
 <launch>
 
   <node name="GPS" pkg="bit_hardware_interface" type="GPS" output="screen" respawn="false">
-  <param name="port"       value="/dev/ttyUSB2"/>  
-  <param name="baudrate"   value="9600"/>
-  <param name="debug_imu"   value="true"/>
-  <param name="loop_rate"   value="1"/>
+    <param name="port"       value="/dev/ttyUSB2"/>  
+    <param name="baudrate"   value="9600"/>
+    <param name="loop_rate"   value="1"/>
   </node>
-
 
 </launch>
 
