@@ -1,10 +1,11 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>bit_control</name>
-  <version>1.2.5</version>
-  <description>ROS-Industrial support for Universal Robots manipulators (metapackage).</description>
-<maintainer email="moyang@todo.todo">moyang</maintainer>
+  <version>1.0.0</version>
+  <description>bit robot control metapackage</description>
+  <maintainer email="moyang602@163.com">moyang</maintainer>
   <license>BSD</license>
+  <author email="ifan@todo.todo">ifan</author>
 
   <buildtool_depend>catkin</buildtool_depend>
 
@@ -14,6 +15,5 @@
 
   <export>
     <metapackage/>
-    <architecture_independent/>
   </export>
 </package>

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>bit_vision</name>
+  <version>1.0.0</version>
+  <description>bit robot vision metapackage</description>
+  <maintainer email="moyang602@163.com">moyang</maintainer>
+  <license>BSD</license>
+  <author email="ifan@todo.todo">ifan</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>bit_vision_brick_locate</exec_depend>
+  <exec_depend>bit_vision_brick_position</exec_depend>
+  <exec_depend>bit_vision_building_status</exec_depend>
+  <exec_depend>bit_vision_put_position</exec_depend>
+  <exec_depend>bit_vision_fire_position</exec_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>

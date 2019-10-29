@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>bit_task</name>
+  <version>1.0.0</version>
+  <description>bit robot task metapackage</description>
+  <maintainer email="moyang602@163.com">moyang</maintainer>
+  <license>BSD</license>
+  <author email="ifan@todo.todo">ifan</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>bit_task2</exec_depend>
+  <exec_depend>bit_task3</exec_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>

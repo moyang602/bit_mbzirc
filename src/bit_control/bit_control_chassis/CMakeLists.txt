@@ -201,7 +201,7 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-link_directories( lib)
+link_directories(lib)
 
 add_executable(chassis_sub
   src/chassis_sub.cpp

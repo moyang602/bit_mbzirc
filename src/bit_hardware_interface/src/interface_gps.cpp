@@ -95,7 +95,7 @@ int GPS_end()
 int main (int argc, char** argv) 
 { 
     //初始化节点 
-    ros::init(argc, argv, "GPS"); 
+    ros::init(argc, argv, "interface_gps"); 
     //声明节点句柄 
     ros::NodeHandle nh; 
 

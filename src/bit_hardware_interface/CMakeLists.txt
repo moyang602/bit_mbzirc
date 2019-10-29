@@ -210,11 +210,11 @@ include_directories(
 # catkin_add_nosetests(test)
 
 
-add_executable(GPS
+add_executable(interface_gps
   src/interface_gps.cpp
 )
-add_dependencies(GPS ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(GPS
+add_dependencies(interface_gps ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(interface_gps
   ${catkin_LIBRARIES}
 )
 
