@@ -28,7 +28,7 @@ int rec_right[4] = {0};
 int main (int argc, char** argv) 
 { 
     //初始化节点 
-    ros::init(argc, argv, "ardu_remoter"); 
+    ros::init(argc, argv, "ardu_remoter_pub"); 
     //声明节点句柄 
     ros::NodeHandle nh; 
 	geometry_msgs::Twist cmd;
@@ -39,7 +39,7 @@ int main (int argc, char** argv)
     ros::Publisher remo_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel_remo", 1000); 
     
     //nh.param<bool>("debug_imu", param_use_debug, false);
-	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB1");
+	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB0");
 	nh.param<int>("baudrate", param_baudrate_, 9600);
 	nh.param<int>("loop_rate", param_loop_rate_, 20);
     nh.param<bool>("debug_imu",param_use_debug,false);
@@ -114,9 +114,10 @@ int main (int argc, char** argv)
                     }
                 }
 
-                cmd.linear.x = float( rec_right[2] ) * float( rec_right[1]) / 450000.0f * MAX_x;
-                cmd.linear.y = float( rec_right[2] ) * float( rec_right[0]) / 450000.0f * MAX_y;
-                cmd.angular.z = float( rec_right[2] ) * float( rec_right[3]) / 450000.0f * MAX_z;
+                cmd.linear.x = float( rec_right[0] ) ;
+                cmd.linear.y = float( rec_right[1] ) ;
+                cmd.angular.x = float( rec_right[2] ) ;
+                cmd.angular.y = float( rec_right[3] ) ;
             }
             sum = 0;
             ser.flushInput(); 

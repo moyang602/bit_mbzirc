@@ -787,12 +787,22 @@ int main(int argc, char *argv[])
             else{
                 alpha[j] = 1+3*j;
             }
-        }
-        sum += alpha[j];
-    }
+            else if ( j > int((window - 1)/2)){
+                alpha[j] = 1+3*(window - j -2);
+            }
+            else {
+                if ( (window - 1)%2 == 0){
+                    alpha[j] = alpha[j-1];
+                }
+                else{
+                   alpha[j] = 1+3*j;
+                }
+            }
+            sum += alpha[j];
+     }
 
-    double sum = 0;
-    double err_last[8] = {0};
+double sum_p = 0;
+double err_last[8] = {0};
      while(ros::ok())
      {
 
@@ -802,14 +812,14 @@ int main(int argc, char *argv[])
                 ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
                 double err = now - motor[i].odom*57.29578f;
                 //if (i == 0) ROS_INFO("%f",err);
-                sum += err;
-                if ( sum > 30){
-                    sum = 30;
+                sum_p += err;
+                if ( sum_p > 30){
+                    sum_p = 30;
                 }
-                if ( sum < -30){
-                    sum = -30;
+                if ( sum_p < -30){
+                    sum_p = -30;
                 }
-                now = 30 * err + 0.0 * sum + 1.0 * (err - err_last[i]);
+                now = 30 * err + 0.0 * sum_p + 1.0 * (err - err_last[i]);
                 err_last[i] = err;
 
                 motor[i].watchdog ++;
