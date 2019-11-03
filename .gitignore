@@ -56,3 +56,7 @@ qtcreator-*
 
 # Catkin custom files
 CATKIN_IGNORE
+
+\.vscode/launch_args\.json
+
+\.vscode/tasks\.json

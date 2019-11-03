@@ -781,28 +781,19 @@ int main(int argc, char *argv[])
             alpha[j] = 1+3*(window - j -2);
         }
         else {
-            if ( (window - 1)%2 == 0){
+            if ( (window - 1)%2 == 0)
+            {
                 alpha[j] = alpha[j-1];
             }
             else{
                 alpha[j] = 1+3*j;
             }
-            else if ( j > int((window - 1)/2)){
-                alpha[j] = 1+3*(window - j -2);
-            }
-            else {
-                if ( (window - 1)%2 == 0){
-                    alpha[j] = alpha[j-1];
-                }
-                else{
-                   alpha[j] = 1+3*j;
-                }
             }
             sum += alpha[j];
      }
 
-double sum_p = 0;
-double err_last[8] = {0};
+    double sum_p = 0;
+    double err_last[8] = {0};
      while(ros::ok())
      {
 
