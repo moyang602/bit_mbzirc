@@ -1,2 +1,2 @@
-[submodule "src/zed-ros-wrapper"]
+[submodule "src/support_package/zed-ros-wrapper"]
 	url = https://github.com/stereolabs/zed-ros-wrapper.git
