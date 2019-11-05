@@ -1,2 +1,5 @@
 [submodule "src/support_package/zed-ros-wrapper"]
 	url = https://github.com/stereolabs/zed-ros-wrapper.git
+[submodule "src/bit_slam/cartographer"]
+	path = src/bit_slam/cartographer
+	url = https://github.com/googlecartographer/cartographer.git
