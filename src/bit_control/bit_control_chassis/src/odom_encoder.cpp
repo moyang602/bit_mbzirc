@@ -95,9 +95,6 @@ ROS_INFO("Odom by encoder OK!!!");
 			
 		ros::spinOnce();
 
-// if (pub_cnt++ >100){
-// 	pub_cnt = 0;
-
 			dt = (current_time - last_time).toSec();
 			if (dt != 0.0f){
 				v1 = (e1 - odom_last7)/dt;
