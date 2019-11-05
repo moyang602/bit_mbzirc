@@ -3,3 +3,6 @@
 [submodule "src/bit_slam/cartographer"]
 	path = src/bit_slam/cartographer
 	url = https://github.com/googlecartographer/cartographer.git
+[submodule "src/bit_slam/cartographer_ros"]
+	path = src/bit_slam/cartographer_ros
+	url = https://github.com/googlecartographer/cartographer_ros.git
