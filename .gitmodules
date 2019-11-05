@@ -1,5 +1,2 @@
 [submodule "src/support_package/zed-ros-wrapper"]
 	url = https://github.com/stereolabs/zed-ros-wrapper.git
-[submodule "src/support_package/basler_tof"]
-	path = basler_tof
-	url = https://github.com/uos/basler_tof.git
