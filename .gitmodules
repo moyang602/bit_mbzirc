@@ -6,3 +6,8 @@
 [submodule "src/bit_slam/cartographer_ros"]
 	path = src/bit_slam/cartographer_ros
 	url = https://github.com/googlecartographer/cartographer_ros.git
+[submodule "src/bit_slam/ceres-solver"]
+	path = src/bit_slam/ceres-solver
+	url = https://github.com/ceres-solver/ceres-solver.git
+[submodule "src/support_package/basler_tof"]
+	url = https://github.com/uos/basler_tof.git
