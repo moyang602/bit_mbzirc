@@ -39,7 +39,7 @@ int main (int argc, char** argv)
     ros::Publisher remo_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel_remo", 1000); 
     
     //nh.param<bool>("debug_imu", param_use_debug, false);
-	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB0");
+	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB1");
 	nh.param<int>("baudrate", param_baudrate_, 9600);
 	nh.param<int>("loop_rate", param_loop_rate_, 20);
     nh.param<bool>("debug_imu",param_use_debug,false);

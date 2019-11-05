@@ -56,7 +56,7 @@ Motor motor[8];             //电机结构，内有电机的指令，电机的�
 
 int FindID[8]    = { 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 };
 int dftCan[8]    = { CAN1 , CAN1 , CAN1 , CAN1 , CAN1 , CAN1 , CAN1 , CAN1 };
-BYTE dftMode[8]  = { M_pos, M_pos, M_pos, M_pos, M_spd, M_spd, M_spd, M_spd};
+BYTE dftMode[8]  = { M_spd, M_spd, M_spd, M_spd, M_spd, M_spd, M_spd, M_spd};
 BYTE Stop[8]     = { 0x00 , 0xDA , 0x00 , 0x10 , 0x00 , 0x00 , 0x00 , 0x0F };
 BYTE Enable[8]   = { 0x00 , 0xDA , 0x00 , 0x10 , 0x00 , 0x00 , 0x00 , 0x1F };
 BYTE PosMode[8]  = { 0x00 , 0xDA , 0x00 , 0x19 , 0x00 , 0x00 , 0x00 , 0x3F };
@@ -517,7 +517,7 @@ void ctlMotor(Motor *m , uint mode , float data)
             can.Data[i] = ( speed >> (7 - i)*8 ) & 0xff;
         }
         sendCommand( m->Can , &can);    // 设置目标速度
-        usleep(500);
+        usleep(1000);
     } 
     else if ( mode == M_pos )
     {
@@ -528,7 +528,7 @@ void ctlMotor(Motor *m , uint mode , float data)
             can.Data[i] = ( position >> (7 - i)*8 ) & 0xff;
         }
         sendCommand( m->Can , &can);
-        usleep(500);
+        usleep(800);
     }
 }
 
@@ -773,7 +773,8 @@ int main(int argc, char *argv[])
             double now = motor[i].plan_param[0] + motor[i].plan_param[1]*motor[i].run_time + motor[i].plan_param[0]*motor[i].run_time*motor[i].run_time + motor[i].plan_param[0]*motor[i].run_time*motor[i].run_time*motor[i].run_time;
             if ( i < 4 )    // 位置控制
             {
-                // ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
+                //ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
+                usleep(500);
                 double err = now - motor[i].odom*m_PI;
 
                 sum_p += err;
@@ -794,7 +795,7 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    ctlMotor( &motor[i] , M_pos , now);  //PID有可能需要限幅
+                    ctlMotor( &motor[i] , M_spd , now);  //PID有可能需要限幅
                 }
             }
             else        // 速度控制
