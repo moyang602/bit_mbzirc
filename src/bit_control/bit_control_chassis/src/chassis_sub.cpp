@@ -497,7 +497,7 @@ void ctlMotor(Motor *m , uint mode , float data)
 
     int position = 0;
 
-    MotorOnControl = m->num;  //控制回传数据
+//    MotorOnControl = m->num;  //控制回传数据
     
     can.Data[0] = 0;
     can.Data[1] = 0xDA;
