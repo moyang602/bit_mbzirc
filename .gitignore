@@ -60,3 +60,5 @@ CATKIN_IGNORE
 \.vscode/launch_args\.json
 
 \.vscode/tasks\.json
+
+install_isolated/

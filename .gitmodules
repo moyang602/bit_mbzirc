@@ -1,10 +1,4 @@
 [submodule "src/support_package/zed-ros-wrapper"]
 	url = https://github.com/stereolabs/zed-ros-wrapper.git
-[submodule "src/bit_slam/cartographer"]
-	path = src/bit_slam/cartographer
-	url = https://github.com/googlecartographer/cartographer.git
-[submodule "src/bit_slam/cartographer_ros"]
-	path = src/bit_slam/cartographer_ros
-	url = https://github.com/googlecartographer/cartographer_ros.git
 [submodule "src/support_package/basler_tof"]
 	url = https://github.com/uos/basler_tof.git
