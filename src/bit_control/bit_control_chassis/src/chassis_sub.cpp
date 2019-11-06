@@ -528,12 +528,13 @@ void ctlMotor(Motor *m , uint mode , float data)
             can.Data[i] = ( position >> (7 - i)*8 ) & 0xff;
         }
         sendCommand( m->Can , &can);
-        usleep(800);
+        usleep(1000);
     }
 }
 
 /**
  * @name: setMotorPID
+
  * @msg: 设置电机PID
  * @param {Motor *} 某个电机， {int} P,I,D 
  * @return: void
@@ -768,13 +769,13 @@ int main(int argc, char *argv[])
     double err_last[8] = {0};
     while(ros::ok())
     {
-        for (size_t i = 0; i<8; i++)
+        for (int i = 0; i<8; i++)
         {
             double now = motor[i].plan_param[0] + motor[i].plan_param[1]*motor[i].run_time + motor[i].plan_param[0]*motor[i].run_time*motor[i].run_time + motor[i].plan_param[0]*motor[i].run_time*motor[i].run_time*motor[i].run_time;
             if ( i < 4 )    // 位置控制
             {
-                //ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
-                usleep(500);
+                ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
+                //usleep(2000);
                 double err = now - motor[i].odom*m_PI;
 
                 sum_p += err;

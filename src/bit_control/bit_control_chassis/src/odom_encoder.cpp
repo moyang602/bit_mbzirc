@@ -148,9 +148,10 @@ ROS_INFO("Odom by encoder OK!!!");
 			od.twist.twist.linear.x = delta_y;
 			od.twist.twist.linear.y = -delta_x;
 			od.twist.twist.angular.z = delta_z;
-		if (pub_cnt++ >10){
+		// if (pub_cnt++ >10){
+		// 	pub_cnt = 0;
 					pub.publish(od);
-			}
+			// }
 			last_time = current_time;
 
 		loop_rate.sleep();
