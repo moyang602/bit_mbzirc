@@ -117,6 +117,8 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  /opt/halcon/include/halconcpp
+  /opt/halcon/include
 )
 
 ## Declare a C++ library
@@ -203,3 +205,17 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+link_directories(lib)
+
+add_executable(brick_locate
+  src/brick_locate.cpp
+)
+add_dependencies(brick_locate ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(brick_locate
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(brick_locate
+  ${catkin_LIBRARIES}
+  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+)

@@ -62,3 +62,5 @@ CATKIN_IGNORE
 \.vscode/tasks\.json
 
 install_isolated/
+
+src/bit_vision/bit_vision_brick_locate/model/
