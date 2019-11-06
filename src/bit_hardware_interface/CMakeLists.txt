@@ -241,3 +241,12 @@ add_dependencies(interface_ur5e ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXP
 target_link_libraries(interface_ur5e
   ${catkin_LIBRARIES}
 )
+
+
+add_executable(interface_camera_ir
+  src/interface_camera_ir.cpp
+)
+add_dependencies(interface_camera_ir ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(interface_camera_ir
+  ${catkin_LIBRARIES}
+)
