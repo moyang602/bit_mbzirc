@@ -4220,7 +4220,7 @@ int main(int argc, char *argv[])
   
   int ret = 0;
 
-  ros::init(argc, argv, "locate_boxes");
+  ros::init(argc, argv, "brick_locate");
 
   ros::NodeHandle nh; //定义ros句柄
 

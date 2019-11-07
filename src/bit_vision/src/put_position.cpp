@@ -36,8 +36,15 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 
+#include "std_msgs/Float32MultiArray.h"
+
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui/highgui.hpp>
+#include <cv_bridge/cv_bridge.h>
+
 using namespace std;
 using namespace HalconCpp;
+using namespace cv;
 
 ros::Subscriber sub;
 ros::Publisher pub;
@@ -3907,6 +3914,14 @@ void RangeMapToObjectModel3D (HObject ho_Image, HTuple hv_MaxDepth, HTuple hv_Mi
   XyzToObjectModel3d(ho_ImageX, ho_ImageY, ho_ImageZ, &(*hv_ObjectModel3D));
   return;
 }
+//定义全局变量
+static HTuple color_result = HTuple("background");
+static HTuple tranX = HTuple(0);
+static HTuple tranY = HTuple(0);
+static HTuple tranZ = HTuple(0);
+static HTuple rotX = HTuple(0);
+static HTuple rotY = HTuple(0);
+static HTuple rotZ = HTuple(0);
 
 // Main procedure 
 void action(HObject Image1)
@@ -3933,7 +3948,7 @@ void action(HObject Image1)
 
   //The object of this example is to classify different
   //kinds of wood according to their surface texture.
-  FileExists("/home/srt/catkin_ws/src/block_locate/classify_wood_boxes.gmc", &hv_FileExists);
+  FileExists("model/classify_wood_boxes.gmc", &hv_FileExists);
 
   //First, the path to the images is set, the initial image
   //is read and the settings are specified.
@@ -3957,7 +3972,7 @@ void action(HObject Image1)
   //want to perform the training, set USE_STORED_CLASSIFIER to 0.
   //If the classifier can not be found, USE_STORED_CLASSIFIER
   //is set to 0 automatically.
-  ReadClassMlp("/home/srt/catkin_ws/src/block_locate/classify_wood_boxes.gmc", &hv_MLPHandle);
+  ReadClassMlp("./src/block_locate/src/classify_wood_boxes.gmc", &hv_MLPHandle);
   hv_NumClasses = hv_Classes.TupleLength();
 
   hv_Errors = 0;
@@ -3973,20 +3988,54 @@ void action(HObject Image1)
     SetColor(HDevWindowStack::GetActive(),"blue");
   //传递给下一阶段的字符hv_result_color
   hv_result_color = HTuple(hv_Classes[HTuple(hv_FoundClassIDs[0])]);
+
+  color_result = HTuple(hv_Classes[HTuple(hv_FoundClassIDs[0])]);
+
+  //ROS_INFO_STREAM("color is : "<<color_result.S());
   // stop(...); only in hdevelop
-  ROS_INFO("The color of box is : %s",hv_result_color);
-  //cout<<"color is"<<hv_result_color<<endl;
-  return hv_result_color;
-
-  }
+  //ROS_INFO("The color of box is : %s",hv_result_color);
+  //cout<<"color is"<<hv_result_color.S()<<endl;
+}
 
 
- void locate_box(HTuple color,HObject Image)
- {
+
+
+void locate_box(HObject Image)
+{
+
+  // Local iconic variables
+  HObject  ho_Image, ho_ImageMean, ho_Regions, ho_ImageX;
+  HObject  ho_ImageY, ho_ImageZ;
+
+  // Local control variables
+  HTuple  hv_MinDepth, hv_MaxDepth, hv_CenterX;
+  HTuple  hv_CenterY, hv_FocalLength, hv_MinScore, hv_VisParamNames;
+  HTuple  hv_VisParamValues, hv_VisInstructions, hv_WindowHandle;
+  HTuple  hv_ObjectModel3DBox, hv_ObjectModel3DModel, hv_Information;
+  HTuple  hv_FileName, hv_FileExists, hv_SurfaceModel, hv_ImagePath;
+  HTuple  hv_ImageFiles, hv_Index, hv_ObjectModel3DScene;
+  HTuple  hv_Width, hv_Height, hv_Rows, hv_Columns, hv_Grayval;
+  HTuple  hv_ZValue, hv_XValue, hv_YValue, hv_VisRotationCenter;
+  HTuple  hv_VisPose, hv_Pose, hv_Score, hv_SurfaceMatchingResult;
+  HTuple  hv_Diameter, hv_ObjectModel3DEdges, hv_ObjectModel3DRigidTrans;
+  HTuple  hv_transX, hv_transY, hv_transZ, hv_rotX, hv_rotY;
+  HTuple  hv_rotZ, hv_order, hv_ValueOfPose, hv_OrderOfTransform;
+  HTuple  hv_OrderOfRotation, hv_ViewOfTransform;
+
+  HTuple  hv_Surface_Red_ModelID;
+ReadSurfaceModel("model/redbox_edge_supported.sfm", 
+      &hv_Surface_Red_ModelID);
+HTuple  hv_Surface_Green_ModelID;
+ReadSurfaceModel("model/greenbox_edge_supported.sfm", 
+      &hv_Surface_Green_ModelID);
+HTuple  hv_Surface_Blue_ModelID;
+ReadSurfaceModel("model/bluebox_edge_supported.sfm", 
+      &hv_Surface_Blue_ModelID);
+
   dev_update_off();
   if (HDevWindowStack::IsOpen())
     CloseWindow(HDevWindowStack::Pop());
-  //
+
   //TOF Init Parameters.
   hv_MinDepth = 0;
   hv_MaxDepth = 2000;
@@ -4017,89 +4066,34 @@ void action(HObject Image1)
   HDevWindowStack::Push(hv_WindowHandle);
   //
   //根据不同的颜色创建不同尺寸的模型
+  HTuple hv_result_color = color_result;
+  ROS_INFO_STREAM("COLOR IS : "<<hv_result_color.S());
+  //HTuple hv_result_color =HTuple("red");
   if (0 != (hv_result_color==HTuple("red")))
   {
-    //Create a 3D model of a redbox.
-    GenBoxObjectModel3d(((((((HTuple(0).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)), 
-        280, 190, 190, &hv_ObjectModel3DBox);
-    TriangulateObjectModel3d(hv_ObjectModel3DBox, "greedy", HTuple(), HTuple(), &hv_ObjectModel3DModel, 
-        &hv_Information);
-    hv_FileName = "/home/srt/catkin_ws/src/block_locate/redbox_edge_supported.sfm";
-    FileExists(hv_FileName, &hv_FileExists);
-    if (0 != (hv_FileExists.TupleNot()))
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Creating new surface model.\nThis might take some minutes...", 
-            "window", 150, "left", "black", "box", "false");
-      CreateSurfaceModel(hv_ObjectModel3DModel, 0.03, "train_3d_edges", "true", &hv_SurfaceModel);
-      WriteSurfaceModel(hv_SurfaceModel, hv_FileName);
-    }
-    else
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Reading pre-created surface model...", 
-            "window", 150, "left", "black", "box", "false");
-      ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
-    }
+     //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
+     hv_SurfaceModel = hv_Surface_Red_ModelID;
   }
   else if (0 != (hv_result_color==HTuple("green")))
   {
-    //create a 3D model of a greenbox
-    GenBoxObjectModel3d(((((((HTuple(0).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)), 
-        580, 190, 190, &hv_ObjectModel3DBox);
-    TriangulateObjectModel3d(hv_ObjectModel3DBox, "greedy", HTuple(), HTuple(), &hv_ObjectModel3DModel, 
-        &hv_Information);
-    hv_FileName = "/home/srt/catkin_ws/src/block_locate/greenbox_edge_supported.sfm";
-    FileExists(hv_FileName, &hv_FileExists);
-    if (0 != (hv_FileExists.TupleNot()))
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Creating new surface model.\nThis might take some minutes...", 
-            "window", 150, "left", "black", "box", "false");
-      CreateSurfaceModel(hv_ObjectModel3DModel, 0.03, "train_3d_edges", "true", &hv_SurfaceModel);
-      WriteSurfaceModel(hv_SurfaceModel, hv_FileName);
-    }
-    else
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Reading pre-created surface model...", 
-            "window", 150, "left", "black", "box", "false");
-      ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
-    }
+    hv_SurfaceModel = hv_Surface_Green_ModelID;
+    //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
   }
   else if (0 != (hv_result_color==HTuple("blue")))
   {
-    //create a 3D model of a bluebox
-    GenBoxObjectModel3d(((((((HTuple(0).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)), 
-        1180, 190, 190, &hv_ObjectModel3DBox);
-    TriangulateObjectModel3d(hv_ObjectModel3DBox, "greedy", HTuple(), HTuple(), &hv_ObjectModel3DModel, 
-        &hv_Information);
-    hv_FileName = "/home/srt/catkin_ws/src/block_locate/bluebox_edge_supported.sfm";
-    FileExists(hv_FileName, &hv_FileExists);
-    if (0 != (hv_FileExists.TupleNot()))
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Creating new surface model.\nThis might take some minutes...", 
-            "window", 150, "left", "black", "box", "false");
-      CreateSurfaceModel(hv_ObjectModel3DModel, 0.03, "train_3d_edges", "true", &hv_SurfaceModel);
-      WriteSurfaceModel(hv_SurfaceModel, hv_FileName);
-    }
-    else
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Reading pre-created surface model...", 
-            "window", 150, "left", "black", "box", "false");
-      ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
-    }
+    hv_SurfaceModel = hv_Surface_Blue_ModelID;
+    //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
   }
 
-  //此处需要添加实时TOF图像采集
-  	HImage ho_Image = Image;//将参数传进来
-    //均值滤波
+    //读取zed深度图
+    ho_Image = Image;
+
     MeanImage(ho_Image, &ho_ImageMean, 13, 13);
     DynThreshold(ho_Image, ho_ImageMean, &ho_Regions, 350, "equal");
+
     GetImageSize(ho_Image, &hv_Width, &hv_Height);
     GetRegionPoints(ho_Image, &hv_Rows, &hv_Columns);
+
     GetGrayval(ho_ImageMean, hv_Rows, hv_Columns, &hv_Grayval);
 
     hv_ZValue = ((hv_Grayval*(hv_MaxDepth-hv_MinDepth))/65535.)+hv_MinDepth;
@@ -4124,19 +4118,41 @@ void action(HObject Image1)
         HTuple());
 
     GetObjectModel3dParams(hv_ObjectModel3DScene, "center", &hv_VisRotationCenter);
-
+    //
+    //Display search scene.
     visualize_object_model_3d(hv_WindowHandle, hv_ObjectModel3DScene, HTuple(), HTuple(), 
         HTuple(), HTuple(), "3D scene", HTuple(), hv_VisInstructions, &hv_VisPose);
 
+    //
     //Show results of edge-supported surface-based matching.
     if (HDevWindowStack::IsOpen())
       ClearWindow(HDevWindowStack::GetActive());
     //Perform edge-supported surface-based matching.
+    //hv_Pose = [0,0,0,0,0,0,0]
+    //获取位姿估计结果
+   
     FindSurfaceModel(hv_SurfaceModel, hv_ObjectModel3DScene, 0.05, 0.1, hv_MinScore, 
         "false", "num_matches", 5, &hv_Pose, &hv_Score, &hv_SurfaceMatchingResult);
-    hv_ValueOfPose = hv_Pose;
-    //输出位姿估计结果
-    cout << "pose is "<< hv_ValueOfPose.D() <<endl;
+
+    if (0 == (hv_Pose==HTuple()))
+    {
+         //分别获取trans与rototion
+    hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
+    hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
+    hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
+    hv_rotX = ((const HTuple&)HTuple(hv_Pose[3]))[0];
+    hv_rotY = ((const HTuple&)HTuple(hv_Pose[4]))[0];
+    hv_rotZ = ((const HTuple&)HTuple(hv_Pose[5]))[0];
+    hv_order = ((const HTuple&)HTuple(hv_Pose[6]))[0];
+    tranX  =  hv_transX;
+    tranY = hv_transY;
+    tranZ = hv_transZ;
+    rotX = hv_rotX;
+    rotY = hv_rotY;
+    rotZ = hv_rotZ;
+
+    TupleSelectRange(hv_Pose, 0, 6, &hv_ValueOfPose);
+    ROS_INFO_STREAM("Get the location x : "<<tranX.D());
     //Extract edges for visualization.
     GetObjectModel3dParams(hv_ObjectModel3DScene, "diameter_axis_aligned_bounding_box", 
         &hv_Diameter);
@@ -4149,10 +4165,11 @@ void action(HObject Image1)
         HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
         HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
         &hv_VisPose);
- }
-  
+    }
 
+   
 
+}
 
 
 void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
@@ -4163,51 +4180,78 @@ void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg)
     //获取halcon-bridge图像指针
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
-
+    
     action(ho_Image);
 
 }
 
+//定义全局变量传递深度图像
+Mat DepthImg;
 
+void TOFCallback(const sensor_msgs::ImageConstPtr& msg)
+{
+  cv_bridge::CvImagePtr cv_ptr;
+  try
+  {
+      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings:: TYPE_32FC1); 
+      DepthImg = cv_ptr->image;
+      
+      //转换到halcon
+      Mat depth3DMatZ = cv::Mat::zeros(DepthImg.size(), CV_32FC1);
+      HObject HobjZ;
+      GenImage1(&HobjZ, "real", depth3DMatZ.cols, depth3DMatZ.rows, (Hlong)depth3DMatZ.data);
+      
+
+      //加入函数
+      locate_box(HobjZ);
+      ROS_INFO_STREAM("get the pose of box");
+
+
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
+}
 
 
 int main(int argc, char *argv[])
 {
+  
   int ret = 0;
 
-  ros::init(argc, argv, "locate_boxes");
+  ros::init(argc, argv, "put_position");
 
   ros::NodeHandle nh; //定义ros句柄
 
-  //给定图像路径
-  hv_ImagePath = "/home/srt/Project/box_find_project/find_box/2d_range_map";
-  ListFiles(hv_ImagePath, (HTuple("files").Append("follow_links")), &hv_ImageFiles);
-  TupleRegexpSelect(hv_ImageFiles, (HTuple("\\.(tif|tiff)$").Append("ignore_case")), 
-      &hv_ImageFiles);
-  {
-  	  HTuple end_val149 = (hv_ImageFiles.TupleLength())-1;
-  	  HTuple step_val149 = 1;
-  	  for (hv_Index=0; hv_Index.Continue(end_val149, step_val149); hv_Index += step_val149)
-  	{
-  		ReadImage(&ho_Image, HTuple(hv_ImageFiles[hv_Index]));//作为参数输入
-  	}
-
-  }
-
   try
   {
-
-    //XInitThreads();
 
     // Default settings used in HDevelop (can be omitted) 
     SetSystem("width", 512);
     SetSystem("height", 512);
 
-    ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 10,imageLeftRectifiedCallback);
+    ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,imageLeftRectifiedCallback);
+    ros::Subscriber subDepth    =nh.subscribe("/zed/zed_node/depth/depth_registered", 1, TOFCallback);
 
-
-    ros::spin();
-
+    ros::Publisher chatter_pub = nh.advertise<std_msgs::Float32MultiArray>("chatter", 1);
+    ros::Rate loop_rate(10);
+    //ros::spin();
+    while (ros::ok())
+    {
+        std_msgs::Float32MultiArray msg;
+        msg.data.push_back(tranX);//自己写的，可行
+        msg.data.push_back(tranY);
+        msg.data.push_back(tranZ);
+        msg.data.push_back(rotX);
+        msg.data.push_back(rotY);
+        msg.data.push_back(rotZ);
+ 
+        chatter_pub.publish(msg);
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
+    return 0;
   }
   catch (HException &exception)
   {

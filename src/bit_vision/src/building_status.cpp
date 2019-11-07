@@ -38,8 +38,13 @@
 
 #include "std_msgs/Float32MultiArray.h"
 
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui/highgui.hpp>
+#include <cv_bridge/cv_bridge.h>
+
 using namespace std;
 using namespace HalconCpp;
+using namespace cv;
 
 ros::Subscriber sub;
 ros::Publisher pub;
@@ -3991,7 +3996,9 @@ void action(HObject Image1)
   //ROS_INFO("The color of box is : %s",hv_result_color);
   //cout<<"color is"<<hv_result_color.S()<<endl;
 }
-  
+
+
+
 
 void locate_box(HObject Image)
 {
@@ -4014,6 +4021,16 @@ void locate_box(HObject Image)
   HTuple  hv_transX, hv_transY, hv_transZ, hv_rotX, hv_rotY;
   HTuple  hv_rotZ, hv_order, hv_ValueOfPose, hv_OrderOfTransform;
   HTuple  hv_OrderOfRotation, hv_ViewOfTransform;
+
+  HTuple  hv_Surface_Red_ModelID;
+ReadSurfaceModel("./src/block_locate/src/redbox_edge_supported.sfm", 
+      &hv_Surface_Red_ModelID);
+HTuple  hv_Surface_Green_ModelID;
+ReadSurfaceModel("./src/block_locate/src/greenbox_edge_supported.sfm", 
+      &hv_Surface_Green_ModelID);
+HTuple  hv_Surface_Blue_ModelID;
+ReadSurfaceModel("./src/block_locate/src/bluebox_edge_supported.sfm", 
+      &hv_Surface_Blue_ModelID);
 
   dev_update_off();
   if (HDevWindowStack::IsOpen())
@@ -4054,78 +4071,18 @@ void locate_box(HObject Image)
   //HTuple hv_result_color =HTuple("red");
   if (0 != (hv_result_color==HTuple("red")))
   {
-    //Create a 3D model of a redbox.
-    GenBoxObjectModel3d(((((((HTuple(0).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)), 
-        280, 190, 190, &hv_ObjectModel3DBox);
-    TriangulateObjectModel3d(hv_ObjectModel3DBox, "greedy", HTuple(), HTuple(), &hv_ObjectModel3DModel, 
-        &hv_Information);
-    hv_FileName = "./src/block_locate/src/redbox_edge_supported.sfm";
-    FileExists(hv_FileName, &hv_FileExists);
-    if (0 != (hv_FileExists.TupleNot()))
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Creating new surface model.\nThis might take some minutes...", 
-            "window", 150, "left", "black", "box", "false");
-      CreateSurfaceModel(hv_ObjectModel3DModel, 0.03, "train_3d_edges", "true", &hv_SurfaceModel);
-      WriteSurfaceModel(hv_SurfaceModel, hv_FileName);
-    }
-    else
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Reading pre-created surface model...", 
-            "window", 150, "left", "black", "box", "false");
-      ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
-    }
+     //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
+     hv_SurfaceModel = hv_Surface_Red_ModelID;
   }
   else if (0 != (hv_result_color==HTuple("green")))
   {
-    //create a 3D model of a greenbox
-    GenBoxObjectModel3d(((((((HTuple(0).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)), 
-        580, 190, 190, &hv_ObjectModel3DBox);
-    TriangulateObjectModel3d(hv_ObjectModel3DBox, "greedy", HTuple(), HTuple(), &hv_ObjectModel3DModel, 
-        &hv_Information);
-    hv_FileName = "./src/block_locate/src/greenbox_edge_supported.sfm";
-    FileExists(hv_FileName, &hv_FileExists);
-    if (0 != (hv_FileExists.TupleNot()))
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Creating new surface model.\nThis might take some minutes...", 
-            "window", 150, "left", "black", "box", "false");
-      CreateSurfaceModel(hv_ObjectModel3DModel, 0.03, "train_3d_edges", "true", &hv_SurfaceModel);
-      WriteSurfaceModel(hv_SurfaceModel, hv_FileName);
-    }
-    else
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Reading pre-created surface model...", 
-            "window", 150, "left", "black", "box", "false");
-      ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
-    }
+    hv_SurfaceModel = hv_Surface_Green_ModelID;
+    //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
   }
   else if (0 != (hv_result_color==HTuple("blue")))
   {
-    //create a 3D model of a bluebox
-    GenBoxObjectModel3d(((((((HTuple(0).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)).Append(0)), 
-        1180, 190, 190, &hv_ObjectModel3DBox);
-    TriangulateObjectModel3d(hv_ObjectModel3DBox, "greedy", HTuple(), HTuple(), &hv_ObjectModel3DModel, 
-        &hv_Information);
-    hv_FileName = "./src/block_locate/src/bluebox_edge_supported.sfm";
-    FileExists(hv_FileName, &hv_FileExists);
-    if (0 != (hv_FileExists.TupleNot()))
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Creating new surface model.\nThis might take some minutes...", 
-            "window", 150, "left", "black", "box", "false");
-      CreateSurfaceModel(hv_ObjectModel3DModel, 0.03, "train_3d_edges", "true", &hv_SurfaceModel);
-      WriteSurfaceModel(hv_SurfaceModel, hv_FileName);
-    }
-    else
-    {
-      if (HDevWindowStack::IsOpen())
-        DispText(HDevWindowStack::GetActive(),"Reading pre-created surface model...", 
-            "window", 150, "left", "black", "box", "false");
-      ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
-    }
+    hv_SurfaceModel = hv_Surface_Blue_ModelID;
+    //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
   }
 
     //读取zed深度图
@@ -4171,11 +4128,15 @@ void locate_box(HObject Image)
     if (HDevWindowStack::IsOpen())
       ClearWindow(HDevWindowStack::GetActive());
     //Perform edge-supported surface-based matching.
+    //hv_Pose = [0,0,0,0,0,0,0]
+    //获取位姿估计结果
+   
     FindSurfaceModel(hv_SurfaceModel, hv_ObjectModel3DScene, 0.05, 0.1, hv_MinScore, 
         "false", "num_matches", 5, &hv_Pose, &hv_Score, &hv_SurfaceMatchingResult);
-    //获取位姿估计结果
-    
-    //分别获取trans与rototion
+
+    if (0 == (hv_Pose==HTuple()))
+    {
+         //分别获取trans与rototion
     hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
     hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
     hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
@@ -4204,6 +4165,9 @@ void locate_box(HObject Image)
         HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
         HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
         &hv_VisPose);
+    }
+
+   
 
 }
 
@@ -4219,22 +4183,35 @@ void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg)
     
     action(ho_Image);
 
-   HTuple hv_ImagePath = "./src/block_locate/src/tof640-20gm-22588426-0018-range_gray.tiff";
-   HObject Image;
-   ReadImage(&Image, hv_ImagePath);
-   locate_box(Image);
-   ROS_INFO_STREAM("Locate the box");
-
 }
 
-void locateCallback(const sensor_msgs::Image::ConstPtr& msg)
+//定义全局变量传递深度图像
+Mat DepthImg;
+
+void TOFCallback(const sensor_msgs::ImageConstPtr& msg)
 {
-    HObject  ho_ImageSub;
-    halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
-    ho_ImageSub = *halcon_bridge_imagePointer->image;
+  cv_bridge::CvImagePtr cv_ptr;
+  try
+  {
+      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings:: TYPE_32FC1); 
+      DepthImg = cv_ptr->image;
+      
+      //转换到halcon
+      Mat depth3DMatZ = cv::Mat::zeros(DepthImg.size(), CV_32FC1);
+      HObject HobjZ;
+      GenImage1(&HobjZ, "real", depth3DMatZ.cols, depth3DMatZ.rows, (Hlong)depth3DMatZ.data);
+      
 
-    locate_box(ho_ImageSub);
+      //加入函数
+      locate_box(HobjZ);
+      ROS_INFO_STREAM("get the pose of box");
 
+
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
 }
 
 
@@ -4243,7 +4220,7 @@ int main(int argc, char *argv[])
   
   int ret = 0;
 
-  ros::init(argc, argv, "locate_boxes");
+  ros::init(argc, argv, "building_status");
 
   ros::NodeHandle nh; //定义ros句柄
 
@@ -4255,9 +4232,8 @@ int main(int argc, char *argv[])
     SetSystem("height", 512);
 
     ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,imageLeftRectifiedCallback);
-    //ros::Subscriber subDepth    =nh.subscribe("/zed/zed_node/depth/depth_registered", 1, locateCallback);
-   // ros::Publisher pub = n.advertise<std_msgs::String>("box_location", 1);
-   //从路径读图
+    ros::Subscriber subDepth    =nh.subscribe("/zed/zed_node/depth/depth_registered", 1, TOFCallback);
+
     ros::Publisher chatter_pub = nh.advertise<std_msgs::Float32MultiArray>("chatter", 1);
     ros::Rate loop_rate(10);
     //ros::spin();

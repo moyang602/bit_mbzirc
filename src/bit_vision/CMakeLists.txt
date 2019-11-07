@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(bit_vision_brick_locate)
+project(bit_vision)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -10,7 +10,24 @@ project(bit_vision_brick_locate)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  rospy
+  asr_halcon_bridge
+  message_generation
+  cv_bridge
+  image_transport
+  sensor_msgs
 )
+
+find_package(Boost REQUIRED)
+find_package(Eigen3 QUIET)
+if(NOT EIGEN3_FOUND)
+  find_package(Eigen REQUIRED)
+  set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+endif()
+find_package(OpenCV REQUIRED)
+include_directories(
+  include ${catkin_INCLUDE_DIRS}include ${BOOST_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -103,7 +120,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES bit_vision_brick_locate
+#  LIBRARIES halcon_test
 #  CATKIN_DEPENDS roscpp std_msgs
 #  DEPENDS system_lib
 )
@@ -115,15 +132,17 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include ${catkin_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
   /opt/halcon/include/halconcpp
   /opt/halcon/include
+  include/halcon_image.h
 )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/bit_vision_brick_locate.cpp
+#   src/${PROJECT_NAME}/halcon_test.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -134,7 +153,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/bit_vision_brick_locate_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/halcon_test_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -198,14 +217,15 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_bit_vision_brick_locate.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_halcon_test.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-link_directories(lib)
+
+link_directories(/opt/halcon/lib/x64-linux)
 
 add_executable(brick_locate
   src/brick_locate.cpp
@@ -213,9 +233,41 @@ add_executable(brick_locate
 add_dependencies(brick_locate ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(brick_locate
   ${catkin_LIBRARIES}
+  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
 )
 
-target_link_libraries(brick_locate
+add_executable(brick_position
+  src/brick_position.cpp
+)
+add_dependencies(brick_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(brick_position
+  ${catkin_LIBRARIES}
+  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+)
+
+add_executable(building_status
+  src/building_status.cpp
+)
+add_dependencies(building_status ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(building_status
+  ${catkin_LIBRARIES}
+  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+)
+
+add_executable(fire_position
+  src/fire_position.cpp
+)
+add_dependencies(fire_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(fire_position
+  ${catkin_LIBRARIES}
+  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+)
+
+add_executable(put_position
+  src/put_position.cpp
+)
+add_dependencies(put_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(put_position
   ${catkin_LIBRARIES}
   /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
 )
