@@ -12,9 +12,7 @@
 #include "iniFile.h"
 
 using namespace cv;
-ros::NodeHandle nh;
-image_transport::ImageTransport it(nh);
-image_transport::Publisher pub = it.advertise("cameraIR/image", 1);
+image_transport::Publisher pub;
 
 // 取流相关信息，用于线程传递
 typedef struct tagREAL_PLAY_INFO
@@ -60,10 +58,10 @@ void PsDataCallBack(LONG lRealHandle, DWORD dwDataType,BYTE *pPacketBuffer,DWORD
 	else
 	{
         // BYTE* --> cv::mat
-
+		ROS_INFO("nPacketSize = %d",nPacketSize);
         cv::Mat image;
         ByteToMat(pPacketBuffer,384,288,8, image);
-        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "8UC1", image).toImageMsg();
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
 
         pub.publish(msg);
 
@@ -83,58 +81,73 @@ int main (int argc, char** argv)
     //初始化节点 
     ros::init(argc, argv, "interface_camera_ir"); 
     //声明节点句柄 
-    
+    ros::NodeHandle nh;
+	image_transport::ImageTransport it(nh);
+	pub = it.advertise("cameraIR/image", 1);
 
 
     NET_DVR_Init();
-    NET_DVR_SetLogToFile(3, "./src/bit_hardware_interface/src/record/");
-
-    IniFile ini("/src/bit_hardware_interface/include/cameraIR/Device.ini");
-	unsigned int dwSize = 0;
-	char sSection[16] = "DEVICE";
-
-    char *sIP = ini.readstring(sSection, "ip", "error", dwSize);
-	int iPort = ini.readinteger(sSection, "port", 0);
-	char *sUserName = ini.readstring(sSection, "username", "error", dwSize); 
-	char *sPassword = ini.readstring(sSection, "password", "error", dwSize);
-	int iChannel = ini.readinteger(sSection, "channel", 0);
-
-
-    NET_DVR_DEVICEINFO_V30 struDeviceInfo;
-	int iUserID = NET_DVR_Login_V30(sIP, iPort, sUserName, sPassword, &struDeviceInfo);
-    if(iUserID >= 0)
+	// 注册设备
+	LONG lUserID;
+	//登录参数,包括设备地址、登录用户、密码等
+	NET_DVR_USER_LOGIN_INFO struLoginInfo = {0};
+	struLoginInfo.bUseAsynLogin = 0; //同步登录方式
+	strcpy(struLoginInfo.sDeviceAddress, "192.168.50.11"); //设备 IP 地址
+	struLoginInfo.wPort = 8000; //设备服务端口
+	strcpy(struLoginInfo.sUserName, "admin"); //设备登录用户名
+	strcpy(struLoginInfo.sPassword, "space305"); //设备登录密码
+	//设备信息, 输出参数
+	NET_DVR_DEVICEINFO_V40 struDeviceInfoV40 = {0};
+	lUserID = NET_DVR_Login_V40(&struLoginInfo, &struDeviceInfoV40);
+	if (lUserID < 0)
 	{
-		NET_DVR_PREVIEWINFO struPreviewInfo = {0};
-		struPreviewInfo.lChannel =iChannel;
-		struPreviewInfo.dwStreamType = 0;
-		struPreviewInfo.dwLinkMode = 0;
-		struPreviewInfo.bBlocked = 1;
-		struPreviewInfo.bPassbackRecord  = 1;
-
-
-		int iRealPlayHandle = NET_DVR_RealPlay_V40(iUserID, &struPreviewInfo, PsDataCallBack, NULL);
-
-		if(iRealPlayHandle >= 0)
-		{
-			ROS_INFO("[GetStream]---RealPlay %s:%d success", sIP, iChannel, NET_DVR_GetLastError());
-		}
-		else
-		{
-			ROS_INFO("[GetStream]---RealPlay %s:%d failed, error = %d", sIP, iChannel, NET_DVR_GetLastError());
-		}
-	}
-	else
-	{
-		ROS_INFO("[GetStream]---Login %s failed, error = %d", sIP, NET_DVR_GetLastError());
+		ROS_ERROR("Login failed, error code: %d", NET_DVR_GetLastError());
+		NET_DVR_Cleanup();
+		return 0;
 	}
 
-//    cv::Mat image = cv::imread("./src/bit_hardware_interface/src/test.png", CV_LOAD_IMAGE_COLOR);
- //   sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "rgb8", image).toImageMsg();
+ 	NET_DVR_JPEGPARA strPicPara = {0};
+    strPicPara.wPicQuality = 2;
+    strPicPara.wPicSize = 0;
+    int iRet;
+	char *sJpegPicBuffer;
+	LPDWORD lpSizeReturned;
+    //iRet = NET_DVR_CaptureJPEGPicture(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, "./ssss.jpeg");
 
-    ros::Rate loop_rate(5);
-    while (nh.ok()) {
-     //   pub.publish(msg);
-     //   ros::spinOnce();
+
+    ros::Rate loop_rate(20);
+    while (nh.ok()) 
+	{
+		
+/*		try
+		{
+			iRet =NET_DVR_CaptureJPEGPicture_NEW(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, sJpegPicBuffer, 11059, lpSizeReturned);
+		}
+		catch (int i)
+		{
+			DWORD rtn = NET_DVR_GetLastError();
+			ROS_INFO("rtn = %d", rtn);
+		}
+		DWORD rtn = NET_DVR_GetLastError();
+		ROS_INFO("rtn = %d", rtn);	
+		if (!iRet)
+		{
+			ROS_INFO("pyd1---NET_DVR_CaptureJPEGPicture error, %d", NET_DVR_GetLastError());
+			return 0;
+		}
+		ROS_INFO("lpSizeReturned = %d",*lpSizeReturned);
+		*/
+		iRet = NET_DVR_CaptureJPEGPicture(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, "/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/ssss.jpg");
+		cv::Mat image =cv::imread("/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/ssss.jpg");
+		
+		//ByteToMat((BYTE *)sJpegPicBuffer,384,288,24, image);
+		sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+
+		pub.publish(msg);
+
+        ros::spinOnce();
         loop_rate.sleep();
     }
+	NET_DVR_Logout_V30(lUserID);
+    NET_DVR_Cleanup();
 }
