@@ -192,6 +192,7 @@ int CanbusInit(unsigned Channel , unsigned Baud , unsigned TxType  )
     ROS_INFO_STREAM("VCI_OpenDevice succeeded");
 
     // ----- init & start -------------------
+
     VCI_INIT_CONFIG config;
     config.AccCode = 0;
     config.AccMask = 0xffffffff;
@@ -775,7 +776,7 @@ int main(int argc, char *argv[])
             if ( i < 4 )    // 位置控制
             {
                 ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
-                //usleep(2000);
+                usleep(500);
                 double err = now - motor[i].odom*m_PI;
 
                 sum_p += err;

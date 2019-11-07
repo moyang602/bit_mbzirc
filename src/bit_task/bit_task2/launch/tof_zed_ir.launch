@@ -1,0 +1,9 @@
+<launch>
+
+  <!--bringup tof-->  
+  <include file="$(find basler_tof)/launch/basler_tof.launch" />
+
+  <!--bringup zed-->  
+  <include file="$(find zed_wrapper)/launch/zedm.launch" />
+  
+</launch>
