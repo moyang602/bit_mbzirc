@@ -7,12 +7,14 @@ project(bit_hardware_interface)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  serial
-  sensor_msgs
+find_package(catkin REQUIRED COMPONENTS 
+  roscpp 
+  rospy 
+  std_msgs 
+  serial 
+  sensor_msgs 
+  cv_bridge 
+  image_transport 
 )
 
 ## System dependencies are found with CMake's conventions
@@ -122,6 +124,7 @@ include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
   include/serial
+  include/cameraIR
 )
 
 ## Declare a C++ library
@@ -208,6 +211,9 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+link_directories(lib
+  lib/HCNetSDKCom
+)
 
 
 add_executable(interface_gps
@@ -249,4 +255,6 @@ add_executable(interface_camera_ir
 add_dependencies(interface_camera_ir ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(interface_camera_ir
   ${catkin_LIBRARIES}
+  HCCore
+  hcnetsdk
 )
