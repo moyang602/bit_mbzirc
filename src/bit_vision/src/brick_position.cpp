@@ -3948,7 +3948,7 @@ void action(HObject Image1)
 
   //The object of this example is to classify different
   //kinds of wood according to their surface texture.
-  FileExists("/home/srt/catkin_ws/src/block_locate/classify_wood_boxes.gmc", &hv_FileExists);
+  FileExists("./src/bit_vision/model/classify_wood_boxes.gmc", &hv_FileExists);
 
   //First, the path to the images is set, the initial image
   //is read and the settings are specified.
@@ -3972,7 +3972,7 @@ void action(HObject Image1)
   //want to perform the training, set USE_STORED_CLASSIFIER to 0.
   //If the classifier can not be found, USE_STORED_CLASSIFIER
   //is set to 0 automatically.
-  ReadClassMlp("./src/block_locate/src/classify_wood_boxes.gmc", &hv_MLPHandle);
+  ReadClassMlp("./src/bit_vision/model/classify_wood_boxes.gmc", &hv_MLPHandle);
   hv_NumClasses = hv_Classes.TupleLength();
 
   hv_Errors = 0;
@@ -3990,11 +3990,6 @@ void action(HObject Image1)
   hv_result_color = HTuple(hv_Classes[HTuple(hv_FoundClassIDs[0])]);
 
   color_result = HTuple(hv_Classes[HTuple(hv_FoundClassIDs[0])]);
-
-  //ROS_INFO_STREAM("color is : "<<color_result.S());
-  // stop(...); only in hdevelop
-  //ROS_INFO("The color of box is : %s",hv_result_color);
-  //cout<<"color is"<<hv_result_color.S()<<endl;
 }
 
 
@@ -4023,13 +4018,13 @@ void locate_box(HObject Image)
   HTuple  hv_OrderOfRotation, hv_ViewOfTransform;
 
   HTuple  hv_Surface_Red_ModelID;
-ReadSurfaceModel("./src/block_locate/src/redbox_edge_supported.sfm", 
+  ReadSurfaceModel("./src/bit_vision/model/redbox_edge_supported.sfm", 
       &hv_Surface_Red_ModelID);
-HTuple  hv_Surface_Green_ModelID;
-ReadSurfaceModel("./src/block_locate/src/greenbox_edge_supported.sfm", 
-      &hv_Surface_Green_ModelID);
-HTuple  hv_Surface_Blue_ModelID;
-ReadSurfaceModel("./src/block_locate/src/bluebox_edge_supported.sfm", 
+  HTuple  hv_Surface_Green_ModelID;
+  ReadSurfaceModel("./src/bit_vision/model/greenbox_edge_supported.sfm", 
+        &hv_Surface_Green_ModelID);
+  HTuple  hv_Surface_Blue_ModelID;
+  ReadSurfaceModel("./src/bit_vision/model/bluebox_edge_supported.sfm", 
       &hv_Surface_Blue_ModelID);
 
   dev_update_off();
@@ -4137,44 +4132,40 @@ ReadSurfaceModel("./src/block_locate/src/bluebox_edge_supported.sfm",
     if (0 == (hv_Pose==HTuple()))
     {
          //分别获取trans与rototion
-    hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
-    hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
-    hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
-    hv_rotX = ((const HTuple&)HTuple(hv_Pose[3]))[0];
-    hv_rotY = ((const HTuple&)HTuple(hv_Pose[4]))[0];
-    hv_rotZ = ((const HTuple&)HTuple(hv_Pose[5]))[0];
-    hv_order = ((const HTuple&)HTuple(hv_Pose[6]))[0];
-    tranX  =  hv_transX;
-    tranY = hv_transY;
-    tranZ = hv_transZ;
-    rotX = hv_rotX;
-    rotY = hv_rotY;
-    rotZ = hv_rotZ;
+        hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
+        hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
+        hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
+        hv_rotX = ((const HTuple&)HTuple(hv_Pose[3]))[0];
+        hv_rotY = ((const HTuple&)HTuple(hv_Pose[4]))[0];
+        hv_rotZ = ((const HTuple&)HTuple(hv_Pose[5]))[0];
+        hv_order = ((const HTuple&)HTuple(hv_Pose[6]))[0];
+        tranX  =  hv_transX;
+        tranY = hv_transY;
+        tranZ = hv_transZ;
+        rotX = hv_rotX;
+        rotY = hv_rotY;
+        rotZ = hv_rotZ;
 
-    TupleSelectRange(hv_Pose, 0, 6, &hv_ValueOfPose);
-    ROS_INFO_STREAM("Get the location x : "<<tranX.D());
-    //Extract edges for visualization.
-    GetObjectModel3dParams(hv_ObjectModel3DScene, "diameter_axis_aligned_bounding_box", 
-        &hv_Diameter);
-    EdgesObjectModel3d(hv_ObjectModel3DScene, 0.01*hv_Diameter, HTuple(), HTuple(), 
-        &hv_ObjectModel3DEdges);
-    //Display results.
-    RigidTransObjectModel3d(hv_ObjectModel3DModel, hv_Pose, &hv_ObjectModel3DRigidTrans);
-    hv_VisParamValues[0] = "forest green";
-    visualize_object_model_3d(hv_WindowHandle, (hv_ObjectModel3DScene.TupleConcat(hv_ObjectModel3DEdges)).TupleConcat(hv_ObjectModel3DRigidTrans), 
-        HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
-        HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
-        &hv_VisPose);
+        TupleSelectRange(hv_Pose, 0, 6, &hv_ValueOfPose);
+        ROS_INFO_STREAM("Get the location x : "<<tranX.D());
+        //Extract edges for visualization.
+        GetObjectModel3dParams(hv_ObjectModel3DScene, "diameter_axis_aligned_bounding_box", 
+            &hv_Diameter);
+        EdgesObjectModel3d(hv_ObjectModel3DScene, 0.01*hv_Diameter, HTuple(), HTuple(), 
+            &hv_ObjectModel3DEdges);
+        //Display results.
+        RigidTransObjectModel3d(hv_ObjectModel3DModel, hv_Pose, &hv_ObjectModel3DRigidTrans);
+        hv_VisParamValues[0] = "forest green";
+        visualize_object_model_3d(hv_WindowHandle, (hv_ObjectModel3DScene.TupleConcat(hv_ObjectModel3DEdges)).TupleConcat(hv_ObjectModel3DRigidTrans), 
+            HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
+            HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
+            &hv_VisPose);
     }
-
-   
-
 }
 
 
 void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
-    //ROS_INFO("Left Rectified image received from ZED - Size: %dx%d", msg->width, msg->height);
     //初始化halcon对象
     HObject  ho_ImageSub, ho_Image;
     //获取halcon-bridge图像指针
@@ -4200,8 +4191,7 @@ void TOFCallback(const sensor_msgs::ImageConstPtr& msg)
       Mat depth3DMatZ = cv::Mat::zeros(DepthImg.size(), CV_32FC1);
       HObject HobjZ;
       GenImage1(&HobjZ, "real", depth3DMatZ.cols, depth3DMatZ.rows, (Hlong)depth3DMatZ.data);
-      
-
+ 
       //加入函数
       locate_box(HobjZ);
       ROS_INFO_STREAM("get the pose of box");
@@ -4226,17 +4216,11 @@ int main(int argc, char *argv[])
 
   try
   {
-
-    // Default settings used in HDevelop (can be omitted) 
-    SetSystem("width", 512);
-    SetSystem("height", 512);
-
     ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,imageLeftRectifiedCallback);
     ros::Subscriber subDepth    =nh.subscribe("/zed/zed_node/depth/depth_registered", 1, TOFCallback);
 
     ros::Publisher chatter_pub = nh.advertise<std_msgs::Float32MultiArray>("chatter", 1);
     ros::Rate loop_rate(10);
-    //ros::spin();
     while (ros::ok())
     {
         std_msgs::Float32MultiArray msg;
@@ -4255,7 +4239,7 @@ int main(int argc, char *argv[])
   }
   catch (HException &exception)
   {
-    fprintf(stderr,"  Error #%u in %s: %s\n", exception.ErrorCode(),
+    ROS_ERROR("  Error #%u in %s: %s", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
     ret = 1;
