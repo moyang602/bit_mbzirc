@@ -149,10 +149,10 @@ if __name__ == '__main__':
 
             # wait()
             # 操作末端
-            time.sleep(0.5)
+            time.sleep(1.0)
             ee.MagState = 100
             pub_ee.publish(ee)
-            time.sleep(0.5)
+            time.sleep(1.0)
 
             # wait()
             # 先提起，后转正
