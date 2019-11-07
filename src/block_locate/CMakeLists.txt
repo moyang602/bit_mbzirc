@@ -13,7 +13,20 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   asr_halcon_bridge
   message_generation
+  cv_bridge
+  image_transport
+  sensor_msgs
+
 )
+
+find_package(Boost REQUIRED)
+find_package(Eigen3 QUIET)
+if(NOT EIGEN3_FOUND)
+  find_package(Eigen REQUIRED)
+  set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+endif()
+find_package(OpenCV REQUIRED)
+include_directories(include ${BOOST_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
 
 
 ## System dependencies are found with CMake's conventions
@@ -121,6 +134,7 @@ catkin_package(
 include_directories(
   include ${catkin_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
   /opt/halcon/include/halconcpp
   /opt/halcon/include
   include/halcon_image.h
@@ -249,6 +263,16 @@ add_executable(listen_pose
 add_dependencies(listen_pose ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(listen_pose
+  ${catkin_LIBRARIES}
+  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+)
+
+add_executable(locate_webcam
+  src/locate_webcam.cpp
+)
+add_dependencies(locate_webcam ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(locate_webcam
   ${catkin_LIBRARIES}
   /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
 )
