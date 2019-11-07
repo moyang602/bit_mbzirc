@@ -124,7 +124,11 @@ if __name__ == '__main__':
             initj = rob.getl()
             initj[0] += -x
             initj[1] += -y
+<<<<<<< HEAD
             initj[2] += -z +0.1     # 0.1是在其上的10cm
+=======
+            initj[2] += -z +0.1
+>>>>>>> master
             initj[3] += theta
             # 下两个坐标使其垂直于地面
             initj[4] = - pi 
@@ -149,6 +153,7 @@ if __name__ == '__main__':
 
             # wait()
             # 操作末端
+<<<<<<< HEAD
             time.sleep(1.0)
             ee.MagState = 100
             pub_ee.publish(ee)
@@ -161,18 +166,40 @@ if __name__ == '__main__':
             rob.movej((0, 0, 0, 0, 0, theta),acc=a, vel=v, wait=False , relative=True)
 
             # wait()
+=======
+            time.sleep(0.5)
+            ee.MagState = 100
+            pub_ee.publish(ee)
+            time.sleep(0.5)
+
+            # wait()
+            # 先提起，后转正
+            rob.movel((0, 0, 0.3, 0, 0, 0),acc=a, vel=v, wait=True , relative=True)
+            # wait()
+            rob.movej((0, 0, 0, 0, 0, theta),acc=a, vel=v, wait=False , relative=True)
+
+            wait()
+>>>>>>> master
             # 移动到头顶
             rob.movej(upHeadPos,acc=a, vel=v,wait=True)
             print("arrived Head-up position")
 
+<<<<<<< HEAD
             # wait()
+=======
+            wait()
+>>>>>>> master
             # 移动到预放置位置
             rob.movej(prePutPos,acc=a, vel=v,wait=True)
             print("arrived pre-Put position")
             print("start settle")
             # settle(wait = True)
 
+<<<<<<< HEAD
             # wait()
+=======
+            wait()
+>>>>>>> master
             # 伪力控放置
             rob.translate((0, 0, -0.3), acc=a, vel=v, wait=False)
             _force_prenvent_wrongdata_ = 0
@@ -186,6 +213,7 @@ if __name__ == '__main__':
                     break
             rob.stopl()
 
+<<<<<<< HEAD
             # wait()
             # 释放末端
             time.sleep(1.0)
@@ -194,6 +222,16 @@ if __name__ == '__main__':
             time.sleep(1.0)
 
             # wait()
+=======
+            wait()
+            # 释放末端
+            time.sleep(0.5)
+            ee.MagState = 0
+            pub_ee.publish(ee)
+            time.sleep(0.5)
+
+            wait()
+>>>>>>> master
             rob.movej(prePutPos,acc=a, vel=v,wait=True)
             print("arrived pre-Put position")
 
