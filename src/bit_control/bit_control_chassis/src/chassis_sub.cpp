@@ -518,7 +518,7 @@ void ctlMotor(Motor *m , uint mode , float data)
             can.Data[i] = ( speed >> (7 - i)*8 ) & 0xff;
         }
         sendCommand( m->Can , &can);    // 设置目标速度
-        usleep(1000);
+        usleep(500);
     } 
     else if ( mode == M_pos )
     {
@@ -529,7 +529,7 @@ void ctlMotor(Motor *m , uint mode , float data)
             can.Data[i] = ( position >> (7 - i)*8 ) & 0xff;
         }
         sendCommand( m->Can , &can);
-        usleep(1000);
+        //usleep(1000);
     }
 }
 
@@ -776,7 +776,7 @@ int main(int argc, char *argv[])
             if ( i < 4 )    // 位置控制
             {
                 ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
-                usleep(500);
+                //usleep(500);
                 double err = now - motor[i].odom*m_PI;
 
                 sum_p += err;
@@ -829,7 +829,7 @@ int main(int argc, char *argv[])
         pub.publish(en);
 
         ros::spinOnce();
-        loop_rate.sleep();
+        //loop_rate.sleep();
 
     }
 

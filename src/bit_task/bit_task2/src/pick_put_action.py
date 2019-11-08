@@ -96,7 +96,7 @@ if __name__ == '__main__':
     a = 0.3
     r = 0.01
 
-    cnt = 3     #任务次数
+    cnt = 1     #任务次数
 
     try:
         while cnt > 0 :
@@ -201,11 +201,11 @@ if __name__ == '__main__':
             print("arrived pre-Put position")
 
 
-        print("finished")
+        print("finished all task")
+        rob.stopl()
         rob.close()
         print("Wait for Interupt!")
         rospy.spin()
-        rob.close()
         # wait()
     finally:
         rob.stopl()
