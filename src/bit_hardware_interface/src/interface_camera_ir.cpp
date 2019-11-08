@@ -137,8 +137,9 @@ int main (int argc, char** argv)
 		}
 		ROS_INFO("lpSizeReturned = %d",*lpSizeReturned);
 		*/
-		iRet = NET_DVR_CaptureJPEGPicture(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, "/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/ssss.jpg");
-		cv::Mat image =cv::imread("/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/ssss.jpg");
+		char storeImgPath[] = "/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/ssss.jpg";
+		iRet = NET_DVR_CaptureJPEGPicture(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, storeImgPath);
+		cv::Mat image =cv::imread(storeImgPath);
 		
 		//ByteToMat((BYTE *)sJpegPicBuffer,384,288,24, image);
 		sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();

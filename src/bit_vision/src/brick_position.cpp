@@ -36,10 +36,15 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 
-#include "std_msgs/String.h" //发布话题是string
+#include "std_msgs/Float32MultiArray.h"
+
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui/highgui.hpp>
+#include <cv_bridge/cv_bridge.h>
 
 using namespace std;
 using namespace HalconCpp;
+using namespace cv;
 
 ros::Subscriber sub;
 ros::Publisher pub;
@@ -3909,9 +3914,96 @@ void RangeMapToObjectModel3D (HObject ho_Image, HTuple hv_MaxDepth, HTuple hv_Mi
   XyzToObjectModel3d(ho_ImageX, ho_ImageY, ho_ImageZ, &(*hv_ObjectModel3D));
   return;
 }
+//定义全局变量
+static HTuple color_result = HTuple("background");
+static HTuple tranX = HTuple(0);
+static HTuple tranY = HTuple(0);
+static HTuple tranZ = HTuple(0);
+static HTuple rotX = HTuple(0);
+static HTuple rotY = HTuple(0);
+static HTuple rotZ = HTuple(0);
 
 // Main procedure 
-void action(HObject Image1,HTuple & hv_result_color)
+void action(HObject Image)
+{
+
+  // Local iconic variables
+  HObject  ho_Image0, ho_ClassRegions, ho_ClassRed;
+  HObject  ho_ClassGreen, ho_ClassBLue, ho_ConnectedRegions1;
+  HObject  ho_ConnectedRegions2, ho_ConnectedRegions3, ho_ObjectSelectedRed;
+  HObject  ho_ObjectSelectedGreen, ho_ObjectSelectedBlue;
+
+  // Local control variables
+  HTuple  hv_pathFile, hv_MLPHandle, hv_Area1, hv_Row1;
+  HTuple  hv_Column1, hv_Indices, hv_num, hv_Area_1, hv_Row_1;
+  HTuple  hv_Column_1, hv_Area2, hv_Row2, hv_Column2, hv_Area_2;
+  HTuple  hv_Row_2, hv_Column_2, hv_Area3, hv_Row3, hv_Column3;
+  HTuple  hv_Area_3, hv_Row_3, hv_Column_3, hv_areas, hv_index;
+  HTuple  hv_class;
+
+  //读入训练好的分割mlp模型
+  hv_pathFile = "./src/bit_vision/model/box_segment_mlp.mlp";
+  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+  //
+  //ReadImage(&ho_Image0, "/media/srt/resource/Project_Noven/wx_project/zed_capture/test/red/mix_8.jpg");
+  ClassifyImageClassMlp(Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+
+  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
+  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
+  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
+
+  Connection(ho_ClassRed, &ho_ConnectedRegions1);
+  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
+  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
+
+  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+  TupleSortIndex(hv_Area1, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
+
+  AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
+  TupleSortIndex(hv_Area2, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
+
+  AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
+  TupleSortIndex(hv_Area3, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
+
+  //比较3种region的面积 面积最大的作为分类结果
+  hv_areas.Clear();
+  hv_areas.Append(hv_Area_1);
+  hv_areas.Append(hv_Area_2);
+  hv_areas.Append(hv_Area_3);
+  TupleSortIndex(hv_areas, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  hv_index = HTuple(hv_Indices[hv_num-1]);
+
+  if (0 != (hv_index==0))
+  {
+    hv_class = "red";
+  }
+  else if (0 != (hv_index==1))
+  {
+    hv_class = "green";
+  }
+  else if (0 != (hv_index==2))
+  {
+    hv_class = "blue";
+  }
+
+color_result = hv_class;
+
+}
+
+
+
+
+void locate_box(HObject Image)
 {
 
   // Local iconic variables
@@ -3919,97 +4011,221 @@ void action(HObject Image1,HTuple & hv_result_color)
   HObject  ho_ImageY, ho_ImageZ;
 
   // Local control variables
-  HTuple  hv_FileExists, hv_HalconImages, hv_OS;
-  HTuple  hv_Classes, hv_MLPHandle, hv_NumClasses, hv_Errors;
-  HTuple  hv_Count, hv_ReadPath, hv_FeatureVector, hv_FoundClassIDs;
-  HTuple  hv_Confidence, hv_MinDepth, hv_MaxDepth;
-  HTuple  hv_CenterX, hv_CenterY, hv_FocalLength, hv_MinScore;
-  HTuple  hv_VisParamNames, hv_VisParamValues, hv_VisInstructions;
-  HTuple  hv_WindowHandle, hv_ObjectModel3DBox, hv_ObjectModel3DModel;
-  HTuple  hv_Information, hv_FileName, hv_SurfaceModel, hv_ImagePath;
-  HTuple  hv_ImageFiles, hv_Index, hv_Width, hv_Height, hv_Rows;
-  HTuple  hv_Columns, hv_Grayval, hv_ZValue, hv_XValue, hv_YValue;
-  HTuple  hv_ObjectModel3DScene, hv_VisRotationCenter, hv_VisPose;
-  HTuple  hv_Pose, hv_Score, hv_SurfaceMatchingResult, hv_ValueOfPose;
+  HTuple  hv_MinDepth, hv_MaxDepth, hv_CenterX;
+  HTuple  hv_CenterY, hv_FocalLength, hv_MinScore, hv_VisParamNames;
+  HTuple  hv_VisParamValues, hv_VisInstructions, hv_WindowHandle;
+  HTuple  hv_ObjectModel3DBox, hv_ObjectModel3DModel, hv_Information;
+  HTuple  hv_FileName, hv_FileExists, hv_SurfaceModel, hv_ImagePath;
+  HTuple  hv_ImageFiles, hv_Index, hv_ObjectModel3DScene;
+  HTuple  hv_Width, hv_Height, hv_Rows, hv_Columns, hv_Grayval;
+  HTuple  hv_ZValue, hv_XValue, hv_YValue, hv_VisRotationCenter;
+  HTuple  hv_VisPose, hv_Pose, hv_Score, hv_SurfaceMatchingResult;
   HTuple  hv_Diameter, hv_ObjectModel3DEdges, hv_ObjectModel3DRigidTrans;
+  HTuple  hv_transX, hv_transY, hv_transZ, hv_rotX, hv_rotY;
+  HTuple  hv_rotZ, hv_order, hv_ValueOfPose, hv_OrderOfTransform;
+  HTuple  hv_OrderOfRotation, hv_ViewOfTransform;
 
-  //The object of this example is to classify different
-  //kinds of wood according to their surface texture.
-  FileExists("/home/srt/catkin_ws/src/block_locate/classify_wood_boxes.gmc", &hv_FileExists);
+  HTuple  hv_Surface_Red_ModelID;
+ReadSurfaceModel("./src/bit_vision/model/redbox_edge_supported.sfm", 
+      &hv_Surface_Red_ModelID);
+HTuple  hv_Surface_Green_ModelID;
+ReadSurfaceModel("./src/bit_vision/model/greenbox_edge_supported.sfm", 
+      &hv_Surface_Green_ModelID);
+HTuple  hv_Surface_Blue_ModelID;
+ReadSurfaceModel("./src/bit_vision/model/bluebox_edge_supported.sfm", 
+      &hv_Surface_Blue_ModelID);
 
-  //First, the path to the images is set, the initial image
-  //is read and the settings are specified.
-  GetSystem("image_dir", &hv_HalconImages);
-  GetSystem("operating_system", &hv_OS);
-  if (0 != ((hv_OS.TupleSubstr(0,2))==HTuple("Win")))
-  {
-    TupleSplit(hv_HalconImages, ";", &hv_HalconImages);
-  }
-  else
-  {
-    TupleSplit(hv_HalconImages, ":", &hv_HalconImages);
-  }
-
-  //Now the different wood classes are specified.
-  hv_Classes.Clear();
-  hv_Classes[0] = "red";
-  hv_Classes[1] = "green";
-  hv_Classes[2] = "blue";
-  //The program uses by default a stored classifier. If you, however,
-  //want to perform the training, set USE_STORED_CLASSIFIER to 0.
-  //If the classifier can not be found, USE_STORED_CLASSIFIER
-  //is set to 0 automatically.
-  ReadClassMlp("/home/srt/catkin_ws/src/block_locate/classify_wood_boxes.gmc", &hv_MLPHandle);
-  hv_NumClasses = hv_Classes.TupleLength();
-
-  hv_Errors = 0;
-  hv_Count = 0;
-  
-  //opencv转halcon 颜色判断
-  HImage Image = Image1;
-  gen_features(Image, &hv_FeatureVector);
-  ClassifyClassMlp(hv_MLPHandle, hv_FeatureVector, 2, &hv_FoundClassIDs, &hv_Confidence);
+  dev_update_off();
   if (HDevWindowStack::IsOpen())
-    DispObj(Image, HDevWindowStack::GetActive());
-  if (HDevWindowStack::IsOpen())
-    SetColor(HDevWindowStack::GetActive(),"blue");
-  //传递给下一阶段的字符hv_result_color
-  hv_result_color = HTuple(hv_Classes[HTuple(hv_FoundClassIDs[0])]);
-  // stop(...); only in hdevelop
+    CloseWindow(HDevWindowStack::Pop());
 
+  //TOF Init Parameters.
+  hv_MinDepth = 0;
+  hv_MaxDepth = 2000;
+  hv_CenterX = 301.99;
+  hv_CenterY = 207.01;
+  hv_FocalLength = 638.57;
+
+  //Matching parameters.
+  hv_MinScore = 0.05;
+  //Visualization parameters.
+  hv_VisParamNames.Clear();
+  hv_VisParamNames[0] = "color";
+  hv_VisParamNames[1] = "color_0";
+  hv_VisParamNames[2] = "alpha";
+  hv_VisParamNames[3] = "alpha_0";
+  hv_VisParamValues.Clear();
+  hv_VisParamValues[0] = "red";
+  hv_VisParamValues[1] = "white";
+  hv_VisParamValues[2] = 0.5;
+  hv_VisParamValues[3] = 1;
+
+  hv_VisInstructions[0] = "Rotate: Left button";
+  hv_VisInstructions[1] = "Zoom:   Shift + left button";
+  hv_VisInstructions[2] = "Move:   Ctrl  + left button";
+
+  SetWindowAttr("background_color","black");
+  OpenWindow(0,0,512,512,0,"visible","",&hv_WindowHandle);
+  HDevWindowStack::Push(hv_WindowHandle);
+  //
+  //根据不同的颜色创建不同尺寸的模型
+  HTuple hv_result_color = color_result;
+  ROS_INFO_STREAM("COLOR IS : "<<hv_result_color.S());
+  //HTuple hv_result_color =HTuple("red");
+  if (0 != (hv_result_color==HTuple("red")))
+  {
+     //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
+     hv_SurfaceModel = hv_Surface_Red_ModelID;
+  }
+  else if (0 != (hv_result_color==HTuple("green")))
+  {
+    hv_SurfaceModel = hv_Surface_Green_ModelID;
+    //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
+  }
+  else if (0 != (hv_result_color==HTuple("blue")))
+  {
+    hv_SurfaceModel = hv_Surface_Blue_ModelID;
+    //ReadSurfaceModel(hv_FileName, &hv_SurfaceModel);
   }
 
+    //读取zed深度图
+    ho_Image = Image;
 
- 
+    MeanImage(ho_Image, &ho_ImageMean, 13, 13);
+    DynThreshold(ho_Image, ho_ImageMean, &ho_Regions, 350, "equal");
+
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    GetRegionPoints(ho_Image, &hv_Rows, &hv_Columns);
+
+    GetGrayval(ho_ImageMean, hv_Rows, hv_Columns, &hv_Grayval);
+
+    hv_ZValue = ((hv_Grayval*(hv_MaxDepth-hv_MinDepth))/65535.)+hv_MinDepth;
+    hv_XValue = (hv_ZValue*(hv_Columns-hv_CenterX))/hv_FocalLength;
+    hv_YValue = (hv_ZValue*(hv_Rows-hv_CenterY))/hv_FocalLength;
+
+    GenImageConst(&ho_ImageX, "real", hv_Width, hv_Height);
+    GenImageConst(&ho_ImageY, "real", hv_Width, hv_Height);
+    GenImageConst(&ho_ImageZ, "real", hv_Width, hv_Height);
+
+    SetGrayval(ho_ImageX, hv_Rows, hv_Columns, hv_XValue);
+    SetGrayval(ho_ImageY, hv_Rows, hv_Columns, hv_YValue);
+    SetGrayval(ho_ImageZ, hv_Rows, hv_Columns, hv_ZValue);
+
+    ReduceDomain(ho_ImageX, ho_Regions, &ho_ImageX);
+    ReduceDomain(ho_ImageY, ho_Regions, &ho_ImageY);
+    ReduceDomain(ho_ImageZ, ho_Regions, &ho_ImageZ);
+
+    XyzToObjectModel3d(ho_ImageX, ho_ImageY, ho_ImageZ, &hv_ObjectModel3DScene);
+
+    PrepareObjectModel3d(hv_ObjectModel3DScene, "segmentation", "true", HTuple(), 
+        HTuple());
+
+    GetObjectModel3dParams(hv_ObjectModel3DScene, "center", &hv_VisRotationCenter);
+    //
+    //Display search scene.
+    visualize_object_model_3d(hv_WindowHandle, hv_ObjectModel3DScene, HTuple(), HTuple(), 
+        HTuple(), HTuple(), "3D scene", HTuple(), hv_VisInstructions, &hv_VisPose);
+
+    //
+    //Show results of edge-supported surface-based matching.
+    if (HDevWindowStack::IsOpen())
+      ClearWindow(HDevWindowStack::GetActive());
+    //Perform edge-supported surface-based matching.
+    //hv_Pose = [0,0,0,0,0,0,0]
+    //获取位姿估计结果
+   
+    FindSurfaceModel(hv_SurfaceModel, hv_ObjectModel3DScene, 0.05, 0.1, hv_MinScore, 
+        "false", "num_matches", 5, &hv_Pose, &hv_Score, &hv_SurfaceMatchingResult);
+
+    if (0 == (hv_Pose==HTuple()))
+    {
+         //分别获取trans与rototion
+    hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
+    hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
+    hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
+    hv_rotX = ((const HTuple&)HTuple(hv_Pose[3]))[0];
+    hv_rotY = ((const HTuple&)HTuple(hv_Pose[4]))[0];
+    hv_rotZ = ((const HTuple&)HTuple(hv_Pose[5]))[0];
+    hv_order = ((const HTuple&)HTuple(hv_Pose[6]))[0];
+    tranX  =  hv_transX;
+    tranY = hv_transY;
+    tranZ = hv_transZ;
+    rotX = hv_rotX;
+    rotY = hv_rotY;
+    rotZ = hv_rotZ;
+
+    TupleSelectRange(hv_Pose, 0, 6, &hv_ValueOfPose);
+    ROS_INFO_STREAM("Get the location x : "<<tranX.D());
+    //Extract edges for visualization.
+    GetObjectModel3dParams(hv_ObjectModel3DScene, "diameter_axis_aligned_bounding_box", 
+        &hv_Diameter);
+    EdgesObjectModel3d(hv_ObjectModel3DScene, 0.01*hv_Diameter, HTuple(), HTuple(), 
+        &hv_ObjectModel3DEdges);
+    //Display results.
+    RigidTransObjectModel3d(hv_ObjectModel3DModel, hv_Pose, &hv_ObjectModel3DRigidTrans);
+    hv_VisParamValues[0] = "forest green";
+    visualize_object_model_3d(hv_WindowHandle, (hv_ObjectModel3DScene.TupleConcat(hv_ObjectModel3DEdges)).TupleConcat(hv_ObjectModel3DRigidTrans), 
+        HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
+        HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
+        &hv_VisPose);
+    }
+
+   
+
+}
+
 
 void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
     //ROS_INFO("Left Rectified image received from ZED - Size: %dx%d", msg->width, msg->height);
     //初始化halcon对象
     HObject  ho_ImageSub, ho_Image;
-    HTuple Block_Color;
     //获取halcon-bridge图像指针
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
-
-    action(ho_Image,Block_Color);
+    
+    action(ho_Image);
 
 }
 
+//定义全局变量传递深度图像
+Mat DepthImg;
+
+void TOFCallback(const sensor_msgs::ImageConstPtr& msg)
+{
+  cv_bridge::CvImagePtr cv_ptr;
+  try
+  {
+      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings:: TYPE_32FC1); 
+      DepthImg = cv_ptr->image;
+      
+      //转换到halcon
+      Mat depth3DMatZ = cv::Mat::zeros(DepthImg.size(), CV_32FC1);
+      HObject HobjZ;
+      GenImage1(&HobjZ, "real", depth3DMatZ.cols, depth3DMatZ.rows, (Hlong)depth3DMatZ.data);
+      
+
+      //加入函数
+      locate_box(HobjZ);
+      ROS_INFO_STREAM("get the pose of box");
 
 
-
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
+}
 
 
 int main(int argc, char *argv[])
 {
+  
   int ret = 0;
 
-  ros::init(argc, argv, "locate_boxes");
+  ros::init(argc, argv, "brick_position");
 
   ros::NodeHandle nh; //定义ros句柄
-
-  HTuple Block_Color;
 
   try
   {
@@ -4018,14 +4234,27 @@ int main(int argc, char *argv[])
     SetSystem("width", 512);
     SetSystem("height", 512);
 
-    ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 10,imageLeftRectifiedCallback);
-    //ros::Publisher color_pub = nh.advertise<std_msgs::String>("block_color",10)
-    //ros::Rate loop_rate(25);
+    ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,imageLeftRectifiedCallback);
+    ros::Subscriber subDepth    =nh.subscribe("/zed/zed_node/depth/depth_registered", 1, TOFCallback);
 
-    cout<<"color is"<<Block_Color.S()<<endl;
-
-    ros::spin();
-
+    ros::Publisher chatter_pub = nh.advertise<std_msgs::Float32MultiArray>("chatter", 1);
+    ros::Rate loop_rate(10);
+    //ros::spin();
+    while (ros::ok())
+    {
+        std_msgs::Float32MultiArray msg;
+        msg.data.push_back(tranX);//自己写的，可行
+        msg.data.push_back(tranY);
+        msg.data.push_back(tranZ);
+        msg.data.push_back(rotX);
+        msg.data.push_back(rotY);
+        msg.data.push_back(rotZ);
+ 
+        chatter_pub.publish(msg);
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
+    return 0;
   }
   catch (HException &exception)
   {
