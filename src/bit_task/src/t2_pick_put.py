@@ -175,6 +175,7 @@ if __name__ == '__main__':
             # settle(wait = True)
 
 
+            # 需要加入砖块信息来确定定位
             # wait()
             # 伪力控放置
             rob.translate((0, 0, -0.3), acc=a, vel=v, wait=False)
