@@ -35,7 +35,7 @@
 #include "halcon_image.h"
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
-#include "/home/moyang/mbzirc_ws/devel/include/bit_vision/LocateInfo.h"
+#include "bit_vision/LocateInfo.h"
 
 using namespace std;
 using namespace HalconCpp;
@@ -295,7 +295,8 @@ int main(int argc, char *argv[])
   try
   {
     ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 10,imageLeftRectifiedCallback);
-    ros::Publisher pub = nh.advertise<bit_vision::LocateInfo>("LocateResult", 100);
+    pub = nh.advertise<bit_vision::LocateInfo>("LocateResult", 10);
+    
     ros::spin();
   }
   catch (HException &exception)
