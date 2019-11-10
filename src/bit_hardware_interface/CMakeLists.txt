@@ -252,11 +252,11 @@ target_link_libraries(interface_ur5e
 )
 
 
-add_executable(interface_camera_ir
-  src/interface_camera_ir.cpp
+add_executable(interface_camerair
+  src/interface_camerair.cpp
 )
-add_dependencies(interface_camera_ir ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_camera_ir
+add_dependencies(interface_camerair ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(interface_camerair
   ${catkin_LIBRARIES}
   HCCore
   hcnetsdk

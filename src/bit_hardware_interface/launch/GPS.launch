@@ -1,6 +1,6 @@
 <launch>
 
-  <node name="GPS" pkg="bit_hardware_interface" type="GPS" output="screen" respawn="false">
+  <node name="GPS" pkg="bit_hardware_interface" type="interface_gps" output="screen" respawn="false">
     <param name="port"       value="/dev/ttyUSB2"/>  
     <param name="baudrate"   value="9600"/>
     <param name="loop_rate"   value="1"/>
