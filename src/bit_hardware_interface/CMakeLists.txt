@@ -15,6 +15,9 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs 
   cv_bridge 
   image_transport 
+  geometry_msgs
+  tf
+  std_srvs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,7 +112,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES bit_hardware_interface
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+#  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs serial std_srvs tf
 #  DEPENDS system_lib
 )
 
