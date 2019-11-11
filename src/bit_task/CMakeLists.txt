@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -52,7 +53,9 @@ add_message_files(
   DIRECTORY msg
   FILES
     BrickInfo.msg
-    TaskInfo.msg    
+    TaskInfo.msg
+    CameraStates.msg
+    VisionStates.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -73,6 +76,7 @@ add_message_files(
 generate_messages(
   DEPENDENCIES
   std_msgs
+  geometry_msgs
   bit_task
 )
 
