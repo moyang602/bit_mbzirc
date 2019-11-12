@@ -60,7 +60,7 @@ if __name__ == '__main__':
     add_thread.start()
     logging.basicConfig(level=logging.INFO)
 
-    global force 
+    # global force 
     ee = EndEffector()
     
     do_wait = True

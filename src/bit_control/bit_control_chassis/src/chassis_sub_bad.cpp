@@ -7,37 +7,40 @@
  * @LastEditTime: 2019-09-21 13:42:01
  */
  
+ // ROS相关
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 
+// 其他
+#include <sys/time.h>
+#include <sys/ioctl.h> 
+#include <queue>
+#include <math.h>
+#include <sched.h>
+#include <sys/resource.h>
 
-#   include <stdio.h>
-#   include <stdlib.h>
-#   include <string.h>
-#   include <strings.h>
-#   include <unistd.h>
-#   include <sys/types.h>
-#   include <sys/stat.h>
-#   include <sys/time.h>
-#   include <fcntl.h>
-#   include <pthread.h>
-#   include <math.h>
-#   include <sys/ioctl.h> 
-#   include <queue>
-#   include "controlcan.h"
-#   define msleep(ms)  usleep((ms)*1000)
-#   define min(a,b)  (((a) < (b)) ? (a) : (b))
-
-
+// USBCAN-II相关
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include "controlcan.h"
+#define msleep(ms)  usleep((ms)*1000)
+#define min(a,b)  (((a) < (b)) ? (a) : (b))
 #define MAX_CHANNELS  4     //Can设备的通道最大值，现在其实USBCan2只有两个 
-#define RX_WAIT_TIME  30   //接收数据的TimeOut
+#define RX_WAIT_TIME  30   //接收数据的TimeOut  unit: ms
 #define RX_BUFF_SIZE  3  //接收缓存区大小
+#define m_PI 57.29578f
 
 //======定义配置Can设备的一些数据======//
-
 unsigned gDevType = 0;
 unsigned gDevIdx = 0;
 unsigned gChMask = 0;
@@ -45,20 +48,17 @@ unsigned gBaud = 0;
 unsigned gTxType = 0;
 
 //=====用到的结构体实例化=============//
-
-VCI_INIT_CONFIG config;
 VCI_CAN_OBJ can;
-struct timeval tm1,tm2;
-	
 RX_CTX rx_ctx[MAX_CHANNELS];
 pthread_t rx_threads[MAX_CHANNELS];
+
 Motor motor[8];             //电机结构，内有电机的指令，电机的状态还没有回读
 
 //======配置电机需要的变量及命令，在初始化中赋给结构体====//
 
 int FindID[8]    = { 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 };
 int dftCan[8]    = { CAN1 , CAN1 , CAN1 , CAN1 , CAN1 , CAN1 , CAN1 , CAN1 };
-//BYTE dftMode[8]  = { M_pos, M_pos, M_pos, M_pos, M_spd, M_spd, M_spd, M_spd};
+BYTE dftMode[8]  = { M_spd, M_spd, M_spd, M_spd, M_spd, M_spd, M_spd, M_spd};
 BYTE Stop[8]     = { 0x00 , 0xDA , 0x00 , 0x10 , 0x00 , 0x00 , 0x00 , 0x0F };
 BYTE Enable[8]   = { 0x00 , 0xDA , 0x00 , 0x10 , 0x00 , 0x00 , 0x00 , 0x1F };
 BYTE PosMode[8]  = { 0x00 , 0xDA , 0x00 , 0x19 , 0x00 , 0x00 , 0x00 , 0x3F };
@@ -68,7 +68,7 @@ BYTE SetPos[8]   = { 0x00 , 0xDA , 0x00 , 0x16 , 0x00 , 0x00 , 0x00 , 0x00 };   
 BYTE SpdMode[8]  = { 0x00 , 0xDA , 0x00 , 0x19 , 0x00 , 0x00 , 0x00 , 0x2F };
 BYTE SetSpd[8]   = { 0x00 , 0xDA , 0x00 , 0x11 , 0x00 , 0x00 , 0x05 , 0x55 };   //后4Bytes为速度，32位
 BYTE EmgStop[8]  = { 0x00 , 0xDA , 0x00 , 0x30 , 0x00 , 0x00 , 0x00 , 0x1F };
-BYTE ClrAlarm[8] = { 0x00 , 0xDA , 0x00 , 0x15 , 0x00 , 0x00 , 0x00 , 0x7F };
+BYTE ClrAlarm[8] = { 0x00 , 0xDA , 0x00 , 0x15 , 0x00 , 0x00 , 0x00 , 0x7F };   // 报警复位
 BYTE AskAlarm[8] = { 0x00 , 0xDC , 0x00 , 0xE3 , 0x00 , 0x00 , 0x00 , 0x80 };
 BYTE SetPosSpd[8]= { 0x00 , 0xDA , 0x00 , 0x14 , 0x00 , 0x00 , 0x01 , 0x11 };
 BYTE SetUpDnTime[8] = { 0x00 , 0xDA , 0x00 , 0x12 , 0x00 , 0x00 , 0x0A , 0x0A };
@@ -95,45 +95,43 @@ double m0p = 0;
 
 //====================车辆数据=======================//
 
-#define A 36.5      //36.5    //车宽一半 Cm
-#define B 44.64    //车长一半 Cm
+#define half_carwidth 36.5f      //36.5    //车宽一半 Cm
+#define half_carlength 44.64f    //车长一半 Cm
 #define LineNum 10000.0f   //转向编码器线数
 #define DegreeLmt 20    //度
 #define WheelC 53.41      //Cm 轮毂周长 17×3.1416
 #define fixWC 0.95
 #define HighestSpd 1500  //rpm 
-#define UpTime 100     //ms
-#define DownTime 100    //ms
+#define P_UpTime 100     //ms
+#define P_DownTime 100    //ms
+#define S_UpTime 100     //ms
+#define S_DownTime 100    //ms
 #define spedC 163.84f    //速度系数 60*8192/3000
 
 #define CtrlPerid 10 //ms
 
 #define deltaAng 25.0f   
-#define window 4
+#define window 4            // 三次连续插值窗口
 
 
 double sum = 0;
 double alpha[window] = {0};
 
-
 //====================函数实现========================//
-
 /**
  * @name: rx_thread
- * @msg:  接受进程函数
+ * @msg:  接收进程函数
  * @param {void *} 设置接口的结构
  * @return: 无
  */
 
 void * rx_thread(void *data)
-
 {
     RX_CTX *ctx = (RX_CTX *)data;
     ctx->total = 0; // reset counter
 
     VCI_CAN_OBJ can[RX_BUFF_SIZE]; // buffer
     int cnt; // current received
-    int i;
     int pos = 0;
 
     while (!ctx->stop && !ctx->error)
@@ -142,101 +140,90 @@ void * rx_thread(void *data)
         if (!cnt)
             continue;
 
-        for (i = 0; i < cnt; i++) {  //每一帧
-
-            if ( can[i].Data[1] == 0xDB ){
+        for (size_t i = 0; i < cnt; i++) //每一帧
+        {  
+            if (can[i].Data[1] == 0xDB )  // 发送成功
+            {
                 if ( NeedRecData){
                     NeedRecData = 0;
                     memcpy(motor[MotorOnControl].recData , can[i].Data , 8 );
                 } 
-                //printf("%02x,%02x,%02x,%02x,%02x\r\n",can[i].Data[3],can[i].Data[4],can[i].Data[5],can[i].Data[6],can[i].Data[7]);
                 RecRight = 1;
             }
-            else if ( can[i].Data[1] == 0xFF){
-                printf( "Address invalid, please check ID \n");
+            else if ( can[i].Data[1] == 0xFF)   // 发送失败
+            {
+                ROS_WARN_STREAM("Address invalid, please check ID");
             }
-            if ( can[i].Data[1] == 0xFE && can[i].Data[3] == 0x20){
+            else if ( can[i].Data[1] == 0xFE && can[i].Data[3] == 0x20) // 心跳报文
+            {
                 pos = (can[i].Data[4]<<24) | (can[i].Data[5]<<16) | (can[i].Data[6]<<8) | (can[i].Data[7]);
                 if (can[i].ID < 5 ){
                     motor[can[i].ID-1].watchdog = 0;
                     motor[can[i].ID-1].odom = double(pos)/LineNum/10*3.1415926;
-                    //printf("ID:%d\tpos:%3.4f\n",can[i].ID,double(pos)/LineNum/10*3.1415926);
                 }
-                if ( can[i].ID == 7 || can[i].ID == 8 ){
+                if ( can[i].ID == 7 || can[i].ID == 8 )
+                {
                     motor[can[i].ID-1].odom = double(pos)/409600 * WheelC;
-                    //printf("ID:%d\tpos:%3.4f\n",can[i].ID,double(pos)/409600 * WheelC);
                 }
-      
-                
-
-                //printf("%x,%x,%x,%x\n",can[i].Data[4],can[i].Data[5],can[i].Data[6],can[i].Data[7]);
-            }        
-                
+            }                  
         }
         if (ctx->error) break;
         
     }
-
-    printf("CAN%d RX thread terminated, %d frames received & verified: %s\n",
-        ctx->channel, ctx->total, ctx->error ? "error(s) detected" : "no error");
-
     pthread_exit(0);
-
 }
 
 /**
  * @name: CanbusInit
- * @msg: CanBus设备的初始化，包括波特率，通道，接收进程
+ * @msg: CanBus设备的初始化，包括波特率，通道，接收进程 
  * @param {uint} 通道，{uint} 波特率， {uint} 发送模式（正常，单次，自检）
  * @return: 错误指示
  */
-int CanbusInit(unsigned Channel , unsigned Baud , unsigned TxType  ){
+int CanbusInit(unsigned Channel , unsigned Baud , unsigned TxType  )
+{
     gDevType = VCI_USBCAN2;
     gDevIdx = 0;  
     gChMask = Channel;
     gBaud = Baud;   //CANbps= Fpclk/((BRP+1)*((Tseg1+1)+(Tseg2+1)+1) Tseg1=Baud[14:12],Tseg2=Baud[11:8],Baud[5:0]=BRP,Fpclk=8M
     gTxType = TxType;
 
+    if (!VCI_OpenDevice(gDevType, gDevIdx, 0)) {
+        ROS_ERROR_STREAM("VCI_OpenDevice failed");
+        return 0;
+    }
+    ROS_INFO_STREAM("VCI_OpenDevice succeeded");
+
+    // ----- init & start -------------------
+
+    VCI_INIT_CONFIG config;
     config.AccCode = 0;
     config.AccMask = 0xffffffff;
     config.Filter = 1;
     config.Mode = 0;
     config.Timing0 = gBaud & 0xff;
     config.Timing1 = gBaud >> 8;
-    printf("DevType=%d, DevIdx=%d, ChMask=0x%x, Baud=0x%04x, TxType=%d\n",
-        gDevType, gDevIdx, gChMask, gBaud, gTxType);
-
-    if (!VCI_OpenDevice(gDevType, gDevIdx, 0)) {
-        printf("VCI_OpenDevice failed\n");
-        return 0;
-    }
-    printf("VCI_OpenDevice succeeded\n");
-
-    // ----- init & start -------------------------------------------------
-
-    int i, j;
-    for (i = 0; i < MAX_CHANNELS; i++)
+    for (int i = 0; i < MAX_CHANNELS; i++)
     {
         if ((gChMask & (1 << i)) == 0) continue;
 
         if (!VCI_InitCAN(gDevType, gDevIdx, i, &config))
         {
-            printf("VCI_InitCAN(%d) failed\n", i);
+            ROS_ERROR("VCI_InitCAN(%d) failed", i);
             return 0;
         }
-        printf("VCI_InitCAN(%d) succeeded\n", i);
+        ROS_INFO("VCI_InitCAN(%d) succeeded", i);
 
         if (!VCI_StartCAN(gDevType, gDevIdx, i))
         {
-            printf("VCI_StartCAN(%d) failed\n", i);
+            ROS_ERROR("VCI_StartCAN(%d) failed", i);
             return 0;
         }
-        printf("VCI_StartCAN(%d) succeeded\n", i);
+        ROS_INFO("VCI_StartCAN(%d) succeeded", i);
     }
 
   // ----- create RX-threads --------------------------------------------
 
-     for (i = 0; i < MAX_CHANNELS; i++)
+     for (int i = 0; i < MAX_CHANNELS; i++)
     {
         if ((gChMask & (1 << i)) == 0) continue;
 
@@ -249,41 +236,10 @@ int CanbusInit(unsigned Channel , unsigned Baud , unsigned TxType  ){
     }
 
      // ----- wait --------------------------------------------------------
-
     ROS_INFO("Successed! go to Finish Config: baud: t0=0x%02x, t1=0x%02x,\n",
         config.Timing0, config.Timing1);
-    //getchar();
-
     return 1;
-
 }
-
-/**
- * @name: MotorInit
- * @msg: 电机结构体初始化
- * @param {void} 
- * @return: 无
- */
-void MotorInit()
-{
-    int i = 0;
-    for (i = 0; i < 8; i++)
-    {
-        motor[i].num = i;
-        motor[i].ID = FindID[i];
-        motor[i].Can = dftCan[i] - 1;
-        motor[i].Pos = 0;
-        motor[i].Speed = 0;
-        motor[i].Mode = M_begin;
-        motor[i].En = 0;
-        motor[i].odom = 0.0f;
-        motor[i].odom_last = 0.0f;
-        motor[i].watchdog = 0;
-    }
-
-    printf("Moter Init Completed !");
-}
-
 
 /**
  * @name: sendCommand
@@ -294,10 +250,115 @@ void MotorInit()
 void sendCommand( uint chan , VCI_CAN_OBJ *buff )
 {
     VCI_Transmit(gDevType, gDevIdx, chan, buff, 1);
-    //while( !RecRight );   //等待接收
     RecRight = 0;
 
     return;
+}
+
+/**
+ * @name: MotorInit
+ * @msg: 电机初始化
+ * @param {void} 
+ * @return: 无
+ */
+void MotorInit()
+{
+    // 对各个电机赋初始状态值
+    for (int i = 0; i < 8; i++)
+    {
+        motor[i].num = i;
+        motor[i].ID = FindID[i];
+        motor[i].Can = dftCan[i] - 1;
+        motor[i].Pos = 0;
+        motor[i].Speed = 0;
+        motor[i].Mode = dftMode[i];
+        motor[i].En = 0;
+        motor[i].odom = 0.0f;
+        motor[i].odom_last = 0.0f;
+        motor[i].watchdog = 0;
+    }
+
+    VCI_CAN_OBJ can;
+    can.SendType = gTxType;
+    can.DataLen = 8;
+    can.ExternFlag = 0;
+    
+    for (int i = 0; i < 8; i++)
+    {
+        can.ID = motor[i].ID;
+
+        // 设置工作模式
+        if ( motor[i].Mode == M_pos)
+        {
+            memcpy(can.Data, PosMode , 8 );
+            sendCommand( motor[i].Can , &can);    //设置位置模式
+            usleep(1000);
+
+            memcpy(can.Data, SetUpDnTime , 8 );
+            can.Data[6] = int(P_UpTime/100);
+            can.Data[7] = int(P_DownTime/100);
+            sendCommand( motor[i].Can , &can);    //设置加减速时间
+            usleep(1000);
+
+            memcpy(can.Data, SetPosSpd , 8 );
+            for ( i = 4; i<8; i++){
+                can.Data[i] = ( int(HighestSpd*2.73) >> (7 - i)*8 ) & 0xff;
+            }
+            sendCommand( motor[i].Can , &can);    //设置位置最高速
+            usleep(1000);
+
+            memcpy(can.Data, PosAbslt , 8 );
+            sendCommand( motor[i].Can , &can);    //设置绝对位置模式
+            usleep(1000);
+        }
+        else if ( motor[i].Mode == M_spd)
+        {
+            memcpy(can.Data, SpdMode , 8 );
+            sendCommand( motor[i].Can  , &can);   //设置速度模式
+            usleep(1000);
+
+            memcpy(can.Data, SetUpDnTime , 8 );
+            can.Data[3] = 0x13;
+            can.Data[6] = int(S_UpTime/100);
+            can.Data[7] = int(S_DownTime/100);
+            sendCommand( motor[i].Can , &can);    //设置加减速时间
+            usleep(1000);
+        }
+    }
+    ROS_INFO_STREAM("Moter Init Completed !");
+}
+
+/**
+ * @name: MotorEnable
+ * @msg: 电机使能
+ * @param {bool} 使能标志    
+ * @return: 
+ */
+void MotorEnable(bool EnFlag)
+{
+    VCI_CAN_OBJ can;
+    can.SendType = gTxType;
+    can.DataLen = 8;
+    can.ExternFlag = 0;
+
+    for (size_t i = 0; i < 8; i++)
+    {
+        can.ID = motor[i].ID;
+        if (EnFlag)
+        {
+            memcpy(can.Data, Enable , 8 );
+            sendCommand( motor[i].Can , &can);    //电机使能
+            usleep(1000);
+            ROS_INFO("Motors %d have been enabled"，i);
+        }
+        else
+        {
+            memcpy(can.Data, Stop , 8 );
+            sendCommand( motor[i].Can , &can);    //电机禁止
+            usleep(1000);
+            ROS_INFO("Motors have been disenabled");
+        }   
+    }
 }
 
 
@@ -322,13 +383,10 @@ void askError( Motor *m )
 
     NeedRecData = 1;
     VCI_Transmit(gDevType, gDevIdx, m->Can , &can, 1);
-
-    //while( !RecRight );   //等待接收
+    usleep(800);
     RecRight = 0;
 
     m->Error = 1;
-    //printf("Motor %d ",m->num);
-
     if ( m->recData[3] == 0xE3 )
     {
         switch ( m->recData[7])
@@ -346,13 +404,6 @@ void askError( Motor *m )
     {
         //printf(" Receive Error!");
     }
-   // printf("\r\n");
-/*
-    if (m->num == 0 || m->num == 4)
-        printf("\r\n");
-    else 
-        printf(" | ");
-        */
 }
 
 /**
@@ -375,10 +426,8 @@ void clrError( Motor *m)
     }
 
     VCI_Transmit(gDevType, gDevIdx, m->Can , &can, 1);
-
-    //while( !RecRight );   //等待接收
+    usleep(800);
     RecRight = 0;
-
 }
 
 void askPos( Motor *m )
@@ -431,19 +480,17 @@ void writeCurrent( Motor *m)
 
     VCI_Transmit(gDevType, gDevIdx, m->Can , &can, 1);
 
-    //while( !RecRight );   //等待接收
     RecRight = 0;
 
 }
 
-
 /**
  * @name: ctlMotor
  * @msg: 控制电机的底层，一次只控制一个电机
- * @param {Motor *} 电机类，指定哪个电机， {uint} 控制模式（速度和位置）， {int} 速度或位置值， {bool} 使能，用于开关电机  
+ * @param {Motor *} 电机类，指定哪个电机， {uint} 控制模式（速度和位置）， {int} 速度或位置值 
  * @return: void
  */
-void ctlMotor(Motor *m , uint mode , float data , bool Enb )
+void ctlMotor(Motor *m , uint mode , float data)
 {
     VCI_CAN_OBJ can;
     can.SendType = gTxType;
@@ -451,16 +498,10 @@ void ctlMotor(Motor *m , uint mode , float data , bool Enb )
     can.ID = m->ID;
     can.ExternFlag = 0;
 
-    int i;
-    int speed = 0;
     int position = 0;
 
-    MotorOnControl = m->num;  //控制回传数据
+//    MotorOnControl = m->num;  //控制回传数据
     
-    //askError( m );
-    //if ( m->Error )
-        //clrError( m );
-
     can.Data[0] = 0;
     can.Data[1] = 0xDA;
     can.Data[2] = 0;
@@ -470,99 +511,33 @@ void ctlMotor(Motor *m , uint mode , float data , bool Enb )
     can.Data[6] = 0;
     can.Data[7] = 0;
 
-    if ( Enb != m->En)    //如果使能更新
-    {
-        m->En = Enb;
-        if ( Enb == 1 )
-        {
-            can.Data[3] = Enable[3];
-            can.Data[7] = Enable[7];
-        }
-        else
-        {
-            can.Data[3] = Stop[3];
-            can.Data[7] = Stop[7];
-        }
-        sendCommand( m->Can , &can);
-
-   /*     can.Data[3] = WriteI[3];
-        can.Data[6] = WriteI[6];
-        can.Data[7] = WriteI[7];
-        sendCommand( m->Can , &can);*/
-    }
-
-    if ( mode != m->Mode )    //如果模式更新
-    {
-        m->Mode = mode;
-        if ( mode == M_pos)
-        {
-            can.Data[3] = PosMode[3];
-            can.Data[7] = PosMode[7];
-            sendCommand( m->Can , &can);    //设置位置模式
-            //printf("pos mode1\n");
-            
-            can.Data[3] = PosAbslt[3];
-            can.Data[7] = PosAbslt[7];
-            sendCommand( m->Can , &can);    //设置绝对位置模式
-
-            can.Data[3] = SetPosSpd[3];
-            for ( i = 4; i<8; i++){
-                can.Data[i] = ( int(HighestSpd*2.73) >> (7 - i)*8 ) & 0xff;
-            }
-            sendCommand( m->Can , &can);    //设置位置最高速
-
-            can.Data[3] = SetUpDnTime[3];
-            can.Data[4] = 0x00;
-            can.Data[5] = 0x00;
-            can.Data[6] = int(UpTime/100);
-            can.Data[7] = int(DownTime/100);
-            sendCommand( m->Can , &can);    //设置加减速时间
-
-        }
-        else if ( mode == M_spd)
-        {
-            
-            can.Data[3] = SpdMode[3];
-            can.Data[7] = SpdMode[7];
-            sendCommand( m->Can  , &can); 
-
-             can.Data[3] = 0x13;
-            can.Data[4] = 0x00;
-            can.Data[5] = 0x00;
-            can.Data[6] = int(UpTime/100);
-            can.Data[7] = int(DownTime/100);
-            sendCommand( m->Can , &can);    //设置加减速时间
-
-           
-        }
-
-    }
-
     if ( mode == M_spd )
     {
-        speed = (int) ( data * spedC / (WheelC*fixWC) );
-        can.Data[3] = SetSpd[3]; 
-        for ( i = 4; i<8; i++){
+        memcpy(can.Data, SetSpd , 8 );
+        int speed = (int) ( data * spedC / (WheelC*fixWC) );
+        for (size_t i = 4; i < 8; i++)
+        {
             can.Data[i] = ( speed >> (7 - i)*8 ) & 0xff;
         }
-        sendCommand( m->Can , &can); 
+        sendCommand( m->Can , &can);    // 设置目标速度
+        usleep(800);
     } 
     else if ( mode == M_pos )
     {
-        
+        memcpy(can.Data, SetPos , 8 );
         position = (int) ( data * LineNum * 20 /360.0f );   //20为减速比
-        can.Data[3] = SetPos[3]; 
-        for ( i = 4; i<8; i++){
+        for (size_t i = 4; i < 8; i++)
+        {
             can.Data[i] = ( position >> (7 - i)*8 ) & 0xff;
         }
-        sendCommand( m->Can , &can); 
+        sendCommand( m->Can , &can);
+        usleep(1000);
     }
-
-    
 }
 
 /**
  * @name: setMotorPID
+
  * @msg: 设置电机PID
  * @param {Motor *} 某个电机， {int} P,I,D 
  * @return: void
@@ -627,12 +602,12 @@ void dealDualSolution( double &m_p , double &p_last , int8_t &m_dir)
         else m_dir = 1;
     }
 
-    if ( m_p - p_last >deltaAng ){
+/*    if ( m_p - p_last >deltaAng ){
         m_p = p_last + deltaAng;
 
     }else if ( m_p - p_last < -deltaAng ){
         m_p = p_last - deltaAng;
-    }
+    }*/
     p_last = m_p;
 }
 
@@ -651,9 +626,9 @@ void dealCommand( double x, double y, double z )
     x = fabs(x) > 0.1f ? x : 0;
     y = fabs(y) > 0.1f ? y : 0;
     z = fabs(z) > 0.01f ? z : 0;
-
-    double zB = z * B;
-    double zA = z * A;
+ 
+    double zB = z * half_carlength;
+    double zA = z * half_carwidth;
 
     double x3 = x + zB;
     double y3 = y + zA;
@@ -664,10 +639,10 @@ void dealCommand( double x, double y, double z )
     double x0 = x - zB;
     double y0 = y - zA;
     
-    double m3p = 57.29578f * atan2( x3, y3 );
-    double m2p = 57.29578f * atan2( x2, y2 );
-    double m1p = 57.29578f * atan2( x1, y1 );
-    double m0p = 57.29578f * atan2( x0, y0 );
+    double m3p = m_PI * atan2( x3, y3 );
+    double m2p = m_PI * atan2( x2, y2 );
+    double m1p = m_PI * atan2( x1, y1 );
+    double m0p = m_PI * atan2( x0, y0 );
     
     if ( x!=0 || y!=0 || z!=0 ){
         dealDualSolution( m3p , m3p_last , m3dir);
@@ -679,11 +654,6 @@ void dealCommand( double x, double y, double z )
         motor[1].plan.push(m1p);
         motor[2].plan.push(m2p);
         motor[3].plan.push(m3p);
-
-        // ctlMotor( &motor[3] , M_pos , m3p , true );   
-        // ctlMotor( &motor[2] , M_pos , m2p , true );
-        // ctlMotor( &motor[1] , M_pos , m1p , true );   
-        // ctlMotor( &motor[0] , M_pos , m0p , true );
     }
 
     motor[4].plan.push( m0dir * sqrt (x0 * x0 + y0 * y0 ));
@@ -737,13 +707,6 @@ void dealCommand( double x, double y, double z )
         
         }
     }
-    
-    // ctlMotor( &motor[7] , M_spd , -m3dir * sqrt (x3 * x3 + y3 * y3 ), true );   
-    // ctlMotor( &motor[6] , M_spd , m2dir * sqrt (x2 * x2 + y2 * y2 ), true );
-    // ctlMotor( &motor[5] , M_spd , -m1dir * sqrt (x1 * x1 + y1 * y1 ), true );   
-    // ctlMotor( &motor[4] , M_spd , m0dir * sqrt (x0 * x0 + y0 * y0 ), true );
-
-    //ROS_INFO("%f\n",ros::Time().now().toSec());
 
 }
 
@@ -752,126 +715,140 @@ void dealCommand( double x, double y, double z )
  */
 void chatterCallback(const geometry_msgs::Twist& cmd_vel)
 {
-
 	dealCommand( -cmd_vel.linear.y*100 , cmd_vel.linear.x*100 , 1.25*cmd_vel.angular.z );  // x:y: cm/s ; z: rad/s ;
-    //askPos(&motor[2]);
-
-    //ROS_INFO("\nx: %1.4f \r\ny: %1.4f \r\nz: %1.4f \r\n",cmd_vel.linear.y,cmd_vel.linear.x,cmd_vel.angular.z); 
-    
-	//ROS_INFO("I heard:");
 }
 
 int main(int argc, char *argv[])
 {
-
-	int i = 0;
     int ch;
     bool quit = 0;
     double x , y , z = 0.0f;
     int pub_cnt=0;
 
-    double first = 1;
+    double odom_init_flag = 1;      // 里程计初次标识
     double first2, first3, first6, first7 = 0.0f;
 
 	ros::init(argc, argv, "chassis_sub");
 
 	ros::NodeHandle n;
 
-	MotorInit();
-	if ( !CanbusInit(CAN1 , BAUD_500K ,  NORMAL )  )  
+	if ( !CanbusInit(CAN1, BAUD_500K, NORMAL))  
     {
-        ROS_INFO("Please Recheck Devices! Config failed. \n");
+        ROS_INFO_STREAM("Please Recheck Devices! Config failed.");
         return 0;
     }
+
+    MotorInit();
+    MotorEnable(true);
 
 	ros::Subscriber sub = n.subscribe("cmd_vel", 1000, chatterCallback);
     ros::Publisher pub = n.advertise<geometry_msgs::TwistStamped>("encoder",20);
 	
-     ros::Rate loop_rate( int(1000 / CtrlPerid) );
+    ros::Rate loop_rate( int(1000 / CtrlPerid) );
      
-     geometry_msgs::TwistStamped en;
+    geometry_msgs::TwistStamped en;     // 里程计信息
 
-     for (int j = 0; j<window-1; j++){  //初始化参数
-           
-            //用钟形分段直线来计算权重系数
-            if ( j < int((window - 1)/2) ){
+    for (int j = 0; j<window-1; j++){  //初始化参数
+        //用钟形分段直线来计算权重系数
+        if ( j < int((window - 1)/2) ){
+            alpha[j] = 1+3*j;
+        }
+        else if ( j > int((window - 1)/2)){
+            alpha[j] = 1+3*(window - j -2);
+        }
+        else {
+            if ( (window - 1)%2 == 0)
+            {
+                alpha[j] = alpha[j-1];
+            }
+            else{
                 alpha[j] = 1+3*j;
             }
-            else if ( j > int((window - 1)/2)){
-                alpha[j] = 1+3*(window - j -2);
-            }
-            else {
-                if ( (window - 1)%2 == 0){
-                    alpha[j] = alpha[j-1];
-                }
-                else{
-                   alpha[j] = 1+3*j;
-                }
             }
             sum += alpha[j];
      }
-double sum = 0;
-double err_last[8] = {0};
-     while(ros::ok())
-     {
 
-        for ( i = 0; i<8; i++){
-            
+    //  ROS_INFO("getuid:%d",getuid());
+    //  pid_t pid = getpid();
+
+    // //  int opri = getpriority(PRIO_PROCESS, getpid());
+
+    // //  int npri = nice(-5);
+
+    // //  setpriority(PRIO_PROCESS, getpid(), npri);
+
+
+    //  struct sched_param param;
+    //  param.sched_priority = sched_get_priority_max(SCHED_RR);
+    //  sched_setscheduler(pid, SCHED_RR, &param);
+    //  pthread_setschedparam(pthread_self(), SCHED_RR, &param);
+    nice(-5);
+
+    double err_last[8] = {0};
+    while(ros::ok())
+    {
+        for (int i = 0; i<8; i++)
+        {
             double now = motor[i].plan_param[0] + motor[i].plan_param[1]*motor[i].run_time + motor[i].plan_param[2]*motor[i].run_time*motor[i].run_time + motor[i].plan_param[3]*motor[i].run_time*motor[i].run_time*motor[i].run_time;
-            if ( i < 4 ){
-                ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
-              
-                double err = now - motor[i].odom*57.29578f;
-                //if (i == 0) ROS_INFO("%f",err);
+            if ( i < 4 )    // 位置控制
+            {
+                
+                //usleep(1000);
+                double err = now - motor[i].odom*m_PI;
                
-                now = 30 * err  + 1.0 * (err - err_last[i]);
+                now = 30 * err + 1.0 * (err - err_last[i]);
                 err_last[i] = err;
 
                 motor[i].watchdog ++;
-                if ( motor[i].watchdog > 8 ){
+                if ( motor[i].watchdog > 8 )
+                {
                     motor[i].watchdog --;
                     clrError( &motor[i] );
                 }
-                else{
-                    ctlMotor( &motor[i] , M_spd , now , true );  //PID有可能需要限幅
+                else
+                {
+                    ctlMotor( &motor[i] , M_spd , now);  //PID有可能需要限幅
                 }
+
+				ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
             }
-            else{
-                ctlMotor( &motor[i] , M_spd , now , true );
+            else        // 速度控制
+            {
+				//usleep(500);
+                ctlMotor( &motor[i] , M_spd , now);
             }
+			
 
             if ( motor[i].run_time >= motor[i].run_max_time ) {
                 motor[i].run_time = motor[i].run_max_time;
             }else{
-                 motor[i].run_time += double(CtrlPerid / 1000.0f );
-
+                    motor[i].run_time += double(CtrlPerid / 1000.0f );
             }
-
-        //if (i==0) ROS_INFO("%f",now);
-                   
+                    
         }
-        //printf("%f\n",now);
 
-         if (first == 1){//去除上电之后未运行里程计的误差，去掉初始值
-             first7 = motor[7].odom;
-             first6 = motor[6].odom;
-             first3 = motor[3].odom;
-             first2 = motor[2].odom;
-             first = 0;
-         }
-            en.header.stamp = ros::Time().now();
-            en.twist.linear.x = motor[7].odom - first7;
-            en.twist.linear.y = motor[6].odom - first6;
-            en.twist.angular.x = motor[3].odom - first3;
-            en.twist.angular.y = motor[2].odom - first2;
-            pub.publish(en);
+        if (odom_init_flag == 1){//去除上电之后未运行里程计的误差，去掉初始值
+            first7 = motor[7].odom;
+            first6 = motor[6].odom;
+            first3 = motor[3].odom;
+            first2 = motor[2].odom;
+            odom_init_flag = 0;
+        }
 
-            ros::spinOnce();
-            loop_rate.sleep();
+        en.header.stamp = ros::Time().now();
+        en.twist.linear.x = motor[7].odom - first7;
+        en.twist.linear.y = motor[6].odom - first6;
+        en.twist.angular.x = motor[3].odom - first3;
+        en.twist.angular.y = motor[2].odom - first2;
+        pub.publish(en);
 
-     }
+        ros::spinOnce();
+        //loop_rate.sleep();
 
-	for (i = 0; i < MAX_CHANNELS; i++)
+    }
+
+    MotorEnable(false);
+	for (size_t i = 0; i < MAX_CHANNELS; i++)
     {
         if ((gChMask & (1 << i)) == 0) continue;
 
@@ -882,7 +859,7 @@ double err_last[8] = {0};
     }
 
     VCI_CloseDevice(gDevType, gDevIdx);
-    ROS_INFO("VCI_CloseDevice\n");
+    ROS_INFO("VCI_CloseDevice");
 
 	return 0;
 }
