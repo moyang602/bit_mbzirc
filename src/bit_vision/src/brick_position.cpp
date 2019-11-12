@@ -4121,6 +4121,8 @@ ReadSurfaceModel("./src/bit_vision/model/bluebox_edge_supported.sfm",
         HTuple());
 
     GetObjectModel3dParams(hv_ObjectModel3DScene, "center", &hv_VisRotationCenter);
+
+    ROS_INFO_STREAM("Get the Scene data");
     //
     //Display search scene.
     visualize_object_model_3d(hv_WindowHandle, hv_ObjectModel3DScene, HTuple(), HTuple(), 
@@ -4139,35 +4141,36 @@ ReadSurfaceModel("./src/bit_vision/model/bluebox_edge_supported.sfm",
 
     if (0 == (hv_Pose==HTuple()))
     {
-         //分别获取trans与rototion
-    hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
-    hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
-    hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
-    hv_rotX = ((const HTuple&)HTuple(hv_Pose[3]))[0];
-    hv_rotY = ((const HTuple&)HTuple(hv_Pose[4]))[0];
-    hv_rotZ = ((const HTuple&)HTuple(hv_Pose[5]))[0];
-    hv_order = ((const HTuple&)HTuple(hv_Pose[6]))[0];
-    tranX  =  hv_transX;
-    tranY = hv_transY;
-    tranZ = hv_transZ;
-    rotX = hv_rotX;
-    rotY = hv_rotY;
-    rotZ = hv_rotZ;
+        //分别获取trans与rototion
+        hv_transX = ((const HTuple&)HTuple(hv_Pose[0]))[0];
+        hv_transY = ((const HTuple&)HTuple(hv_Pose[1]))[0];
+        hv_transZ = ((const HTuple&)HTuple(hv_Pose[2]))[0];
+        hv_rotX = ((const HTuple&)HTuple(hv_Pose[3]))[0];
+        hv_rotY = ((const HTuple&)HTuple(hv_Pose[4]))[0];
+        hv_rotZ = ((const HTuple&)HTuple(hv_Pose[5]))[0];
+        hv_order = ((const HTuple&)HTuple(hv_Pose[6]))[0];
+        tranX  =  hv_transX;
+        tranY = hv_transY;
+        tranZ = hv_transZ;
+        rotX = hv_rotX;
+        rotY = hv_rotY;
+        rotZ = hv_rotZ;
 
-    TupleSelectRange(hv_Pose, 0, 6, &hv_ValueOfPose);
-    ROS_INFO_STREAM("Get the location x : "<<tranX.D());
-    //Extract edges for visualization.
-    GetObjectModel3dParams(hv_ObjectModel3DScene, "diameter_axis_aligned_bounding_box", 
-        &hv_Diameter);
-    EdgesObjectModel3d(hv_ObjectModel3DScene, 0.01*hv_Diameter, HTuple(), HTuple(), 
-        &hv_ObjectModel3DEdges);
-    //Display results.
-    RigidTransObjectModel3d(hv_ObjectModel3DModel, hv_Pose, &hv_ObjectModel3DRigidTrans);
-    hv_VisParamValues[0] = "forest green";
-    visualize_object_model_3d(hv_WindowHandle, (hv_ObjectModel3DScene.TupleConcat(hv_ObjectModel3DEdges)).TupleConcat(hv_ObjectModel3DRigidTrans), 
-        HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
-        HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
-        &hv_VisPose);
+        TupleSelectRange(hv_Pose, 0, 6, &hv_ValueOfPose);
+        ROS_INFO_STREAM("Get the location x : "<<tranX.D());
+        //Extract edges for visualization.
+        GetObjectModel3dParams(hv_ObjectModel3DScene, "diameter_axis_aligned_bounding_box", 
+            &hv_Diameter);
+        EdgesObjectModel3d(hv_ObjectModel3DScene, 0.01*hv_Diameter, HTuple(), HTuple(), 
+            &hv_ObjectModel3DEdges);
+        //Display results.
+        RigidTransObjectModel3d(hv_ObjectModel3DModel, hv_Pose, &hv_ObjectModel3DRigidTrans);
+        
+        hv_VisParamValues[0] = "forest green";
+        visualize_object_model_3d(hv_WindowHandle, (hv_ObjectModel3DScene.TupleConcat(hv_ObjectModel3DEdges)).TupleConcat(hv_ObjectModel3DRigidTrans), 
+            HTuple(), HTuple(), hv_VisParamNames.TupleConcat("color_1"), hv_VisParamValues.TupleConcat("green"), 
+            HTuple("With edge support, the match is found correctly."), HTuple(), hv_VisInstructions, 
+            &hv_VisPose);
     }
 
    
@@ -4207,7 +4210,7 @@ void TOFCallback(const sensor_msgs::ImageConstPtr& msg)
 
       //加入函数
       locate_box(HobjZ);
-      ROS_INFO_STREAM("get the pose of box");
+      ROS_INFO_STREAM("Get the location Y : "<<tranY.D());
 
 
   }
@@ -4235,7 +4238,7 @@ int main(int argc, char *argv[])
     SetSystem("height", 512);
 
     ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,imageLeftRectifiedCallback);
-    ros::Subscriber subDepth    =nh.subscribe("/zed/zed_node/depth/depth_registered", 1, TOFCallback);
+    ros::Subscriber subDepth    =nh.subscribe("/camera/depth/image", 1, TOFCallback);
 
     ros::Publisher chatter_pub = nh.advertise<std_msgs::Float32MultiArray>("chatter", 1);
     ros::Rate loop_rate(10);
@@ -4258,7 +4261,7 @@ int main(int argc, char *argv[])
   }
   catch (HException &exception)
   {
-    fprintf(stderr,"  Error #%u in %s: %s\n", exception.ErrorCode(),
+    ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
     ret = 1;

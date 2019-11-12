@@ -408,21 +408,37 @@ void stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R
   ReadCamPar("./src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
   ReadPose("./src/bit_vision/model/relpose.dat", &hv_RealPose);
   //三维定位
-  IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
+  try
+  {
+      IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
       row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
 
-  Brick_X = hv_X;
-  Brick_Y = hv_Y;
-  Brick_Z = hv_Z;
+      Brick_X = hv_X;
+      Brick_Y = hv_Y;
+      Brick_Z = hv_Z;
 
-  bricklocateInfo.header.stamp = ros::Time().now();
-  bricklocateInfo.header.frame_id = "brick info";
+      bricklocateInfo.header.stamp = ros::Time().now();
+      bricklocateInfo.header.frame_id = "camera_link";
 
-  bricklocateInfo.flag = true;
-  bricklocateInfo.BrickType = "blue";
-  bricklocateInfo.position.x = Brick_X.D();
-  bricklocateInfo.position.y = Brick_Y.D();
-  bricklocateInfo.position.z = Brick_Z.D();
+      bricklocateInfo.flag = true;
+      bricklocateInfo.BrickType = brick_color.S();
+      bricklocateInfo.position.x = Brick_X.D();
+      bricklocateInfo.position.y = Brick_Y.D();
+      bricklocateInfo.position.z = Brick_Z.D();
+  }
+  catch (HException &exception)
+  {
+      bricklocateInfo.header.stamp = ros::Time().now();
+      bricklocateInfo.header.frame_id = "camera_link";
+
+      bricklocateInfo.flag = false;
+      bricklocateInfo.BrickType = "Null";
+      bricklocateInfo.position.x = 0.0;
+      bricklocateInfo.position.y = 0.0;
+      bricklocateInfo.position.z = 0.0;
+  }
+
+  
 
 }
 
@@ -470,21 +486,19 @@ int main(int argc, char *argv[])
   try
   {
     
-    ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,
-                                        LeftCallback);
-    ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1,
-                                        RightCallback);
+    ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
+    ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);
+    pub = nh.advertise<bit_vision::LocateInfo>("LocateResult",2);
     
-    ros::spin();
+    //ros::spin();
     ros::Rate loop_rate(5);
     
     while (ros::ok())
     {
         stero_location(Xl,Yl,Xr,Yr);
 
-      //  ROS_INFO_STREAM("Location is : "<<Xl.D()<<","<<Yl.D()<<","<<Xr.D()<<","<<Yr.D());
-        
-
+        //ROS_INFO_STREAM("Location is : "<<Xl.D()<<","<<Yl.D()<<","<<Xr.D()<<","<<Yr.D());
+     
         pub.publish(bricklocateInfo);
         ros::spinOnce();
         loop_rate.sleep();
