@@ -80,10 +80,10 @@ int main (int argc, char** argv)
     ros::Publisher endeff_pub = nh.advertise<bit_control_tool::EndEffector>("endeffState", 1000); 
 
     //nh.param<bool>("debug_imu", param_use_debug, false);
-	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB1");
-	nh.param<int>("baudrate", param_baudrate_, 9600);
-    nh.param<bool>("debug_imu",param_use_debug,false);
-
+	nh.param<std::string>("io_control/port", param_port_path_, "/dev/ttyUSB1");
+	nh.param<int>("io_control/baudrate", param_baudrate_, 9600);
+    nh.param<bool>("io_control/debug_imu",param_use_debug,false);
+    ROS_INFO_STREAM("port is " << param_port_path_);
     try 
     { 
     //设置串口属性，并打开串口 
@@ -122,7 +122,7 @@ int main (int argc, char** argv)
             {
                 if (rec[3] == 0x55){
                     hn.x = double( rec[1] *0x100 + rec[2] )/10.0f;
-                    //ROS_INFO_STREAM("rec:"<<heightNow);
+                    ROS_INFO_STREAM("rec:"<<hn.x);
                 }
             }
             //ROS_INFO_STREAM(hn.x<<"mm");  

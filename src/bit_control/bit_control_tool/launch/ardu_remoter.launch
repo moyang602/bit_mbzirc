@@ -1,7 +1,7 @@
 <launch>
 
   <node name="ardu_remoter_pub" pkg="bit_control_tool" type="ardu_remoter_pub" output="screen" respawn="false">
-  <param name="port"       value="/dev/ttyUSB0"/>  
+  <param name="port"       value="/dev/ttyUSB1"/>  
   <param name="baudrate"   value="9600"/>
   <param name="debug_imu"   value="true"/>
   <param name="loop_rate"   value="20"/>
