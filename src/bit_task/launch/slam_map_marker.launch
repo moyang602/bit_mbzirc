@@ -34,4 +34,8 @@
   <!--bringup move_base to navigate -->
   <include file="$(find my_robot_name_2dnav)/launch/nav.launch" />
 
+  <!-- Run cruise node -->
+  <node pkg="wpb_home_tutorials" type="wpb_home_cruise" name="wpb_home_cruise" output="screen"/>
+
+
 </launch>
