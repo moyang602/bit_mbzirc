@@ -15,6 +15,9 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs 
   cv_bridge 
   image_transport 
+  geometry_msgs
+  tf
+  std_srvs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,7 +112,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES bit_hardware_interface
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+#  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs serial std_srvs tf
 #  DEPENDS system_lib
 )
 
@@ -249,11 +252,11 @@ target_link_libraries(interface_ur5e
 )
 
 
-add_executable(interface_camera_ir
-  src/interface_camera_ir.cpp
+add_executable(interface_camerair
+  src/interface_camerair.cpp
 )
-add_dependencies(interface_camera_ir ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_camera_ir
+add_dependencies(interface_camerair ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(interface_camerair
   ${catkin_LIBRARIES}
   HCCore
   hcnetsdk

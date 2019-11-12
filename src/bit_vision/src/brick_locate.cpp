@@ -181,32 +181,46 @@ void segment (HObject ho_Image, HObject *ho_Regions)
   return;
 }
 
-static HTuple color_result;
+//定义全局变量 用于三维坐标的传递
+static HTuple Xl,Yl,Xr,Yr;
+static HTuple brick_color;
+
+
 
 // Main procedure 
-void action(HObject Image)
+void actionL(HObject Image)
 {
 
   // Local iconic variables
-  HObject  ho_Image0, ho_ClassRegions, ho_ClassRed;
-  HObject  ho_ClassGreen, ho_ClassBLue, ho_ConnectedRegions1;
-  HObject  ho_ConnectedRegions2, ho_ConnectedRegions3, ho_ObjectSelectedRed;
-  HObject  ho_ObjectSelectedGreen, ho_ObjectSelectedBlue;
+  HObject  ho_ImageL, ho_ClassRegions, ho_ImageR;
+  HObject  ho_ClassRegions2, ho_ClassRed, ho_ClassGreen, ho_ClassBLue;
+  HObject  ho_ConnectedRegions1, ho_ConnectedRegions2, ho_ConnectedRegions3;
+  HObject  ho_ObjectSelectedRed, ho_ObjectSelectedGreen, ho_ObjectSelectedBlue;
+  HObject  ho_ClassRed2, ho_ClassGreen2, ho_ClassBLue2, ho_ConnectedRegions1_2;
+  HObject  ho_ConnectedRegions2_2, ho_ConnectedRegions3_2;
+  HObject  ho_ObjectSelectedRed_2, ho_ObjectSelectedGreen_2;
+  HObject  ho_ObjectSelectedBlue_2;
 
   // Local control variables
   HTuple  hv_pathFile, hv_MLPHandle, hv_Area1, hv_Row1;
   HTuple  hv_Column1, hv_Indices, hv_num, hv_Area_1, hv_Row_1;
   HTuple  hv_Column_1, hv_Area2, hv_Row2, hv_Column2, hv_Area_2;
   HTuple  hv_Row_2, hv_Column_2, hv_Area3, hv_Row3, hv_Column3;
-  HTuple  hv_Area_3, hv_Row_3, hv_Column_3, hv_areas, hv_index;
-  HTuple  hv_class;
+  HTuple  hv_Area_3, hv_Row_3, hv_Column_3, hv_areas, hv_rows;
+  HTuple  hv_columns, hv_index, hv_class, hv_row_L, hv_column_L;
+  HTuple  hv_Area1_2, hv_Row1_2, hv_Column1_2, hv_Indices_2;
+  HTuple  hv_num2, hv_Area_1_2, hv_Row_1_2, hv_Column_1_2;
+  HTuple  hv_Area_2_2, hv_Row_2_2, hv_Column_2_2, hv_Area3_2;
+  HTuple  hv_Row3_2, hv_Column3_2, hv_Area_3_2, hv_Row_3_2;
+  HTuple  hv_Column_3_2, hv_areas_2, hv_rows_2, hv_columns_2;
+  HTuple  hv_index_2, hv_row_R, hv_column_R;
 
   //读入训练好的分割mlp模型
   hv_pathFile = "./src/bit_vision/model/box_segment_mlp.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  //
-  //ReadImage(&ho_Image0, "/media/srt/resource/Project_Noven/wx_project/zed_capture/test/red/mix_8.jpg");
+
   ClassifyImageClassMlp(Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+
 
   SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
   SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
@@ -239,6 +253,16 @@ void action(HObject Image)
   hv_areas.Append(hv_Area_1);
   hv_areas.Append(hv_Area_2);
   hv_areas.Append(hv_Area_3);
+  //提取面积最大的区域对应的坐标
+  hv_rows.Clear();
+  hv_rows.Append(hv_Row_1);
+  hv_rows.Append(hv_Row_2);
+  hv_rows.Append(hv_Row_3);
+  hv_columns.Clear();
+  hv_columns.Append(hv_Column_1);
+  hv_columns.Append(hv_Column_2);
+  hv_columns.Append(hv_Column_3);
+
   TupleSortIndex(hv_areas, &hv_Indices);
   hv_num = hv_Indices.TupleLength();
   hv_index = HTuple(hv_Indices[hv_num-1]);
@@ -256,21 +280,166 @@ void action(HObject Image)
     hv_class = "blue";
   }
 
-  color_result = hv_class;
+  brick_color = hv_class;
+
+  hv_row_L = HTuple(hv_rows[hv_index]);
+  hv_column_L = HTuple(hv_columns[hv_index]);
+
+  Xl=hv_row_L;
+  Yl=hv_column_L;
+  
+}
+
+void actionR(HObject Image)
+{
+
+  // Local iconic variables
+  HObject  ho_ImageL, ho_ClassRegions, ho_ImageR;
+  HObject  ho_ClassRegions2, ho_ClassRed, ho_ClassGreen, ho_ClassBLue;
+  HObject  ho_ConnectedRegions1, ho_ConnectedRegions2, ho_ConnectedRegions3;
+  HObject  ho_ObjectSelectedRed, ho_ObjectSelectedGreen, ho_ObjectSelectedBlue;
+  HObject  ho_ClassRed2, ho_ClassGreen2, ho_ClassBLue2, ho_ConnectedRegions1_2;
+  HObject  ho_ConnectedRegions2_2, ho_ConnectedRegions3_2;
+  HObject  ho_ObjectSelectedRed_2, ho_ObjectSelectedGreen_2;
+  HObject  ho_ObjectSelectedBlue_2;
+
+  // Local control variables
+  HTuple  hv_pathFile, hv_MLPHandle, hv_Area1, hv_Row1;
+  HTuple  hv_Column1, hv_Indices, hv_num, hv_Area_1, hv_Row_1;
+  HTuple  hv_Column_1, hv_Area2, hv_Row2, hv_Column2, hv_Area_2;
+  HTuple  hv_Row_2, hv_Column_2, hv_Area3, hv_Row3, hv_Column3;
+  HTuple  hv_Area_3, hv_Row_3, hv_Column_3, hv_areas, hv_rows;
+  HTuple  hv_columns, hv_index, hv_class, hv_row_L, hv_column_L;
+  HTuple  hv_Area1_2, hv_Row1_2, hv_Column1_2, hv_Indices_2;
+  HTuple  hv_num2, hv_Area_1_2, hv_Row_1_2, hv_Column_1_2;
+  HTuple  hv_Area_2_2, hv_Row_2_2, hv_Column_2_2, hv_Area3_2;
+  HTuple  hv_Row3_2, hv_Column3_2, hv_Area_3_2, hv_Row_3_2;
+  HTuple  hv_Column_3_2, hv_areas_2, hv_rows_2, hv_columns_2;
+  HTuple  hv_index_2, hv_row_R, hv_column_R;
+
+  //读入训练好的分割mlp模型
+  hv_pathFile = "./src/bit_vision/model/box_segment_mlp.mlp";
+  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+  
+  ClassifyImageClassMlp(Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+  
+
+  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
+  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
+  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
+
+  Connection(ho_ClassRed, &ho_ConnectedRegions1);
+  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
+  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
+
+  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+  TupleSortIndex(hv_Area1, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
+
+  AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
+  TupleSortIndex(hv_Area2, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
+
+  AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
+  TupleSortIndex(hv_Area3, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
+
+  //比较3种region的面积 面积最大的作为分类结果
+  hv_areas.Clear();
+  hv_areas.Append(hv_Area_1);
+  hv_areas.Append(hv_Area_2);
+  hv_areas.Append(hv_Area_3);
+  //提取面积最大的区域对应的坐标
+  hv_rows.Clear();
+  hv_rows.Append(hv_Row_1);
+  hv_rows.Append(hv_Row_2);
+  hv_rows.Append(hv_Row_3);
+  hv_columns.Clear();
+  hv_columns.Append(hv_Column_1);
+  hv_columns.Append(hv_Column_2);
+  hv_columns.Append(hv_Column_3);
+
+  TupleSortIndex(hv_areas, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  hv_index = HTuple(hv_Indices[hv_num-1]);
+
+  if (0 != (hv_index==0))
+  {
+    hv_class = "red";
+  }
+  else if (0 != (hv_index==1))
+  {
+    hv_class = "green";
+  }
+  else if (0 != (hv_index==2))
+  {
+    hv_class = "blue";
+  }
+
+  brick_color = hv_class;
+
+  hv_row_L = HTuple(hv_rows[hv_index]);
+  hv_column_L = HTuple(hv_columns[hv_index]);
+
+  Xr=hv_row_L;
+  Yr=hv_column_L;
+
+ // ROS_INFO_STREAM("Location is : "<<Xr.D()<<","<<Yr.D());
+  
+}
+
+//定义传递三维坐标的全局变量
+static HTuple Brick_X,Brick_Y,Brick_Z;
+
+//定义根据标定参数 定位三维点的函数
+void stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R)
+{
+   
+  HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
+  HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
+  
+  ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
+  ReadCamPar("./src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
+  ReadPose("./src/bit_vision/model/relpose.dat", &hv_RealPose);
+  //三维定位
+  IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
+      row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
+
+  Brick_X = hv_X;
+  Brick_Y = hv_Y;
+  Brick_Z = hv_Z;
 
   bricklocateInfo.header.stamp = ros::Time().now();
   bricklocateInfo.header.frame_id = "brick info";
 
   bricklocateInfo.flag = true;
-  bricklocateInfo.BrickType = color_result.S();
-  bricklocateInfo.position.x = 0;
-  bricklocateInfo.position.y = 0;
-  bricklocateInfo.position.z = 0;
+  bricklocateInfo.BrickType = "blue";
+  bricklocateInfo.position.x = Brick_X.D();
+  bricklocateInfo.position.y = Brick_Y.D();
+  bricklocateInfo.position.z = Brick_Z.D();
 
-  pub.publish(bricklocateInfo);
 }
 
-void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
+void LeftCallback(const sensor_msgs::Image::ConstPtr& msg) 
+{
+    //初始化halcon对象
+    HObject  ho_Image;
+    //获取halcon-bridge图像指针
+    halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
+    ho_Image = *halcon_bridge_imagePointer->image;
+    
+    actionL(ho_Image);
+}
+
+
+
+void RightCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
     
     //初始化halcon对象
@@ -279,7 +448,7 @@ void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
-    action(ho_Image);
+    actionR(ho_Image);
 
 }
 
@@ -288,16 +457,40 @@ int main(int argc, char *argv[])
 {
   int ret = 0;
 
+  Xl = 0;
+  Yl = 0;
+  Xr = 0;
+  Yr = 0;
+
+
   ros::init(argc, argv, "brick_locate");
 
-  ros::NodeHandle nh; //定义ros句柄
+  ros::NodeHandle nh; 
 
   try
   {
-    ros::Subscriber subLeftRectified  = nh.subscribe("/zed/zed_node/left/image_rect_color", 10,imageLeftRectifiedCallback);
-    pub = nh.advertise<bit_vision::LocateInfo>("LocateResult", 10);
+    
+    ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,
+                                        LeftCallback);
+    ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1,
+                                        RightCallback);
     
     ros::spin();
+    ros::Rate loop_rate(5);
+    
+    while (ros::ok())
+    {
+        stero_location(Xl,Yl,Xr,Yr);
+
+      //  ROS_INFO_STREAM("Location is : "<<Xl.D()<<","<<Yl.D()<<","<<Xr.D()<<","<<Yr.D());
+        
+
+        pub.publish(bricklocateInfo);
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
+    return 0;
+
   }
   catch (HException &exception)
   {
@@ -308,6 +501,7 @@ int main(int argc, char *argv[])
   }
   return ret;
 }
+
 
 
 

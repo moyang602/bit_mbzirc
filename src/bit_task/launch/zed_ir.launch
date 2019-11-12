@@ -1,0 +1,10 @@
+<launch>
+
+    <!--bringup zed-->  
+    <include file="$(find zed_wrapper)/launch/zedm.launch" /> 
+  
+    <!--bringup ir-->  
+    <include file="$(find bit_hardware_interface)/launch/CameraIR.launch" />
+  
+  
+</launch>
