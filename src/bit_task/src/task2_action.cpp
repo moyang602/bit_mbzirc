@@ -31,7 +31,7 @@ void activeCd()
  */
 void feedbackCb(const bit_motion::pickputFeedbackConstPtr& feedback)
 {
-    ROS_INFO_STREAM("THE NUMBER RIGHT NOM IS: "<<  feedback -> move_rightnow);
+    ROS_INFO_STREAM("THE STATE NOM IS: "<<  feedback -> move_rightnow);
 }
 
 
@@ -40,23 +40,33 @@ void feedbackCb(const bit_motion::pickputFeedbackConstPtr& feedback)
  */
 int main(int argc, char *argv[])
 {
+        // 如果没有砖堆信息 就找转 
 
-	ros::init(argc, argv, "task2_action");
+        // 循环三个砖堆， 依次到达砖堆位置
 
-/* 定义一个客户端 */
-    Client client("pickputAction", true); /* 这里的第一次参数要特别注意，我这里起名为action_demo，这个名称关系到server和client之间的配对通讯，两边代码对于这个名称必须要一致，否则两个节点无法相互通讯。 */
+            // 循环取砖
+            ros::init(argc, argv, "task2_action");
 
-    /* 等待服务端响应 */
-    ROS_INFO("WAITING FOR ACTION SERVER TO START !");
-    client.waitForServer();
-    ROS_INFO("ACTION SERVER START !");
+            /* 定义一个客户端 */
+            Client client("pickputAction", true); /* 这里的第一次参数要特别注意，我这里起名为action_demo，这个名称关系到server和client之间的配对通讯，两边代码对于这个名称必须要一致，否则两个节点无法相互通讯。 */
 
-    /* 创建一个目标对象 */
-    bit_motion::pickputGoal demo_goal;
-    demo_goal.goal_brick.type = 255;  /* 设置目标对象的值 */
+            /* 等待服务端响应 */
+            ROS_INFO("WAITING FOR ACTION SERVER TO START !");
+            client.waitForServer();
+            ROS_INFO("ACTION SERVER START !");
 
-    /* 发送目标，并且定义回调函数 */
-    client.sendGoal(demo_goal, &doneCd, &activeCd, &feedbackCb);
+            /* 创建一个目标对象 */
+            bit_motion::pickputGoal demo_goal;
+            demo_goal.goal_brick.type = 255;  /* 设置目标对象的值 */
+
+            /* 发送目标，并且定义回调函数 */
+            client.sendGoal(demo_goal, &doneCd, &activeCd, &feedbackCb);
+
+        // 移动到观察建筑处， 调用检测砖堆状态
+
+        // 循环放砖， 移动位置
+
+        //
 
     ros::spin();
     return 0;
