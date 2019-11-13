@@ -8,9 +8,14 @@ project(bit_motion)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  message_generation
   roscpp
   rospy
   std_msgs
+  geometry_msgs
+  bit_task
+  actionlib_msgs
+  actionlib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -61,17 +66,17 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(FILES
+  pickput.action
+)
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  bit_task
+  actionlib_msgs
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -103,6 +108,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
+  CATKIN_DEPENDS
+  message_runtime
+  bit_task
 #  INCLUDE_DIRS include
 #  LIBRARIES bit_motion
 #  CATKIN_DEPENDS roscpp rospy std_msgs
@@ -116,9 +124,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include ${catkin_INCLUDE_DIRS}
-# include
+  include 
   ${catkin_INCLUDE_DIRS}
+
 )
 
 ## Declare a C++ library
@@ -160,10 +168,11 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# install(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(PROGRAMS
+  scripts/t2_pick_put_server.py
+  scripts/t2_pick_build_server.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
@@ -238,3 +247,10 @@ add_dependencies(motion_fight_fire ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 target_link_libraries(motion_fight_fire
   ${catkin_LIBRARIES}
 )
+
+
+
+# -------------------------------------------------------- #
+# =========================TODO LIST====================== #
+
+#  需要加入移动到某处的action server
