@@ -86,73 +86,73 @@ int main(int argc, char *argv[])
 	geometry_msgs::TransformStamped od_tf;
 	geometry_msgs::Quaternion odom_quat;
 
-nav_msgs::Odometry od;
+	nav_msgs::Odometry od;
 
-ROS_INFO("Odom by encoder OK!!!");
+	ROS_INFO("Odom by encoder OK!!!");
 
 	while(ros::ok())
 	{
 			
 		ros::spinOnce();
 
-			dt = (current_time - last_time).toSec();
-			if (dt != 0.0f){
-				v1 = (e1 - odom_last7)/dt;
-				v2 = (e2 - odom_last6)/dt;
-				theta1 = e3;
-				theta2 = e4;
-			}
-			odom_last7 = e1;
-			odom_last6 = e2;
+		dt = (current_time - last_time).toSec();
+		if (dt != 0.0f){
+			v1 = (e1 - odom_last7)/dt;
+			v2 = (e2 - odom_last6)/dt;
+			theta1 = e3;
+			theta2 = e4;
+		}
+		odom_last7 = e1;
+		odom_last6 = e2;
 
-			v2c = v2*cos(theta2);
-			v1c = v1*cos(theta1);
-			v2s = v2*sin(theta2);
-			v1s = v1*sin(theta1);
-			//printf("%f,%f,%f,%f\n",v1s,v2s,v1c,v2c);
-			
-			delta_z = 0.5 * ( v1c -v2c )/A;
-			delta_x = 0.5 * (v2s + v1s) - delta_z * B;
-			delta_y = 0.5 * (v2c + v1c);
-			//printf("%f,%f,%f,%f\n",dt,delta_z,delta_y,delta_x);
-			
+		v2c = v2*cos(theta2);
+		v1c = v1*cos(theta1);
+		v2s = v2*sin(theta2);
+		v1s = v1*sin(theta1);
+		//printf("%f,%f,%f,%f\n",v1s,v2s,v1c,v2c);
+		
+		delta_z = 0.5 * ( v1c -v2c )/A;
+		delta_x = 0.5 * (v2s + v1s) - delta_z * B;
+		delta_y = 0.5 * (v2c + v1c);
+		//printf("%f,%f,%f,%f\n",dt,delta_z,delta_y,delta_x);
+		
 
-			odom_x += delta_x * dt * cos(odom_z) - delta_y * dt * sin(odom_z);
-			odom_y += delta_y * dt * cos(odom_z) + delta_x * dt * sin(odom_z);
-			odom_z += delta_z * dt;
-			//printf("%f,%f,%f,%f\n",dt,odom_x,odom_y,odom_z);
+		odom_x += delta_x * dt * cos(odom_z) - delta_y * dt * sin(odom_z);
+		odom_y += delta_y * dt * cos(odom_z) + delta_x * dt * sin(odom_z);
+		odom_z += delta_z * dt;
+		//printf("%f,%f,%f,%f\n",dt,odom_x,odom_y,odom_z);
 
 
-			odom_quat = tf::createQuaternionMsgFromYaw(odom_z);
+		odom_quat = tf::createQuaternionMsgFromYaw(odom_z);
 
-			od_tf.header.stamp = current_time;
-			od_tf.header.frame_id = "odom";
-			od_tf.child_frame_id= "car_link";
+		od_tf.header.stamp = current_time;
+		od_tf.header.frame_id = "odom";
+		od_tf.child_frame_id= "car_link";
 
-			od_tf.transform.translation.x = odom_y;
-			od_tf.transform.translation.y = -odom_x;
-			od_tf.transform.translation.z = 0.0f;
-			od_tf.transform.rotation = odom_quat;
+		od_tf.transform.translation.x = odom_y;
+		od_tf.transform.translation.y = -odom_x;
+		od_tf.transform.translation.z = 0.0f;
+		od_tf.transform.rotation = odom_quat;
 
-			od_brod.sendTransform(od_tf);
+		od_brod.sendTransform(od_tf);
 
-			od.header.stamp = current_time;
-			od.header.frame_id = "odom";
+		od.header.stamp = current_time;
+		od.header.frame_id = "odom";
 
-			od.pose.pose.position.x = odom_y;
-			od.pose.pose.position.y = -odom_x;
-			od.pose.pose.position.z = 0.0f;
-			od.pose.pose.orientation = odom_quat;
+		od.pose.pose.position.x = odom_y;
+		od.pose.pose.position.y = -odom_x;
+		od.pose.pose.position.z = 0.0f;
+		od.pose.pose.orientation = odom_quat;
 
-			od.child_frame_id = "car_link";
-			od.twist.twist.linear.x = delta_y;
-			od.twist.twist.linear.y = -delta_x;
-			od.twist.twist.angular.z = delta_z;
-		// if (pub_cnt++ >10){
-		// 	pub_cnt = 0;
-					pub.publish(od);
-			// }
-			last_time = current_time;
+		od.child_frame_id = "car_link";
+		od.twist.twist.linear.x = delta_y;
+		od.twist.twist.linear.y = -delta_x;
+		od.twist.twist.angular.z = delta_z;
+	// if (pub_cnt++ >10){
+	// 	pub_cnt = 0;
+				pub.publish(od);
+		// }
+		last_time = current_time;
 
 		loop_rate.sleep();
 	}

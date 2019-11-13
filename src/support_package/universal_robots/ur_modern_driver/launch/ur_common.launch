@@ -30,7 +30,7 @@
     <param name="max_payload" type="double" value="$(arg max_payload)" />
     <param name="max_velocity" type="double" value="$(arg max_velocity)" />
     <param name="servoj_time" type="double" value="$(arg servoj_time)" />
-	<param name="base_frame" type="str" value="$(arg base_frame)"/>
+	  <param name="base_frame" type="str" value="$(arg base_frame)"/>
     <param name="tool_frame" type="str" value="$(arg tool_frame)"/>
   </node>
 </launch>

@@ -1,0 +1,9 @@
+<launch>
+
+  <!--bringup robot-->  
+  <include file="$(find bit_task)/launch/slam_map.launch" />
+
+  <!--bringup camera-->  
+  <include file="$(find bit_task)/launch/tof_zed.launch" />
+
+</launch>

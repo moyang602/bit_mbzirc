@@ -232,8 +232,8 @@ if __name__ == '__main__':
             pick_put_act("pickputAction")     # rospy.get_name())  #
             print('action server ok')
             rospy.spin() 
-        except:
-            time.sleep(2.0)
+        # except:
+        #     time.sleep(2.0)
         finally:
             print('last')
             if normal == 1:
