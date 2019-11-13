@@ -1,0 +1,16 @@
+<launch>
+
+  <!--bringup tof-->  
+  <include file="$(find basler_tof)/launch/basler_tof.launch" />
+
+   <!--发布TOF相机相对于机械臂末端的静态tf-->
+  <node pkg="tf" type="static_transform_publisher" name="ee_link_to_tof" args="0.628 0 0.362 0 0 0  /ee_link /tof_link 100" />
+
+  <!--bringup zed-->  
+  <include file="$(find zed_wrapper)/launch/zedm.launch" />
+
+   <!--发布两个静态的tf-->
+  <node pkg="tf" type="static_transform_publisher" name="tof_to_zed" args="0.628 0 0.362 0 0 0  /tof_link /zed_link 100" />
+
+  
+</launch>
