@@ -12,13 +12,40 @@
 
 using namespace cv;
 
+bool subscriber_connected_;  // 订阅者连接状态
+ros::Publisher pub;	// 图像发布器
+
+void subscribeCallback()
+{
+  if (pub.getNumSubscribers() > 0)
+  {
+    if (!subscriber_connected_)
+    {
+      ROS_INFO("Starting stream");
+      subscriber_connected_ = true;
+    }
+  }
+  else
+  {
+    if (subscriber_connected_)
+    {
+      ROS_INFO("Stopping stream");
+      //camera_.StopGrab();
+      subscriber_connected_ = false;
+    }
+  }
+}
+
 int main (int argc, char** argv) 
 { 
     //初始化节点 
     ros::init(argc, argv, "interface_camerair"); 
     //声明节点句柄 
     ros::NodeHandle nh;
-	image_transport::ImageTransport it(nh);
+//	image_transport::ImageTransport it(nh);
+
+	ros::SubscriberStatusCallback rsscb = boost::bind(&subscribeCallback);
+
 
 	std::string param_DeviceAddress;
 	int param_Port;
@@ -33,7 +60,8 @@ int main (int argc, char** argv)
 	nh.param<std::string>("PictureName", param_PictureName, "./src/bit_hardware_interface/src/camerair_car.jpg");
 	nh.param<std::string>("MsgName", param_MsgName, "imagecar");
 
-	image_transport::Publisher pub = it.advertise(param_MsgName, 1);
+//	pub = it.advertise(param_MsgName, 1, rsscb,rsscb);
+	pub = nh.advertise<sensor_msgs::Image>(param_MsgName, 1, rsscb, rsscb);
 
     NET_DVR_Init();
 	// 注册设备
@@ -65,14 +93,17 @@ int main (int argc, char** argv)
     ros::Rate loop_rate(20);
     while (nh.ok()) 
 	{
-		char* storeImgPath = const_cast<char*>(param_PictureName.c_str());
-		iRet = NET_DVR_CaptureJPEGPicture(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, storeImgPath);
-		cv::Mat image =cv::imread(storeImgPath);
-		
-		//ByteToMat((BYTE *)sJpegPicBuffer,384,288,24, image);
-		sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+		if (subscriber_connected_)
+		{
+			char* storeImgPath = const_cast<char*>(param_PictureName.c_str());
+			iRet = NET_DVR_CaptureJPEGPicture(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &strPicPara, storeImgPath);
+			cv::Mat image =cv::imread(storeImgPath);
+			
+			//ByteToMat((BYTE *)sJpegPicBuffer,384,288,24, image);
+			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
 
-		pub.publish(msg);
+			pub.publish(msg);
+		}
 
         ros::spinOnce();
         loop_rate.sleep();

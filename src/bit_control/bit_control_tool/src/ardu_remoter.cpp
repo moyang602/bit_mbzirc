@@ -11,8 +11,6 @@
 #define MAX_z 0.6
 serial::Serial ser; //声明串口对象
 
-bool param_use_debug;
-
 /* serial */
 std::string param_port_path_;
 int param_baudrate_;
@@ -38,11 +36,9 @@ int main (int argc, char** argv)
     //发布主题 
     ros::Publisher remo_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel_remo", 1000); 
     
-    //nh.param<bool>("debug_imu", param_use_debug, false);
-	nh.param<std::string>("ardu_remoter_pub/port", param_port_path_, "/dev/ttyUSB0");
+	nh.param<std::string>("ardu_remoter_pub/port", param_port_path_, "/dev/ttyUSB1");
 	nh.param<int>("ardu_remoter_pub/baudrate", param_baudrate_, 9600);
 	nh.param<int>("ardu_remoter_pub/loop_rate", param_loop_rate_, 20);
-    nh.param<bool>("debug_imu",param_use_debug,false);
 
     try 
     { 
