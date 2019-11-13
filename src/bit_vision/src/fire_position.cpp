@@ -634,7 +634,7 @@ int main(int argc, char *argv[])
     //此处需要换成红外左右相机发布消息
     ros::Subscriber subLeft  = nh.subscribe("/cameraIR_arm/imagearm", 1,
                                         imageLeftRectifiedCallback);
-    ros::Subscriber subRight = nh.subscribe("/cameraIR_arm/imagecar", 1,
+    ros::Subscriber subRight = nh.subscribe("/cameraIR_car/imagecar", 1,
                                         imageRightRectifiedCallback);
 
     ros::spin();
