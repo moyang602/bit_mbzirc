@@ -14,28 +14,48 @@ import urx
 
 from geometry_msgs.msg import Twist
 from bit_control_tool.msg import EndEffector
+from bit_control_tool.msg import heightNow
+import bit_motion.msg
+
 
 if sys.version_info[0] < 3:  # support python v2
     input = raw_input
 
 
-def callback(data):
+#=============特征点与运动参数==========
+prePickPos = (-1.57, -1.57, -1.57, -1.57, 1.57, 0)
+upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
+prePutPos = (-1.57,-1.29, 1.4, 1.4, 1.57, 0)
+# -1.57,-1.29, 1.4, 1.4, 1.57, 0
+
+l = 0.05
+v = 0.05*4
+a = 0.3
+r = 0.01
+
+#=====================================
+
+SUCCESS = 1
+FAIL_VISION = 2
+FAIL_ERROR = 3
+FAIL_MOVE = 4
+
+global rob
+global force 
+global ee
+
+def forcecallback(data):
     '''ur_force Callback Function'''
     global force
     force = data.wrench.force.x**2 + data.wrench.force.y**2 + data.wrench.force.z**2
     force = force ** 0.5
 
 def wait():
+    ''' used to debug move one by one step '''
     if do_wait:
         print("Click enter to continue")
         input()
 
- 
-def thread_job():
-    rospy.spin()
-    rob.stopl()
-    rob.close()
-    sys.exit(0)
 
 def settle(wait):
     pose = rob.getl()
@@ -44,29 +64,46 @@ def settle(wait):
     rob.movel(pose, acc=a, vel=v, wait=wait)
 
 
-prePickPos = (-1.57, -1.57, -1.57, -1.57, 1.57, 0)
-upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
-prePutPos = (-1.57, -1.29, 1.47, 1.4, 1.57, 0)
 
 if __name__ == '__main__':
 
 #===================定义一些基本的对象======================#
 
-    rospy.init_node('ur_task',anonymous=True)
+    rospy.init_node('pickbuildAction', anonymous=True)
     pub_ee = rospy.Publisher('endeffCmd',EndEffector,queue_size=1)
     rospy.Subscriber("/wrench", WrenchStamped, callback)
 
-    add_thread = threading.Thread(target = thread_job)
-    add_thread.start()
-    logging.basicConfig(level=logging.INFO)
-
-    # global force 
     ee = EndEffector()
-    
+    normal = 0
     do_wait = True
     if len(sys.argv) > 1:
         do_wait = False
-    
+
+        
+    while(not rospy.is_shutdown()):
+        try :
+            global rob
+            rob = urx.Robot("192.168.50.60",use_rt = True) 
+            normal = 1
+            print('robot ok')
+            rob.set_tcp((0, 0, 0, 0, 0, 0))
+            rob.set_payload(0.0, (0, 0, 0))
+
+            pick_put_act("pickputAction")     # rospy.get_name())  #
+            print('action server ok')
+            rospy.spin() 
+        except:
+            time.sleep(2.0)
+        finally:
+            if normal == 1:
+                rob.stopl()
+                rob.close()
+    sys.exit(0)
+
+
+
+
+
     rob = urx.Robot("192.168.50.60",use_rt = True)
 
 #=========================开始控制==================
@@ -110,6 +147,9 @@ if __name__ == '__main__':
             # wait()
             rob.movej(prePutPos,acc=a, vel=v,wait=True)
             print("arrived pre-pick position")
+
+            # 根据Sequence 反解出砖块的大致位置， 待完成
+            # 判断type是否一致，如果不一致就采取一些措施
 
             # 进行识别
             time.sleep(1.0)

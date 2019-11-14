@@ -28,6 +28,7 @@ upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
 prePutPos = (-1.57,-1.29, 1.4, 1.4, 1.57, 0)
 # -1.57,-1.29, 1.4, 1.4, 1.57, 0
 
+posSequence = [] # 随着摆放的过程不断填充这个list来把位置记录下来
 l = 0.05
 v = 0.05*4
 a = 0.3
@@ -38,7 +39,9 @@ r = 0.01
 SUCCESS = 1
 FAIL_VISION = 2
 FAIL_ERROR = 3
-FAIL_MOVE = 4
+
+TASK_GET = 0
+TASK_BUILD = 1
 
 global rob
 global force 
@@ -64,6 +67,24 @@ def settle(wait):
     rob.movel(pose, acc=a, vel=v, wait=wait)
 
 
+## ================================================== ##
+## ================================================== ##
+##                    Todo List                       ##
+##                                                    ##
+## 1\ 调用视觉的服务进行砖块精确定位                       ##
+## 2\ 根据砖块序号来确定放在车上的位置，并记录到posSequence  ##
+## 3\ 建筑任务的欲放置位置需要根据砖块x,y确定               ##
+## 4\ 建筑任务的放置砖需结合手眼完成                       ##
+##                    Todo List                     ##
+##                    Todo List                     ##
+##                    Todo List                     ##
+##                    Todo List                     ##
+##                    Todo List                     ##
+##                    Todo List                     ##
+##                    Todo List                     ##
+## ================================================ ##
+## ================================================ ##
+
 class pick_put_act(object):
     _feedback = bit_motion.msg.pickputFeedback()
     _result = bit_motion.msg.pickputResult()
@@ -79,7 +100,7 @@ class pick_put_act(object):
         self._feedback.move_rightnow = info
         self._as.publish_feedback(self._feedback)
 
-    def execute_cb(self, goal_brick):
+    def execute_cb(self, goal):
         # helper variables
         # r = rospy.Rate(1)
         self._result.finish_state = SUCCESS
@@ -92,14 +113,21 @@ class pick_put_act(object):
             print("Transformation from base to tcp is: ", t)
             
             # wait()
-            rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
-            self.show_tell("arrived pre-pick position")
+            if goal.task == TASK_GET:
+                rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
+                self.show_tell("arrived pre-pick position")
+            elif goal.task == TASK_BUILD:
+                rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
+                self.show_tell("arrived pre-put position")
+                rob.movel(posSequence[goal.goal_brick.Sequence],acc=a, vel=3*v, wait=True, relative=True)
+                self.show_tell("arrived Brick remembered position")
 
             # 进行识别
-            # client(goal_brick.type)
+            # client(goal.goal_brick.type)
             ## server ask vision! wait and try some times
             rospy.sleep(1.0)
 
+            # 得到识别结果如下
             theta = -0.5
             x = 0.1
             y = 0.1
@@ -110,7 +138,6 @@ class pick_put_act(object):
                 self._result.finish_state = FAIL_VISION
                 return 0
             
-
             # 得到识别结果，移动到砖块上方，平移和旋转末端
             initj = rob.getl()
             initj[0] += -x
@@ -123,11 +150,11 @@ class pick_put_act(object):
             initj[5] = 0 
             rob.movel(initj, acc=a, vel=v, wait=True)
             rospy.sleep(2.0)
-            self.show_tell("Arrived block up 0.1m position,begin settle")
+            self.show_tell("Arrived block up 0.1m position pependicular to ground")
 
             # wait()
-            # 伪力控
-            rob.translate((0,0,-0.2), acc=a, vel=v, wait=False)
+            # 伪力控下落
+            rob.translate((0,0,-0.3), acc=a, vel=v, wait=False)
             _force_prenvent_wrongdata_ = 0
             while force < 15:
                 _force_prenvent_wrongdata_ += 1
@@ -139,7 +166,6 @@ class pick_put_act(object):
                     break
             rob.stopl()
             self.show_tell("Reached Block")
-
 
             # wait()
             # 操作末端
@@ -159,14 +185,20 @@ class pick_put_act(object):
             # rob.movej(upHeadPos,acc=a, vel=v,wait=True)
             # self.show_tell("arrived Head-up position")
 
-
             # wait()
             # 移动到预放置位置
-            rob.movej(prePutPos,acc=a, vel=v,wait=True)
-            self.show_tell("arrived pre-Put position")
-
-
-            # 需要加入砖块信息来确定定位
+            if goal.task == TASK_GET:
+                rob.movej(prePutPos,acc=a, vel=v,wait=True)
+                self.show_tell("arrived pre-Put position")
+                # 需要加入砖块信息来确定定位
+                # 使用砖块的序列信息来计算自己需要放在那个位置，待完成
+                # 移动到位，并记录posSequence = f(goal.goal_brick.Sequence)
+                posSequence[goal.goal_brick.Sequence] = prePutPos
+            elif goal.task == TASK_BUILD:
+                rob.movej(prePickPos,acc=a, vel=3*v,wait=True)      # 有问题，需要移动到砖xy，解算出的位置
+                self.show_tell("arrived pre-Build position")
+                # 配合手眼移动到摆放的位置
+                
             # wait()
             # 伪力控放置
             rob.translate((0, 0, -0.3), acc=a, vel=v, wait=False)
@@ -182,20 +214,21 @@ class pick_put_act(object):
             rob.stopl()
             self.show_tell("Put Down")
 
-            # wait()
             # 释放末端
             rospy.sleep(1.0)
             ee.MagState = 0
             pub_ee.publish(ee)
             rospy.sleep(1.0)
 
-            # wait()
-            rob.movej(prePutPos,acc=a, vel=v,wait=True)
-            self.show_tell("arrived pre-Put position, finished")
+            if goal.task == TASK_GET:
+                rob.movej(prePutPos,acc=a, vel=v,wait=True)
+                self.show_tell("arrived pre-Put position, finished")
+            elif goal.task == TASK_BUILD:
+                rob.movej(prePickPos,acc=a, vel=v,wait=True)
+                self.show_tell("arrived pre-Build position, finished")
 
         except Exception as e:
-            print(e)
-            rospy.loginfo("error")
+            print("error", e)
             self._result.finish_state = FAIL_ERROR
             self._as.set_aborted(self._result)
             rob.stopl()
@@ -227,12 +260,12 @@ if __name__ == '__main__':
             global rob
             rob = urx.Robot("192.168.50.60",use_rt = True) 
             normal = 1
-            print('robot ok')
+            rospy.loginfo('robot ok')
             rob.set_tcp((0, 0, 0, 0, 0, 0))
             rob.set_payload(0.0, (0, 0, 0))
 
             pick_put_act("pickputAction")     # rospy.get_name())  #
-            print('action server ok')
+            rospy.loginfo('action server ok')
             rospy.spin() 
         except:
             time.sleep(2.0)
