@@ -37,24 +37,24 @@
   <!--property name="wrist_2_length" value="0.09465" /-->
   <!-- In CAD this distance is 0.930, but in the spec it is 0.09465 -->
   <!--property name="wrist_3_length" value="0.0823" /-->
-  <!-- manually measured 
+  <!-- manually measured -->
 <link name="world" />
 
   <joint name="world_joint" type="fixed">
     <parent link="world" />
     <child link = "car_link" />
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-  </joint>-->
+  </joint>
 
   <link name="car_link">
     <visual>
       <geometry>
-        <mesh filename="package://bit_robotcar/meshes/car_link.dae"/>
+        <mesh filename="package://bit_bit_robotcar/meshes/car_link.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
       </material>
-    </visual>+
+    </visual>
     <collision>
       <geometry>
         <mesh filename="package://bit_robotcar/meshes/car_link.dae"/>
@@ -66,7 +66,6 @@
       <inertia ixx="29.73" ixy="0.0" ixz="0.0" iyy="49.44" iyz="0.0" izz="71.42"/>
     </inertial>
   </link>
-
   <joint name="car_base_joint" type="fixed">
     <parent link="car_link"/>
     <child link="base_link"/>
@@ -105,7 +104,6 @@
     <limit effort="150.0" lower="-6.28318530718" upper="6.28318530718" velocity="3.15"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
-
   <link name="shoulder_link">
     <visual>
       <geometry>
@@ -126,7 +124,6 @@
       <inertia ixx="0.010267495893" ixy="0.0" ixz="0.0" iyy="0.010267495893" iyz="0.0" izz="0.00666"/>
     </inertial>
   </link>
-
   <joint name="shoulder_lift_joint" type="revolute">
     <parent link="shoulder_link"/>
     <child link="upper_arm_link"/>
@@ -135,7 +132,6 @@
     <limit effort="150.0" lower="-6.28318530718" upper="6.28318530718" velocity="3.15"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
-
   <link name="upper_arm_link">
     <visual>
       <geometry>
@@ -156,7 +152,6 @@
       <inertia ixx="0.22689067591" ixy="0.0" ixz="0.0" iyy="0.22689067591" iyz="0.0" izz="0.0151074"/>
     </inertial>
   </link>
-
   <joint name="elbow_joint" type="revolute">
     <parent link="upper_arm_link"/>
     <child link="forearm_link"/>
@@ -165,7 +160,6 @@
     <limit effort="150.0" lower="-3.14159265359" upper="3.14159265359" velocity="3.15"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
-
   <link name="forearm_link">
     <visual>
       <geometry>
@@ -186,7 +180,6 @@
       <inertia ixx="0.049443313556" ixy="0.0" ixz="0.0" iyy="0.049443313556" iyz="0.0" izz="0.004095"/>
     </inertial>
   </link>
-
   <joint name="wrist_1_joint" type="revolute">
     <parent link="forearm_link"/>
     <child link="wrist_1_link"/>
@@ -195,7 +188,6 @@
     <limit effort="28.0" lower="-6.28318530718" upper="6.28318530718" velocity="3.2"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
-
   <link name="wrist_1_link">
     <visual>
       <geometry>
@@ -216,7 +208,6 @@
       <inertia ixx="0.111172755531" ixy="0.0" ixz="0.0" iyy="0.111172755531" iyz="0.0" izz="0.21942"/>
     </inertial>
   </link>
-
   <joint name="wrist_2_joint" type="revolute">
     <parent link="wrist_1_link"/>
     <child link="wrist_2_link"/>
@@ -225,7 +216,6 @@
     <limit effort="28.0" lower="-6.28318530718" upper="6.28318530718" velocity="3.2"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
-
   <link name="wrist_2_link">
     <visual>
       <geometry>
@@ -246,7 +236,6 @@
       <inertia ixx="0.111172755531" ixy="0.0" ixz="0.0" iyy="0.111172755531" iyz="0.0" izz="0.21942"/>
     </inertial>
   </link>
-
   <joint name="wrist_3_joint" type="revolute">
     <parent link="wrist_2_link"/>
     <child link="wrist_3_link"/>
@@ -255,7 +244,6 @@
     <limit effort="28.0" lower="-6.28318530718" upper="6.28318530718" velocity="3.2"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
-
   <link name="wrist_3_link">
     <visual>
       <geometry>
@@ -276,22 +264,31 @@
       <inertia ixx="0.0171364731454" ixy="0.0" ixz="0.0" iyy="0.0171364731454" iyz="0.0" izz="0.033822"/>
     </inertial>
   </link>
-
-  <joint name="ee_fixed_joint" type="fixed">
+  <joint name="grasping_frame_joint" type="fixed">
     <parent link="wrist_3_link"/>
-    <child link="ee_link"/>
-    <origin rpy="0.0 0.0 1.57079632679" xyz="0.0 0.0823 0.0"/>
+    <child link ="grasping_frame"/>
+    <origin xyz="0 0.08725 0" rpy="0 0 0"/>
   </joint>
-
-  <link name="ee_link">
-    <collision>
+  <link name="grasping_frame">
+    <visual>
       <geometry>
-        <box size="0.01 0.01 0.01"/>
+        <mesh filename="package://bit_robotcar/meshes/ur5/visual/endEffector.dae"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="-0.01 0 0"/>
-    </collision>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <!-- <collision>
+      <geometry>
+        <mesh filename="package://robotcar/meshes/ur5/collision/wrist3.stl"/>
+      </geometry>
+    </collision> -->
+    <inertial>
+      <mass value="0.1879"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <inertia ixx="0.0171364731454" ixy="0.0" ixz="0.0" iyy="0.0171364731454" iyz="0.0" izz="0.033822"/>
+    </inertial>
   </link>
-
   <transmission name="shoulder_pan_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="shoulder_pan_joint">
