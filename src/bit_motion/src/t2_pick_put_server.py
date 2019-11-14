@@ -18,6 +18,7 @@ from bit_control_tool.msg import EndEffector
 from bit_control_tool.msg import heightNow
 import bit_motion.msg
 
+from bit_vision.srv import *
 
 if sys.version_info[0] < 3:  # support python v2
     input = raw_input
@@ -66,6 +67,14 @@ def settle(wait):
     pose[5] = 0
     rob.movel(pose, acc=a, vel=v, wait=wait)
 
+def GetLocateData_client():
+    rospy.wait_for_service('GetLocateData')
+    try:
+        get_locate_data = rospy.ServiceProxy('GetLocateData',BrickLocate)
+        respl = get_locate_data()
+        return respl.LocateData
+    except rospy.ServiceException, e:
+        print "Service GetLocateData call failed: %s"%e
 
 ## ================================================== ##
 ## ================================================== ##
@@ -127,16 +136,20 @@ class pick_put_act(object):
             # client(goal.goal_brick.type)
             ## server ask vision! wait and try some times
             rospy.sleep(1.0)
+            while True:
+                LocateData = GetLocateData_client()
+                if LocateData.flag:
+                    break
 
             # 得到识别结果如下
             # theta = -0.5
-            # x = 0.1
-            # y = 0.1
+            # x = 0.0
+            # y = 0.0
             # z = 0.4
-            theta = -0.5
-            x = 0
-            y = 0
-            z = 0.4
+            x = LocateData.position.x
+            y = LocateData.position.y
+            z = LocateData.position.z
+            theta = 0
 
             self.show_tell("Got recognition results")
             if 0:

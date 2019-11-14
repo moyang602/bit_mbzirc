@@ -35,7 +35,9 @@
 #include "halcon_image.h"
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
+#include "tf/transform_broadcaster.h"
 #include "bit_vision/BrickLocate.h"
+
 
 using namespace std;
 using namespace HalconCpp;
@@ -463,7 +465,7 @@ int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R)
 }
 
 // service 回调函数，输入参数req，输出参数res
-bool GetLocateDate(bit_vision::BrickLocate::Request& ,
+bool GetLocateData(bit_vision::BrickLocate::Request& ,
                    bit_vision::BrickLocate::Response& res)
 {
   if (stero_location(Xl,Yl,Xr,Yr)==0)   // 如果有识别结果
@@ -476,6 +478,15 @@ bool GetLocateDate(bit_vision::BrickLocate::Request& ,
     res.LocateData.position.x = Brick_X.D();
     res.LocateData.position.y = Brick_Y.D();
     res.LocateData.position.z = Brick_Z.D();
+
+    // 发布TF   zed_link——>target_link
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
+    tf::Quaternion q;
+    q.setRPY(0, 0, 0);
+    transform.setRotation(q);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "zed_link", "target_link"));
 
     ROS_INFO_STREAM("Brick Color is: "<<brick_color_L.S()<<"  Location is : "<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
   }
@@ -500,9 +511,9 @@ int main(int argc, char *argv[])
 
   // 接收zed左右相机图像
   ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
-  ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);
-
-  ros::ServiceServer service = nh.advertiseService("GetLocateDate",GetLocateDate);
+  ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);  
+  // 服务-计算砖堆位置
+  ros::ServiceServer service = nh.advertiseService("GetLocateData",GetLocateData);
 
   // 初始化左右相机定位数据
   Xl = 0;
