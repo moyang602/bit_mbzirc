@@ -35,13 +35,17 @@
 #include "halcon_image.h"
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
-#include "bit_vision/LocateInfo.h"
+#include "bit_vision/BrickLocate.h"
 
 using namespace std;
 using namespace HalconCpp;
 
-ros::Publisher pub;
-bit_vision::LocateInfo bricklocateInfo;
+//定义全局变量 用于三维坐标的传递
+static HTuple Xl,Yl,Xr,Yr;    // 左右相机定位目标的像素位置
+static HTuple brick_color_L, brick_color_R;    // 左右相机识别的颜色信息
+//定义传递三维坐标的全局变量
+static HTuple Brick_X,Brick_Y,Brick_Z;
+
 // Procedure declarations 
 // Local procedures 
 void classify (HObject ho_Regions, HTuple hv_MLPHandle, HTuple *hv_Classes);
@@ -181,16 +185,15 @@ void segment (HObject ho_Image, HObject *ho_Regions)
   return;
 }
 
-//定义全局变量 用于三维坐标的传递
-static HTuple Xl,Yl,Xr,Yr;
-static HTuple brick_color;
 
+/***************************************************************************
+   自己的程序开始
+***************************************************************************/
 
 
 // Main procedure 
 void actionL(HObject Image)
 {
-
   // Local iconic variables
   HObject  ho_ImageL, ho_ClassRegions, ho_ImageR;
   HObject  ho_ClassRegions2, ho_ClassRed, ho_ClassGreen, ho_ClassBLue;
@@ -220,7 +223,6 @@ void actionL(HObject Image)
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
 
   ClassifyImageClassMlp(Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-
 
   SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
   SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
@@ -280,7 +282,7 @@ void actionL(HObject Image)
     hv_class = "blue";
   }
 
-  brick_color = hv_class;
+  brick_color_L = hv_class;
 
   hv_row_L = HTuple(hv_rows[hv_index]);
   hv_column_L = HTuple(hv_columns[hv_index]);
@@ -382,7 +384,7 @@ void actionR(HObject Image)
     hv_class = "blue";
   }
 
-  brick_color = hv_class;
+  brick_color_L = hv_class;
 
   hv_row_L = HTuple(hv_rows[hv_index]);
   hv_column_L = HTuple(hv_columns[hv_index]);
@@ -394,54 +396,6 @@ void actionR(HObject Image)
   
 }
 
-//定义传递三维坐标的全局变量
-static HTuple Brick_X,Brick_Y,Brick_Z;
-
-//定义根据标定参数 定位三维点的函数
-void stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R)
-{
-   
-  HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
-  HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
-  
-  ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
-  ReadCamPar("./src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
-  ReadPose("./src/bit_vision/model/relpose.dat", &hv_RealPose);
-  //三维定位
-  try
-  {
-      IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
-      row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
-
-      Brick_X = hv_X;
-      Brick_Y = hv_Y;
-      Brick_Z = hv_Z;
-
-      bricklocateInfo.header.stamp = ros::Time().now();
-      bricklocateInfo.header.frame_id = "camera_link";
-
-      bricklocateInfo.flag = true;
-      bricklocateInfo.BrickType = brick_color.S();
-      bricklocateInfo.position.x = Brick_X.D();
-      bricklocateInfo.position.y = Brick_Y.D();
-      bricklocateInfo.position.z = Brick_Z.D();
-  }
-  catch (HException &exception)
-  {
-      bricklocateInfo.header.stamp = ros::Time().now();
-      bricklocateInfo.header.frame_id = "camera_link";
-
-      bricklocateInfo.flag = false;
-      bricklocateInfo.BrickType = "Null";
-      bricklocateInfo.position.x = 0.0;
-      bricklocateInfo.position.y = 0.0;
-      bricklocateInfo.position.z = 0.0;
-  }
-
-  
-
-}
-
 void LeftCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
     //初始化halcon对象
@@ -450,10 +404,9 @@ void LeftCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
+    // 处理左图图像
     actionL(ho_Image);
 }
-
-
 
 void RightCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
@@ -464,56 +417,104 @@ void RightCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
+    // 处理右图图像
     actionR(ho_Image);
 
 }
 
 
-int main(int argc, char *argv[])
+//定义根据标定参数 定位三维点的函数
+int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R)
 {
-  int ret = 0;
-
-  Xl = 0;
-  Yl = 0;
-  Xr = 0;
-  Yr = 0;
-
-
-  ros::init(argc, argv, "brick_locate");
-
-  ros::NodeHandle nh; 
-
+   
+  HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
+  HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
+  
+  //三维定位
   try
   {
-    
-    ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
-    ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);
-    pub = nh.advertise<bit_vision::LocateInfo>("LocateResult",2);
-    
-    //ros::spin();
-    ros::Rate loop_rate(5);
-    
-    while (ros::ok())
+    if ((brick_color_L == brick_color_R) == 0)
     {
-        stero_location(Xl,Yl,Xr,Yr);
-
-        //ROS_INFO_STREAM("Location is : "<<Xl.D()<<","<<Yl.D()<<","<<Xr.D()<<","<<Yr.D());
-     
-        pub.publish(bricklocateInfo);
-        ros::spinOnce();
-        loop_rate.sleep();
+      ROS_WARN_STREAM("Left color isn't match Right color");
+      return 1;
     }
-    return 0;
+   
+    ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
+    ReadCamPar("./src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
+    ReadPose("./src/bit_vision/model/relpose.dat", &hv_RealPose);
 
+    IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
+    row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
+
+    Brick_X = hv_X;
+    Brick_Y = hv_Y;
+    Brick_Z = hv_Z;
+
+    return 0;
   }
   catch (HException &exception)
   {
     ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
-    ret = 1;
+    return 1;
   }
-  return ret;
+
+}
+
+// service 回调函数，输入参数req，输出参数res
+bool GetLocateDate(bit_vision::BrickLocate::Request& ,
+                   bit_vision::BrickLocate::Response& res)
+{
+  if (stero_location(Xl,Yl,Xr,Yr)==0)   // 如果有识别结果
+  {
+    res.LocateData.header.stamp = ros::Time().now();
+    res.LocateData.header.frame_id = "zed_link";
+
+    res.LocateData.flag = true;
+    res.LocateData.BrickType = brick_color_L.S();
+    res.LocateData.position.x = Brick_X.D();
+    res.LocateData.position.y = Brick_Y.D();
+    res.LocateData.position.z = Brick_Z.D();
+
+    ROS_INFO_STREAM("Brick Color is: "<<brick_color_L.S()<<"  Location is : "<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
+  }
+  else    // 如果没有识别结果
+  {
+    res.LocateData.header.stamp = ros::Time().now();
+    res.LocateData.header.frame_id = "zed_link";
+
+    res.LocateData.flag = false;
+    res.LocateData.BrickType = "NULL";
+    res.LocateData.position.x = 0.0;
+    res.LocateData.position.y = 0.0;
+    res.LocateData.position.z = 0.0;
+  }
+}
+
+int main(int argc, char *argv[])
+{
+  ros::init(argc, argv, "brick_locate");
+
+  ros::NodeHandle nh; 
+
+  // 接收zed左右相机图像
+  ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
+  ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);
+
+  ros::ServiceServer service = nh.advertiseService("GetLocateDate",GetLocateDate);
+
+  // 初始化左右相机定位数据
+  Xl = 0;
+  Yl = 0;
+  Xr = 0;
+  Yr = 0;
+
+  ROS_INFO_STREAM("Ready to get brick locate info");
+
+  ros::spin();
+
+  return 0;
 }
 
 
