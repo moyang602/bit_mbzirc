@@ -227,7 +227,7 @@ target_link_libraries(task2_action
 )
 
 add_executable(task2_action_sub
-  src/task2_action_sub.cpp
+  src/task2_action_test.cpp
 )
 add_dependencies(task2_action_sub ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(task2_action_sub

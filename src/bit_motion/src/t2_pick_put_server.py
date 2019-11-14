@@ -75,15 +75,15 @@ def settle(wait):
 ## 2\ 根据砖块序号来确定放在车上的位置，并记录到posSequence  ##
 ## 3\ 建筑任务的欲放置位置需要根据砖块x,y确定               ##
 ## 4\ 建筑任务的放置砖需结合手眼完成                       ##
-##                    Todo List                     ##
-##                    Todo List                     ##
-##                    Todo List                     ##
-##                    Todo List                     ##
-##                    Todo List                     ##
-##                    Todo List                     ##
-##                    Todo List                     ##
-## ================================================ ##
-## ================================================ ##
+##                                                    ##
+##                                                    ##
+##                                                    ##
+##                                                    ##
+##                                                    ##
+##                                                    ##
+##                                                    ##
+## ================================================== ##
+## ================================================== ##
 
 class pick_put_act(object):
     _feedback = bit_motion.msg.pickputFeedback()
@@ -119,7 +119,8 @@ class pick_put_act(object):
             elif goal.task == TASK_BUILD:
                 rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-put position")
-                rob.movel(posSequence[goal.goal_brick.Sequence],acc=a, vel=3*v, wait=True, relative=True)
+                print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
+                rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=3*v,wait=True, relative=True )
                 self.show_tell("arrived Brick remembered position")
 
             # 进行识别
@@ -128,9 +129,13 @@ class pick_put_act(object):
             rospy.sleep(1.0)
 
             # 得到识别结果如下
+            # theta = -0.5
+            # x = 0.1
+            # y = 0.1
+            # z = 0.4
             theta = -0.5
-            x = 0.1
-            y = 0.1
+            x = 0
+            y = 0
             z = 0.4
 
             self.show_tell("Got recognition results")
@@ -189,13 +194,15 @@ class pick_put_act(object):
             # 移动到预放置位置
             if goal.task == TASK_GET:
                 rob.movej(prePutPos,acc=a, vel=v,wait=True)
-                self.show_tell("arrived pre-Put position")
+                self.show_tell("arrived pre-Put position %d" % goal.goal_brick.Sequence)
+                delta = (0.1, goal.goal_brick.Sequence * 0.2 , 0, 0, 0, 0)
+                rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
                 # 需要加入砖块信息来确定定位
                 # 使用砖块的序列信息来计算自己需要放在那个位置，待完成
                 # 移动到位，并记录posSequence = f(goal.goal_brick.Sequence)
-                posSequence[goal.goal_brick.Sequence] = prePutPos
+                posSequence.append(delta)
             elif goal.task == TASK_BUILD:
-                rob.movej(prePickPos,acc=a, vel=3*v,wait=True)      # 有问题，需要移动到砖xy，解算出的位置
+                rob.movej(prePickPos,acc=a, vel=v,wait=True)      # 有问题，需要移动到砖xy，解算出的位置
                 self.show_tell("arrived pre-Build position")
                 # 配合手眼移动到摆放的位置
                 
@@ -221,10 +228,10 @@ class pick_put_act(object):
             rospy.sleep(1.0)
 
             if goal.task == TASK_GET:
-                rob.movej(prePutPos,acc=a, vel=v,wait=True)
+                rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-Put position, finished")
             elif goal.task == TASK_BUILD:
-                rob.movej(prePickPos,acc=a, vel=v,wait=True)
+                rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-Build position, finished")
 
         except Exception as e:
