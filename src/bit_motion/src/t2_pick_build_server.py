@@ -113,9 +113,9 @@ if __name__ == '__main__':
 
     # print("Digital out 0 and 1 are: ", rob.get_digital_out(0), rob.get_digital_out(1))
     # print("Analog inputs are: ", rob.get_analog_inputs())
-    #print("force" ,rob.get_force(wait = True))
+    # print("force" ,rob.get_force(wait = True))
     # wait()
-    #rob.translate((l, 0, 0), acc=a, vel=v)
+    # rob.translate((l, 0, 0), acc=a, vel=v)
 
     # # move to perpendicular to ground
     # pose = rob.getl()
@@ -130,7 +130,7 @@ if __name__ == '__main__':
     rob.set_payload(0.0, (0, 0, 0))
     l = 0.05
     v = 0.05*4
-    a = 0.3
+    a = 0.3     
     r = 0.01
 
     cnt = 1     #任务次数

@@ -6,7 +6,7 @@
 #include<geometry_msgs/Twist.h>
 #include<bit_control_tool/heightNow.h>
 #include<bit_control_tool/EndEffector.h>
-
+#include "tf/transform_broadcaster.h"
 
 serial::Serial ser; //声明串口对象
 
@@ -144,6 +144,15 @@ int main (int argc, char** argv)
         if (hn.x >320 && hn.x <670){
             height_pub.publish(hn);
         }  
+
+        // 发布TF   zed_link——>target_link
+        static tf::TransformBroadcaster br;
+        tf::Transform transform;
+        transform.setOrigin(tf::Vector3(0, 0, hn.x/1000.0));
+        tf::Quaternion q;
+        q.setRPY(0, 0, 0);
+        transform.setRotation(q);
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "car_link", "base_link"));
 
         //处理ROS的信息，比如订阅消息,并调用回调函数 
         ros::spinOnce(); 

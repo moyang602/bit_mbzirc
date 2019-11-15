@@ -53,7 +53,6 @@ using namespace HalconCpp;
 ros::Publisher pub;
 bit_vision::LocateInfo firelocateInfo;
 
-
 using namespace HalconCpp;
 
 // Procedure declarations 
