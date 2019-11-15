@@ -15,7 +15,7 @@ void doneCd(const actionlib::SimpleClientGoalState& state, const bit_plan::build
 {
     
     ROS_INFO("Building task finished, State: %d",result->finish_state);
-    ros::shutdown();
+ //   ros::shutdown();
 }
 
 /*
@@ -52,26 +52,30 @@ int main(int argc, char *argv[])
 
 
     /* 读取建筑蓝图 */
+ //   while (condition)
+    {
+        bit_task::BrickInfo brick;
+        brick.Sequence = 1;
+        brick.type = 1;
+        brick.x = 1;
+        brick.y = 1;
 
-    bit_task::BrickInfo brick;
-    brick.Sequence = 1;
-    brick.type = 1;
-    brick.x = 1;
-    brick.y = 1;
+        ugv_brick.insert(ugv_brick.begin(),brick);
+        ugv_brick.insert(ugv_brick.begin(),brick);
+        ugv_brick.insert(ugv_brick.begin(),brick);
 
-    ugv_brick.insert(ugv_brick.begin(),brick);
-    ugv_brick.insert(ugv_brick.begin(),brick);
-    ugv_brick.insert(ugv_brick.begin(),brick);
+        /* 循环调用UAV 与 UGV action 服务器 */
 
-    /* 循环调用UAV 与 UGV action 服务器 */
-
-    // UGV action 部分
-    ugv_building_goal.goal_task.header.stamp = ros::Time::now();
-    ugv_building_goal.goal_task.header.frame_id = "map";
-    ugv_building_goal.goal_task.Num = 3;    // 从蓝图中获取
-    ugv_building_goal.goal_task.bricks = ugv_brick;
+        // UGV action 部分
+        ugv_building_goal.goal_task.header.stamp = ros::Time::now();
+        ugv_building_goal.goal_task.header.frame_id = "map";
+        ugv_building_goal.goal_task.Num = 3;    // 从蓝图中获取
+        ugv_building_goal.goal_task.bricks = ugv_brick;
+        
+        client.sendGoal(ugv_building_goal, &doneCd, &activeCd, &feedbackCb);
+    }
     
-    client.sendGoal(ugv_building_goal, &doneCd, &activeCd, &feedbackCb);
+    
 
     ros::spin();
 

@@ -419,75 +419,11 @@ void set_display_font (HTuple hv_WindowHandle, HTuple hv_Size, HTuple hv_Font, H
 }
 
 //定义全局变量
-static HTuple xL,yL,xR,yR;
+static HTuple x, y;
 
 
 // Main procedure 
-void actionL(HObject Image)
-{
-
-  // Local iconic variables
-  HObject  ho_Img1, ho_Rectangle, ho_Image1, ho_ConnectedRegion1, ho_SelectedRegions1;
-  HObject  ho_Image11, ho_Image12, ho_Image13, ho_ImageResult11, ho_ImageResult12;
-  HObject  ho_ImageResult13, ho_Region1, ho_RegionOpening1;
-  HObject  ho_RegionClosing1, ho_RegionFillUp1, ho_ImageReduced1;
-  HObject  ho_RegionBorder1, ho_Contours1, ho_Rectangle1, ho_Cross1, ho_Cross2;
-
-  // Local control variables
-  
-  HTuple  hv_Width, hv_Height, hv_WindowHandle;
-  HTuple  hv_Number1, hv_Number2, hv_k, hv_Row1, hv_Column1;
-  HTuple  hv_Phi1, hv_Length11, hv_Length12, hv_PointOrder1;
-
-
-  //ReadImage(&ho_Img1, "C:/Users/Admin/Documents/fire-detection/infrared1.jpeg");
-  GetImageSize(Image, &hv_Width, &hv_Height);
-  dev_open_window_fit_image(Image, 0, 0, hv_Width, hv_Height, &hv_WindowHandle);
-  if (HDevWindowStack::IsOpen())
-    DispObj(Image, HDevWindowStack::GetActive());
-  set_display_font(hv_WindowHandle, 15, "mono", "true", "false");
-  GenRectangle1(&ho_Rectangle, 0, 0, 288, 360);
-  ReduceDomain(Image, ho_Rectangle, &ho_Image1); 
-
-  Decompose3(ho_Image1, &ho_Image11, &ho_Image12, &ho_Image13);
-  
-  Threshold(ho_Image12, &ho_Region1, 155, 255);
-  OpeningCircle(ho_Region1, &ho_RegionOpening1, 1.5);
-  ClosingCircle(ho_RegionOpening1, &ho_RegionClosing1, 1);
-  FillUp(ho_Region1, &ho_RegionFillUp1);
-  //reduce_domain (ImageResult12, RegionFillUp1, ImageReduced1)
-  Connection(ho_Region1, &ho_ConnectedRegion1);
-  SelectShape(ho_ConnectedRegion1, &ho_SelectedRegions1, "max_diameter", "and", 20, 
-      999);
-  CountObj(ho_SelectedRegions1, &hv_Number1);
-  ReduceDomain(ho_Image1, ho_SelectedRegions1, &ho_ImageReduced1);
-
-  if (0 != (HTuple(hv_Number1!=0)))
-  {
-    hv_k = 1;
-    if (HDevWindowStack::IsOpen())
-      SetLineWidth(HDevWindowStack::GetActive(),1);
-    Boundary(ho_SelectedRegions1, &ho_RegionBorder1, "inner");
-    GenContourRegionXld(ho_RegionBorder1, &ho_Contours1, "center");
-    FitRectangle2ContourXld(ho_Contours1, "regression", -1, 0, 0, 3, 2, &hv_Row1, 
-        &hv_Column1, &hv_Phi1, &hv_Length11, &hv_Length12, &hv_PointOrder1);
-    GenRectangle2ContourXld(&ho_Rectangle1, hv_Row1, hv_Column1, hv_Phi1, hv_Length11, 
-        hv_Length12);
-
-    GenCrossContourXld(&ho_Cross1, hv_Row1, hv_Column1, 6, hv_Phi1);
-
-    xL = hv_Row1;
-    yL = hv_Column1;
-
-  }
-  else
-  {
-    set_display_font(hv_WindowHandle, 20, "mono", "true", "false");
-    disp_message(hv_WindowHandle, "No fire detected", "image", 0, 0, "red", "true");
-  }
-}
-
-void actionR(HObject Image)
+void action(HObject Image)
 {
 
   // Local iconic variables
@@ -510,9 +446,16 @@ void actionR(HObject Image)
   if (HDevWindowStack::IsOpen())
     CloseWindow(HDevWindowStack::Pop());
 
-  //ReadImage(&ho_Img1, "C:/Users/Admin/Documents/fire-detection/infrared1.jpeg");
   GetImageSize(Image, &hv_Width, &hv_Height);
+  dev_open_window_fit_image(Image, 0, 0, hv_Width, hv_Height, &hv_WindowHandle);
+  if (HDevWindowStack::IsOpen())
+    DispObj(Image, HDevWindowStack::GetActive());
+  set_display_font(hv_WindowHandle, 15, "mono", "true", "false");
+  GenRectangle1(&ho_Rectangle, 0, 0, 288, 360);
   ReduceDomain(Image, ho_Rectangle, &ho_Image1);
+  if (HDevWindowStack::IsOpen())
+    DispObj(Image, HDevWindowStack::GetActive());
+
   Decompose3(ho_Image1, &ho_Image11, &ho_Image12, &ho_Image13);
   
   //阈值分割 选出面积最大的区域
@@ -540,8 +483,8 @@ void actionR(HObject Image)
 
     GenCrossContourXld(&ho_Cross1, hv_Row1, hv_Column1, 6, hv_Phi1);
 
-    xR = hv_Row1;
-    yR = hv_Column1;
+    x = hv_Row1;
+    y = hv_Column1;
 
   }
   else
@@ -554,33 +497,66 @@ void actionR(HObject Image)
 static HTuple fire_X,fire_Y,fire_Z;
 
 //读入相机标定参数  三维定位
-void fire_position(HTuple rowL,HTuple colomnL,HTuple rowR,HTuple colomnR)
+void fire_location(HTuple row,HTuple colomn)
 {
-  HTuple hv_CameraParameters1, hv_CameraParameters2,hv_RealPose;
-  HTuple hv_X, hv_Y, hv_Z, hv_Dist;
+  HObject ho_Image;
+  HTuple hv_CameraParameters1, hv_RealPose;
+  HTuple hv_X, hv_Y, hv_Z, hv_Dist, hv_PixelPosition;
+  HTuple hv_CenterX, hv_CenterY, hv_FocalLength;
+  HTuple hv_Rotation1, hv_Rotation2, hv_Rotation3, hv_Transition;
+  HTuple hv_Intrinsics, hv_Extrinsics, hv_size;
+  HTuple hv_X, hv_Y, hv_Z, hv_RealPosition;
+  HTuple hv_InvIntrinsics, hv_InvExtrinsics;
 
-  ReadCamPar("campar1.dat", &hv_CameraParameters1);
-  ReadCamPar("campar2.dat", &hv_CameraParameters2);
-  ReadPose("relpose.dat", &hv_RealPose);
 
-  IntersectLinesOfSight(hv_CameraParameters1, hv_CameraParameters2, hv_RealPose, 
-        rowL, colomnL, rowR, colomnR, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
+  /*ReadCamPar("campar1.dat", &hv_CameraParameters1);
+  ReadPose("relpose.dat", &hv_RealPose);*/
+
+  //红外相机参数
+  hv_FocalLength = 
+  hv_CenterX = 
+  hv_CenterY = 
+  hv_Rotation1 := [];
+  hv_Rotation2 := [];
+  hv_Rotation3 := [];
+  hv_Transition := [];
+  
+  create_matrix (3, 3, 0, hv_Intrinsics);
+  create_matrix (3, 3, hv_Rotation1, hv_Rotation2, hv_Transition, hv_Extrinsics);
+  create_matrix (3, 1, 0, hv_RealPosition);
+  create_matrix (3, 1, row, column, 1, hv_PixelPosition);
+
+  //尺度因子
+  hv_size = 
+
+
+  //单目红外相机定位
+  invert_matrix (hv_Extrinsics, 'general', 0, hv_InvExtrinsics);
+  invert_matrix (hv_Intrinsics, 'general', 0, hv_InvIntrinsics);
+  mult_matrix (hv_size, hv_PixelPosition, 'AB', hv_Intermediate1);
+  mult_matrix (hv_InvIntrinsics, hv_Intermediate1, 'AB', hv_Intermediate2);
+  mult_matrix (hv_InvExtrinsics, hv_Intermediate2, 'AB', hv_RealPosition);
+  hv_X = get_value_matrix (hv_RealPosition, 1, 1, value);
+  hv_Y = get_value_matrix (hv_RealPosition, 2, 1, value);
+  hv_Z = ;
+
+
   fire_X = hv_X;
   fire_Y = hv_Y;
   fire_Z = hv_Z;
 
   //info需要改名
   firelocateInfo.header.stamp = ros::Time().now();
-  firelocateInfo.header.frame_id = "camerair_link";
+  firelocateInfo.header.frame_id = "fire info";
 
   firelocateInfo.flag = true;
-  firelocateInfo.BrickType = "fire";
+  firelocateInfo.BrickType = "blue";
   firelocateInfo.position.x = fire_X.D();
   firelocateInfo.position.y = fire_Y.D();
   firelocateInfo.position.z = fire_Z.D();
 }
 
-void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
+void imageRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
     
     HObject  ho_Image;
@@ -588,49 +564,36 @@ void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
-    actionL(ho_Image);
+    action(ho_Image);
 
 }
 
-void imageRightRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) 
-{
-   
-    HObject  ho_Image;
-    //获取halcon-bridge图像指针
-    halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
-    ho_Image = *halcon_bridge_imagePointer->image;
-    
-    actionR(ho_Image);
-
-}
 
 int main(int argc, char *argv[])
 {
   int ret = 0;
 
   //给左右视图中定位位置初始化赋值
-  xL = 0;
-  yL = 0;
-  xR = 0;
-  yR = 0;
+  x = 0;
+  y = 0;
 
-  ros::init(argc, argv, "fire_position");
+  ros::init(argc, argv, "fire_location");
 
   ros::NodeHandle nh; 
 
   try
   {
     //此处需要换成红外左右相机发布消息
-    ros::Subscriber subLeft  = nh.subscribe("/cameraIR_arm/imagearm", 1,
-                                        imageLeftRectifiedCallback);
-    ros::Subscriber subRight = nh.subscribe("/cameraIR_car/imagecar", 1,
-                                        imageRightRectifiedCallback);
+    ros::Subscriber sub  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1,
+                                        imageRectifiedCallback);
 
+    ros::spin();
     ros::Rate loop_rate(5);
 
-    while (ros::ok())
+        while (ros::ok())
     {
-        fire_position(xL,yL,xR,yR);
+        fire_location(x,y);
+
         pub.publish(firelocateInfo);
         ros::spinOnce();
         loop_rate.sleep();
@@ -638,15 +601,13 @@ int main(int argc, char *argv[])
     return 0;
 
   }
-  catch (HException &HDevExpDefaultException)
+  catch (HException &exception)
   {
-     // HDevExpDefaultException.ToHTuple(&hv_Exception);
-    //  if (0 != (HTuple(hv_Exception[0])==3266))
-      {
-        printf(" No Fire Detected! ");
-      }
+    fprintf(stderr,"  Error #%u in %s: %s\n", exception.ErrorCode(),
+            (const char *)exception.ProcName(),
+            (const char *)exception.ErrorMessage());
+    ret = 1;
   }
-
   return ret;
 }
 

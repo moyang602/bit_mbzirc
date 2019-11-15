@@ -6,4 +6,6 @@
   <!--bringup camera-->  
   <include file="$(find bit_task)/launch/tof_zed.launch" />
 
+  <!--bringup camera-->
+
 </launch>
