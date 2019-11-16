@@ -1,0 +1,4 @@
+uint8 cameraUsed
+---
+bool flag
+geometry_msgs/PointStamped FirePos
