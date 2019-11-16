@@ -25,7 +25,7 @@ public:
         ROS_INFO_STREAM("UGV action server: ["<<ClientName<<"] start!");
     }
 
-    void sendGoal(bit_plan::buildingGoal goal, double Timeout = 10.0)
+    bool SendGoal(bit_plan::buildingGoal goal, double Timeout = 10.0)   // 执行成功为true 失败为false
     {
         // 发送目标至服务器
         client.sendGoal(goal,
@@ -37,13 +37,15 @@ public:
         if(client.waitForResult(ros::Duration(Timeout)))    // 如果目标完成
         {
             ROS_INFO_STREAM("Task: ["<<ClientName<<"] finished within the time");
+            return true;
         }
         else
         {
             ROS_INFO_STREAM("Task: ["<<ClientName<<"] failed, cancel Goal");
             client.cancelGoal();
+            return false;
         }
-        ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
+        //ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
     }
 
 
@@ -57,9 +59,7 @@ private:
     */
     void done_cb(const actionlib::SimpleClientGoalState& state, const bit_plan::buildingResultConstPtr& result)
     {
-        
         ROS_INFO("Building task finished, State: %d",result->finish_state);
-    //   ros::shutdown();
     }
 
     /*
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     std::vector<bit_task::BrickInfo> ugv_brick; // 砖块信息堆栈
     bit_task::BrickInfo brick;                  // 单个砖块信息
 
-    /* 建立UAV 堆墙action客户端 */
+    /* 建立UGV 堆墙action客户端 */
     BuildingActionClient UGVClient("ugv_building", true);    // 创建小车堆墙action客户端
     UGVClient.Start();
 
@@ -125,8 +125,19 @@ int main(int argc, char *argv[])
         ugv_building_goal.goal_task.header.frame_id = "map";
         ugv_building_goal.goal_task.Num = 3;    // 从蓝图中获取
         ugv_building_goal.goal_task.bricks = ugv_brick;
-        // 发送 UGV任务指令
-        UGVClient.sendGoal(ugv_building_goal, 100);     // 发送任务指令 等待100s
+        // 发送 UGV任务指令   等待100s
+        if (UGVClient.SendGoal(ugv_building_goal, 100)) // 如果指令搬砖正常
+        {
+            // 清空 砖块任务堆栈
+            ugv_brick.clear();
+            // 更新 蓝图检索位置
+            // To do
+        }
+        else
+        {
+            // To do  失败的解决程序
+        }
+ 
     }
      ros::spin();
 

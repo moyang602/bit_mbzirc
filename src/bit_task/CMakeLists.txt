@@ -61,11 +61,11 @@ add_message_files(
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(FILES
+  WriteAddress.srv
+  isAddressExist.srv
+  FindMapAddress.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -232,5 +232,13 @@ add_executable(task2_action_sub
 )
 add_dependencies(task2_action_sub ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(task2_action_sub
+  ${catkin_LIBRARIES}
+)
+
+add_executable(map_address_manage
+  src/map_address_manage.cpp
+)
+add_dependencies(map_address_manage ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(map_address_manage
   ${catkin_LIBRARIES}
 )

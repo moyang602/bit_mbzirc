@@ -9,7 +9,9 @@
 
 #include <actionlib/server/simple_action_server.h>
 #include "bit_plan/buildingAction.h"
-
+#include "bit_task/isAddressExist.h"
+#include "bit_task/FindMapAddress.h"
+#include "bit_task/WriteAddress.h"
 
 #define TASK_GET 0
 #define TASK_BUILD 1
@@ -163,18 +165,40 @@ class BuildingActionServer  // UGV建筑action服务器
         */
         void execute_cb(const bit_plan::buildingGoalConstPtr& goal)
         {
+            // 创建 ugv_building 向plan的反馈信息
             bit_plan::buildingFeedback feedback;    /* 创建一个feedback对象 */
 
             ROS_INFO("The goal brick num is: %d", goal->goal_task.Num);
 
+            /*****************************************************
+            *       连接各个动作服务器，等待后续指令
+            *****************************************************/
             static PickPutActionClient Task2Client("pickputAction", true);   // 连接取砖动作服务器
             Task2Client.Start();
 
             static LocateActionClient LocateClient("locate_action_client", true); // 连接找砖动作服务器
             LocateClient.Start();
 
-            /* 判断是否有砖堆信息与放置处信息 */
-            if (true)   // 如果有砖堆信息
+            /*****************************************************
+            *       创建各个服务访问客户端，等待后续指令
+            *****************************************************/
+            ros::NodeHandle n("~");
+            ros::ServiceClient client_is = n.serviceClient<bit_task::isAddressExist>("isAddressExist");
+            bit_task::isAddressExist srv_is;
+
+            ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("FindMapAddress");
+            bit_task::FindMapAddress srv_find;
+
+            ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("isAddrWriteAddressessExist");
+            bit_task::WriteAddress srv_write;
+
+            /*****************************************************
+            *       判断是否有砖堆信息与放置处信息
+            *****************************************************/
+            srv_is.request.AddressToFind = "red";
+            client_is.call(srv_is);
+
+            if (srv_is.response.flag)   // 如果有砖堆信息
             {
                 feedback.task_feedback = "The brick and building position exist";
                 server.publishFeedback(feedback);
@@ -191,7 +215,9 @@ class BuildingActionServer  // UGV建筑action服务器
                 server.publishFeedback(feedback);
             }
 
-            // 循环每个预设砖块信息
+            /*****************************************************
+            *       循环搬运每个预设砖块
+            *****************************************************/
             for (size_t count = 0; count < goal->goal_task.Num; count++)
             {
                 // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
