@@ -5,6 +5,7 @@
 
 #include <actionlib/client/simple_action_client.h>
 #include "bit_motion/pickputAction.h"    
+#include "bit_motion/locateAction.h"
 
 #include <actionlib/server/simple_action_server.h>
 #include "bit_plan/buildingAction.h"
@@ -13,74 +14,137 @@
 #define TASK_GET 0
 #define TASK_BUILD 1
 
-typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client;
+typedef actionlib::SimpleActionClient<bit_motion::locateAction> Client_locate;
+typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client_pickput;
 typedef actionlib::SimpleActionServer<bit_plan::buildingAction> Server;
 
-class PickPutActionClient
+class PickPutActionClient   // 取放砖action客户端
 {
-public:
-    PickPutActionClient(const std::string client_name, bool flag = true):client(client_name, flag) // 使用初始化列表来初始化client
-    {
-        ClientName = client_name;
-    }
-
-    // 客户端开始
-    void Start()
-    {
-        if (!client.isServerConnected())
+    public:
+        PickPutActionClient(const std::string client_name, bool flag = true):client(client_name, flag) // 使用初始化列表来初始化client
         {
-            // 等待服务器初始化完成
-            ROS_INFO_STREAM("Waiting for action server: ["<<ClientName<<"] to start!");
-            client.waitForServer();
-            ROS_INFO_STREAM("Action server: ["<<ClientName<<"] start!");
-        }        
-    }
-
-    void sendGoal(bit_motion::pickputGoal goal, double Timeout = 10.0)
-    {
-        // 发送目标至服务器
-        client.sendGoal(goal,
-                        boost::bind(&PickPutActionClient::done_cb, this, _1, _2),
-                        boost::bind(&PickPutActionClient::active_cb, this),
-                        boost::bind(&PickPutActionClient::feedback_cb, this, _1));
-        
-        // 等待完成，超时时间为10s
-        if(client.waitForResult(ros::Duration(Timeout)))    // 如果目标完成
-        {
-            ROS_INFO_STREAM("Task: ["<<ClientName<<"] finished within the time");
+            ClientName = client_name;
         }
-        else
+
+        // 客户端开始
+        void Start()
         {
-            ROS_INFO_STREAM("Task: ["<<ClientName<<"] failed, cancel Goal");
-            client.cancelGoal();
+            if (!client.isServerConnected())
+            {
+                // 等待服务器初始化完成
+                ROS_INFO_STREAM("Waiting for action server: ["<<ClientName<<"] to start!");
+                client.waitForServer();
+                ROS_INFO_STREAM("Action server: ["<<ClientName<<"] start!");
+            }        
         }
-        ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
-    }
 
-private:
-    Client client;
-    std::string ClientName;      // action名称
+        void sendGoal(bit_motion::pickputGoal goal, double Timeout = 10.0)
+        {
+            // 发送目标至服务器
+            client.sendGoal(goal,
+                            boost::bind(&PickPutActionClient::done_cb, this, _1, _2),
+                            boost::bind(&PickPutActionClient::active_cb, this),
+                            boost::bind(&PickPutActionClient::feedback_cb, this, _1));
+            
+            // 等待完成，超时时间为10s
+            if(client.waitForResult(ros::Duration(Timeout)))    // 如果目标完成
+            {
+                ROS_INFO_STREAM("Task: ["<<ClientName<<"] finished within the time");
+            }
+            else
+            {
+                ROS_INFO_STREAM("Task: ["<<ClientName<<"] failed, cancel Goal");
+                client.cancelGoal();
+            }
+            ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
+        }
 
-private:
-    /* action完成时的回调函数，一次性  */
-    void done_cb(const actionlib::SimpleClientGoalState& state, const bit_motion::pickputResultConstPtr& result)
-    {
-        ROS_INFO("DONE:%d", result->finish_state);
-    }
-    /* action启动时的回调函数，一次性  */
-    void active_cb()
-    {
-        ROS_INFO("ACTIVE");
-    }
-    /* action收到反馈时的回调函数 */
-    void feedback_cb(const bit_motion::pickputFeedbackConstPtr& feedback)
-    {
-        ROS_INFO_STREAM("THE STATE NOM IS: "<<  feedback -> move_rightnow);
-    }
+    private:
+        Client_pickput client;
+        std::string ClientName;      // action名称
+
+    private:
+        /* action完成时的回调函数，一次性  */
+        void done_cb(const actionlib::SimpleClientGoalState& state, const bit_motion::pickputResultConstPtr& result)
+        {
+            ROS_INFO("DONE:%d", result->finish_state);
+        }
+        /* action启动时的回调函数，一次性  */
+        void active_cb()
+        {
+            ROS_INFO("ACTIVE");
+        }
+        /* action收到反馈时的回调函数 */
+        void feedback_cb(const bit_motion::pickputFeedbackConstPtr& feedback)
+        {
+            ROS_INFO_STREAM("THE STATE NOM IS: "<<  feedback -> move_rightnow);
+        }
 };
 
+class LocateActionClient    // 找砖action客户端
+{
+    public:
+        LocateActionClient(const std::string client_name, bool flag = true):client(client_name, flag) // 使用初始化列表来初始化client
+        {
+            ClientName = client_name;
+        }
 
-class BuildingActionServer
+        // 客户端开始
+        void Start()
+        {
+            if (!client.isServerConnected())
+            {
+                // 等待服务器初始化完成
+                ROS_INFO_STREAM("Waiting for action server: ["<<ClientName<<"] to start!");
+                client.waitForServer();
+                ROS_INFO_STREAM("Action server: ["<<ClientName<<"] start!");
+            }        
+        }
+
+        void sendGoal(bit_motion::locateGoal goal, double Timeout = 10.0)
+        {
+            // 发送目标至服务器
+            client.sendGoal(goal,
+                            boost::bind(&LocateActionClient::done_cb, this, _1, _2),
+                            boost::bind(&LocateActionClient::active_cb, this),
+                            boost::bind(&LocateActionClient::feedback_cb, this, _1));
+            
+            // 等待完成，超时时间为10s
+            if(client.waitForResult(ros::Duration(Timeout)))    // 如果目标完成
+            {
+                ROS_INFO_STREAM("Task: ["<<ClientName<<"] finished within the time");
+            }
+            else
+            {
+                ROS_INFO_STREAM("Task: ["<<ClientName<<"] failed, cancel Goal");
+                client.cancelGoal();
+            }
+            ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
+        }
+
+    private:
+        Client_locate client;
+        std::string ClientName;      // action名称
+
+    private:
+        /* action完成时的回调函数，一次性  */
+        void done_cb(const actionlib::SimpleClientGoalState& state, const bit_motion::locateResultConstPtr& result)
+        {
+            ROS_INFO("DONE:%d", result->finish_state);
+        }
+        /* action启动时的回调函数，一次性  */
+        void active_cb()
+        {
+            ROS_INFO("ACTIVE");
+        }
+        /* action收到反馈时的回调函数 */
+        void feedback_cb(const bit_motion::locateFeedbackConstPtr& feedback)
+        {
+            ROS_INFO_STREAM("THE STATE NOM IS: "<<feedback->feedback_state);
+        }
+};
+
+class BuildingActionServer  // UGV建筑action服务器
 {
     public:
         BuildingActionServer(ros::NodeHandle nh, const std::string server_name, bool flag = false):
@@ -106,6 +170,9 @@ class BuildingActionServer
             static PickPutActionClient Task2Client("pickputAction", true);   // 连接取砖动作服务器
             Task2Client.Start();
 
+            static LocateActionClient LocateClient("locate_action_client", true); // 连接找砖动作服务器
+            LocateClient.Start();
+
             /* 判断是否有砖堆信息与放置处信息 */
             if (true)   // 如果有砖堆信息
             {
@@ -118,8 +185,7 @@ class BuildingActionServer
                 server.publishFeedback(feedback);
                 // 找砖和墙位置，
                 // 然后在建筑位置进行global costmap的设置，放置车辆开过砖墙区域  
-
-                ros::Duration(5).sleep();       // 临时占位     换成action
+                LocateClient.sendGoal(locate_goal, 100);     // 找砖程序客户端
 
                 feedback.task_feedback = "The position of brick and building has been found";
                 server.publishFeedback(feedback);
@@ -182,7 +248,7 @@ class BuildingActionServer
         Server server;
         /* 创建搬运action目标 */
         bit_motion::pickputGoal pick_goal;   
-        
+        bit_motion::locateGoal locate_goal;
         
         // 中断回调函数
         void preempt_cb()

@@ -5,4 +5,4 @@
 uint8 finish_state
 ---
 #part3: the feedback message, to be sent by server during execution
-string move_rightnow
+string feedback_state

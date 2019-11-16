@@ -80,6 +80,7 @@ generate_messages(
   std_msgs
   geometry_msgs
   bit_task
+  bit_motion
 )
 
 ################################################
