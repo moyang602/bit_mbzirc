@@ -216,31 +216,6 @@ install(PROGRAMS
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-
-add_executable(motion_find_brick
-  src/motion_find_brick.cpp
-)
-add_dependencies(motion_find_brick ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(motion_find_brick
-  ${catkin_LIBRARIES}
-)
-
-add_executable(motion_pick_brick
-  src/motion_pick_brick.cpp
-)
-add_dependencies(motion_pick_brick ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(motion_pick_brick
-  ${catkin_LIBRARIES}
-)
-
-add_executable(motion_put_brick
-  src/motion_put_brick.cpp
-)
-add_dependencies(motion_put_brick ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(motion_put_brick
-  ${catkin_LIBRARIES}
-)
-
 add_executable(motion_fight_fire
   src/motion_fight_fire.cpp
 )

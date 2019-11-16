@@ -86,7 +86,7 @@ int ParseBluePrint(bit_task::BrickInfo &brick)
     
     // 砖块信息赋值
     brick.Sequence = 1;
-    brick.type = 1;
+    brick.type = "red";
     brick.x = 1;
     brick.y = 1;
 
