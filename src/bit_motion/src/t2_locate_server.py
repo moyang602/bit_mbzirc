@@ -47,5 +47,5 @@ class LocateServer(object):
  
 if __name__ == '__main__':
     rospy.init_node('locate_server_node')
-    server = LocateServer("LocateServer")
+    server = LocateServer("locateAction")
     rospy.spin()

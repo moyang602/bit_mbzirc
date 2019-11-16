@@ -225,10 +225,10 @@ class BuildingActionServer  // UGV建筑action服务器
             static PickPutActionClient Task2Client("pickputAction", true);   // 连接取砖动作服务器
             Task2Client.Start();
 
-            static LocateActionClient LocateClient("locate_action_client", true); // 连接找砖动作服务器
+            static LocateActionClient LocateClient("locateAction", true); // 连接找砖动作服务器
             LocateClient.Start();
 
-            static MoveBaseActionClient MoveBaseClient("move_base_client", true);      // 连接movebase动作服务器
+            static MoveBaseActionClient MoveBaseClient("move_base", true);      // 连接movebase动作服务器
             MoveBaseClient.Start();
 
             /*****************************************************

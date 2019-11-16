@@ -266,7 +266,7 @@ if __name__ == '__main__':
 
 #===================定义一些基本的对象======================#
 
-    rospy.init_node('pickputAction', anonymous = True)
+    rospy.init_node('pickputAction', anonymous = False)
     pub_ee = rospy.Publisher('endeffCmd',EndEffector,queue_size=1)
     rospy.Subscriber("/wrench", WrenchStamped, forcecallback)
 
