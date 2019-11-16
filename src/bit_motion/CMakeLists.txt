@@ -170,7 +170,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
   scripts/t2_pick_put_server.py
-  scripts/t2_pick_build_server.py
+  scripts/map_dealer.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
