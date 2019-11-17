@@ -1,37 +1,26 @@
 <launch>
 
-  <!--bringup remoter-->  
+  
   <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
-
-  <!--运行底盘节点-->
-  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="false" />
 
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
   
-  <!--bringup ur5 robot arm-->
+  <!--运行底盘节点-->
+  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub"  respawn="false" />
+   
   <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 
   <!--发布两个静态的tf-->
   <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.362 0 0 0  /car_link /velodyne 0" />
 
-
   <!--运行模型显示节点-->
   <include file="$(find robotcar_moveit_config)/launch/display.launch" />
 
   <!--display-->
-  <node name="rviz" pkg="rviz" type="rviz"/>
+  <!--<node name="rviz" pkg="rviz" type="rviz"/>-->
 
  <!--运行控制台的节点，当遥控器不可用时可以切换为键盘-->
   <!--node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen"/-->
-
-  <!--bringup velodyne laser raddar-->
-  <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch" />
-
-  <!--bringup cartographer slam to build map-->
-  <include file="$(find cartographer_ros)/launch/velodyne2d.launch" />
-
-  <!--bringup move_base to navigate -->
-  <include file="$(find my_robot_name_2dnav)/launch/nav.launch" />
 
 </launch>

@@ -4,7 +4,7 @@
   <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
 
   <!--运行底盘节点-->
-  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" output = "screen"  respawn="False" />
+  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False" />
 
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />

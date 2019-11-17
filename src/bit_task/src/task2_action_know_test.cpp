@@ -21,6 +21,7 @@
 
 #define TASK_GET 0
 #define TASK_BUILD 1
+#define TASK_LOOK 2
 
 typedef actionlib::SimpleActionClient<bit_motion::locateAction> Client_locate;
 typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client_pickput;
@@ -297,7 +298,7 @@ class BuildingActionServer  // UGV建筑action服务器
                 /* =============================== 删除分割线 =============================== */
 
                 MoveBaseClient.sendGoal(move_base_goal, 100);
-                ROS_INFO_STREAM("Move to the brick type: "<<goal->goal_task.bricks[count].type);
+                ROS_INFO_STREAM("Move to the brick type: "<< goal->goal_task.bricks[count].type);
 
 
                 // 将砖块搬运至车上
@@ -336,9 +337,13 @@ class BuildingActionServer  // UGV建筑action服务器
 
             MoveBaseClient.sendGoal(move_base_goal, 100);
             ROS_INFO_STREAM("Move to the observe place");
+            
+            pick_goal.task = TASK_LOOK;
+            Task2Client.sendGoal(pick_goal, 100);   // 发送目标 timeout 100s
+
+            ROS_INFO("Looking at building");
 
             // To do   获取建筑物状态 service
-
 
             /*****************************************************
             *       移动到建筑物处，循环放置各个砖块
@@ -396,6 +401,8 @@ class BuildingActionServer  // UGV建筑action服务器
         bit_motion::pickputGoal pick_goal;   
         bit_motion::locateGoal locate_goal;
         move_base_msgs::MoveBaseGoal move_base_goal;
+
+        geometry_msgs::Quaternion target_quat;
         
         // 中断回调函数
         void preempt_cb()

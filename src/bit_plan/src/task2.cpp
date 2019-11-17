@@ -85,7 +85,7 @@ int ParseBluePrint(bit_task::BrickInfo &brick)
     ros::Duration(0.5).sleep();       // 临时占位
     
     // 砖块信息赋值
-    brick.Sequence = 1;
+    brick.Sequence = 0;
     brick.type = "red";
     brick.x = 1;
     brick.y = 1;

@@ -27,6 +27,7 @@ if sys.version_info[0] < 3:  # support python v2
 prePickPos = (-1.57, -1.57, -1.57, -1.57, 1.57, 0)
 upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
 prePutPos = (-1.57,-1.29, 1.4, 1.4, 1.57, 0)
+lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
 # -1.57,-1.29, 1.4, 1.4, 1.57, 0
 
 posSequence = [] # 随着摆放的过程不断填充这个list来把位置记录下来
@@ -43,6 +44,7 @@ FAIL_ERROR = 3
 
 TASK_GET = 0
 TASK_BUILD = 1
+TASK_LOOK = 2
 
 global rob
 global force 
@@ -131,25 +133,30 @@ class pick_put_act(object):
                 print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
                 rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=3*v,wait=True, relative=True )
                 self.show_tell("arrived Brick remembered position")
+            elif goal.task == TASK_LOOK:
+                rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
+                self.show_tell("arrived look forward position")
+                return 0
 
             # 进行识别
             # client(goal.goal_brick.type)
             ## server ask vision! wait and try some times
-            rospy.sleep(1.0)
-            while True:
-                LocateData = GetLocateData_client()
-                if LocateData.flag:
-                    break
+            # rospy.sleep(1.0)
+            # while True:
+            #     LocateData = GetLocateData_client()
+            #     if LocateData.flag:
+            #         break
 
             # 得到识别结果如下
-            # theta = -0.5
-            # x = 0.0
-            # y = 0.0
-            # z = 0.4
-            x = LocateData.position.x
-            y = LocateData.position.y
-            z = LocateData.position.z
-            theta = 0
+            # x = LocateData.position.x
+            # y = LocateData.position.y
+            # z = LocateData.position.z
+            # theta = 0
+
+            theta = -0.5
+            x = 0.0
+            y = 0.0
+            z = 0.2
 
             self.show_tell("Got recognition results")
             if 0:
@@ -163,7 +170,7 @@ class pick_put_act(object):
 
             initj[2] += -z +0.1     # 0.1是在其上的10cm
             initj[3] += theta
-            # 下两个坐标使其垂直于地面
+            # 下两个坐标使其垂直于地面Brick remembered
             initj[4] = - pi 
             initj[5] = 0 
             rob.movel(initj, acc=a, vel=v, wait=True)
@@ -172,9 +179,9 @@ class pick_put_act(object):
 
             # wait()
             # 伪力控下落
-            rob.translate((0,0,-0.3), acc=a, vel=v, wait=False)
+            rob.translate((0,0,-0.3), acc=a, vel=v*0.3, wait=False)
             _force_prenvent_wrongdata_ = 0
-            while force < 15:
+            while force < 20:
                 _force_prenvent_wrongdata_ += 1
                 if _force_prenvent_wrongdata_ >150: 
                     _force_prenvent_wrongdata_ = 150 
@@ -217,13 +224,14 @@ class pick_put_act(object):
             elif goal.task == TASK_BUILD:
                 rob.movej(prePickPos,acc=a, vel=v,wait=True)      # 有问题，需要移动到砖xy，解算出的位置
                 self.show_tell("arrived pre-Build position")
+                
                 # 配合手眼移动到摆放的位置
                 
             # wait()
             # 伪力控放置
-            rob.translate((0, 0, -0.3), acc=a, vel=v, wait=False)
+            rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
             _force_prenvent_wrongdata_ = 0
-            while force < 15:
+            while force < 20:
                 _force_prenvent_wrongdata_ += 1
                 if _force_prenvent_wrongdata_ >150: 
                     _force_prenvent_wrongdata_ = 150 
