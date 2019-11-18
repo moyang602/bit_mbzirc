@@ -17,7 +17,7 @@ general:
     resolution:                 2                                   # '0': HD2K, '1': HD1080, '2': HD720, '3': VGA
     frame_rate:                 30
     gpu_id:                     -1
-    base_frame:                 'base_link'                         # must be equal to the frame_id used in the URDF file
+    base_frame:                 'zed_link'                         # must be equal to the frame_id used in the URDF file
     camera_frame:               'zed_camera_center'                 # must be equal to the frame_id used in the URDF file
     left_camera_frame:          'zed_left_camera_frame'             # must be equal to the frame_id used in the URDF file
     left_camera_optical_frame:  'zed_left_camera_optical_frame'     # must be equal to the frame_id used in the URDF file
@@ -45,8 +45,8 @@ depth:
     confidence_root:            'confidence'                        # default `confidence/confidence_image` and `confidence/confidence_map`
 
 tracking:
-    publish_tf:                 true                                # publish `odom -> base_link` TF
-    publish_map_tf:             true                                # publish `map -> odom` TF
+    publish_tf:                 false                                # publish `odom -> base_link` TF
+    publish_map_tf:             false                                # publish `map -> odom` TF
     world_frame:                'map'                               # the reference fixed frame (same as `map_frame` or `odometry_frame`)
     map_frame:                  'map'
     odometry_frame:             'odom'
@@ -55,7 +55,7 @@ tracking:
     floor_alignment:            false                               # Enable to automatically calculate camera/floor offset
     initial_base_pose:          [0.0,0.0,0.0, 0.0,0.0,0.0]          # [X, Y, Z, R, P, Y]
     pose_topic:                 'pose'
-    publish_pose_covariance:    true                                # Enable to publish the `pose_with_covariance` message
+    publish_pose_covariance:    false                                # Enable to publish the `pose_with_covariance` message
     fixed_covariance:           false                               # Set the covariance for pose and odometry to a diagonal matrix with `fixed_cov_value` on the diagonal
     fixed_cov_value:            1e-6                                # Value used on the diagonal of the fixed covariance matrix (`fixed_covariance -> true`)
     odometry_topic:             'odom'
