@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     /* 读取建筑蓝图 下发指令*/
  //   while (condition)     // 当蓝图未读取完成时继续
     {
-        for (size_t i = 0; i < 3; i++) // 读取特定数量的砖块
+        for (size_t i = 0; i < 1; i++) // 读取特定数量的砖块
         {
             // 从建筑蓝图中读取建筑信息
             ParseBluePrint(brick);
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
         // UGV action 部分 设置目标值
         ugv_building_goal.goal_task.header.stamp = ros::Time::now();
         ugv_building_goal.goal_task.header.frame_id = "map";
-        ugv_building_goal.goal_task.Num = 3;    // 从蓝图中获取
+        ugv_building_goal.goal_task.Num = 1;    // 从蓝图中获取
         ugv_building_goal.goal_task.bricks = ugv_brick;
         // 发送 UGV任务指令   等待100s
         if (UGVClient.SendGoal(ugv_building_goal, 100)) // 如果指令搬砖正常
