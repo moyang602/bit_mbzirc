@@ -66,12 +66,14 @@ include_directories(
 
 ## Generate messages in the 'msg' folder
 add_message_files(FILES
+  PositionInfo.msg
   BuildingStates.msg
   LocateInfo.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(FILES
+  BrickPosition.srv
   FirePosition.srv
   BrickLocate.srv
 )

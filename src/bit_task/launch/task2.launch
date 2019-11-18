@@ -6,6 +6,19 @@
   <!--bringup camera-->  
   <include file="$(find bit_task)/launch/tof_zed.launch" />
 
-  <!--bringup camera-->
+  <!--运行地点管理节点-->
+  <node pkg="bit_task" type="map_address_manage" name="map_address_manage" output="screen" respawn="false" />
+
+  <!--运行协同规划节点-->
+  <node pkg="bit_plan" type="task2" name="task2" output="screen" respawn="false" />
+
+  <!--运行任务节点-->
+  <node pkg="bit_task" type="task2_action" name="task2_action" output="screen" respawn="false" />
+
+  <!--运行取放砖运动节点-->
+  <node pkg="bit_motion" type="t2_pick_put_server.py" name="pickputAction" output="screen" respawn="false" />
+
+  <!--运行找砖位置节点-->
+  <node pkg="bit_motion" type="t2_locate_server.py" name="locate_server_node" output="screen" respawn="false" />
 
 </launch>
