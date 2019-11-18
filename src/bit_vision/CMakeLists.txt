@@ -229,7 +229,9 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-link_directories(/opt/halcon/lib/x64-linux)
+link_directories(
+  /opt/halcon/lib/x64-linux
+)
 
 add_executable(brick_locate
   src/brick_locate.cpp
