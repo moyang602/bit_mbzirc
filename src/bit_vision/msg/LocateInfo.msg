@@ -1,4 +1,4 @@
 Header header
-bool flag
+bool Flag
 string BrickType
 geometry_msgs/Point position

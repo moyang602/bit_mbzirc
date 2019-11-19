@@ -81,7 +81,6 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
-  bit_task
 )
 
 ################################################

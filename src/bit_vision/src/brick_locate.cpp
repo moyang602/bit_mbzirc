@@ -473,7 +473,7 @@ bool GetLocateData(bit_vision::BrickLocate::Request& ,
     res.LocateData.header.stamp = ros::Time().now();
     res.LocateData.header.frame_id = "zed_link";
 
-    res.LocateData.flag = true;
+    res.LocateData.Flag = true;
     res.LocateData.BrickType = brick_color_L.S();
     res.LocateData.position.x = Brick_X.D();
     res.LocateData.position.y = Brick_Y.D();
@@ -495,7 +495,7 @@ bool GetLocateData(bit_vision::BrickLocate::Request& ,
     res.LocateData.header.stamp = ros::Time().now();
     res.LocateData.header.frame_id = "zed_link";
 
-    res.LocateData.flag = false;
+    res.LocateData.Flag = false;
     res.LocateData.BrickType = "NULL";
     res.LocateData.position.x = 0.0;
     res.LocateData.position.y = 0.0;

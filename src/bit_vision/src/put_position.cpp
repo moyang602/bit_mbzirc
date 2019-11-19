@@ -36,7 +36,7 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 #include "tf/transform_broadcaster.h"
-#include "bit_vision/BrickLocate.h"
+#include "bit_vision/BrickPosition.h"
 #include <opencv2/core/core.hpp>
 
 using namespace std;
@@ -664,8 +664,8 @@ private:
 
 
 // service 回调函数，输入参数req，输出参数res
-bool GetLocateData(bit_vision::BrickLocate::Request& ,
-                   bit_vision::BrickLocate::Response& res)
+bool GetPutData(bit_vision::BrickPosition::Request& ,
+                   bit_vision::BrickPosition::Response& res)
 {
   //调用双目定位函数,获取四个点的坐标
   //1,2属于第一条直线 3,4属于第二条直线
@@ -683,13 +683,13 @@ bool GetLocateData(bit_vision::BrickLocate::Request& ,
   if (stero_location(xL1,yL1,xR1,yR1,&X1,&Y1,&Z1)==0)   // 如果有识别结果
   {
 
-    res.LocateData.header.stamp = ros::Time().now();
-    res.LocateData.header.frame_id = "zed_link";
-    res.LocateData.flag = true;
+    res.PositionData.header.stamp = ros::Time().now();
+    res.PositionData.header.frame_id = "zed_link";
+    res.PositionData.Flag = true;
     //放砖是否需要判断颜色?
-    res.LocateData.position.x = 0.0;
-    res.LocateData.position.y = 0.0;
-    res.LocateData.position.z = 0.0;
+    res.PositionData.Pose.position.x = 0.0;
+    res.PositionData.Pose.position.y = 0.0;
+    res.PositionData.Pose.position.z = 0.0;
 
 
     // 发布TF   zed_link——>target_link
@@ -705,14 +705,14 @@ bool GetLocateData(bit_vision::BrickLocate::Request& ,
   }
   else    // 如果没有识别结果
   {
-    res.LocateData.header.stamp = ros::Time().now();
-    res.LocateData.header.frame_id = "zed_link";
+    res.PositionData.header.stamp = ros::Time().now();
+    res.PositionData.header.frame_id = "zed_link";
 
-    res.LocateData.flag = false;
-    res.LocateData.BrickType = "NULL";
-    res.LocateData.position.x = 0.0;
-    res.LocateData.position.y = 0.0;
-    res.LocateData.position.z = 0.0;
+    res.PositionData.Flag = false;
+    res.PositionData.BrickType = "NULL";
+    res.PositionData.Pose.position.x = 0.0;
+    res.PositionData.Pose.position.y = 0.0;
+    res.PositionData.Pose.position.z = 0.0;
   }
 }
 
@@ -726,7 +726,7 @@ int main(int argc, char *argv[])
   ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
   ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);  
   // 服务-计算砖堆位置
-  ros::ServiceServer service = nh.advertiseService("GetLocateData",GetLocateData);
+  ros::ServiceServer service = nh.advertiseService("GetPutData",GetPutData);
 
   // 初始化左右相机定位数据
 

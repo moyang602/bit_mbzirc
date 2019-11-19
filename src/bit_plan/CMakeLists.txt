@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib_msgs
   actionlib
   geometry_msgs
+  bit_task
 )
 
 ## System dependencies are found with CMake's conventions
