@@ -241,7 +241,7 @@ class BuildingActionServer  // UGV建筑action服务器
             ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("FindMapAddress");
             bit_task::FindMapAddress srv_find;
 
-            ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("isAddrWriteAddressessExist");
+            ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("WriteAddress");
             bit_task::WriteAddress srv_write;
 
             /*****************************************************

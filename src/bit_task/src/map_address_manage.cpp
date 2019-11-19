@@ -43,7 +43,7 @@ bool isAddressExist(bit_task::isAddressExist::Request  &req,
     
 }
 
-// 指定地点位置是否存在
+// 写入指定地点
 bool WriteAddress(bit_task::WriteAddress::Request  &req,
                   bit_task::WriteAddress::Response &res)
 {
@@ -65,7 +65,7 @@ bool WriteAddress(bit_task::WriteAddress::Request  &req,
 
 int main(int argc, char *argv[])
 {
-    ros::init(argc, argv, "map_address_manage_node");
+    ros::init(argc, argv, "address_manage_node");
     ros::NodeHandle nh("~");
 
     ros::ServiceServer service_find = nh.advertiseService("FindMapAddress",FindMapAddress);

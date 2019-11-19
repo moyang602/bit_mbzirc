@@ -66,12 +66,15 @@ include_directories(
 
 ## Generate messages in the 'msg' folder
 add_message_files(FILES
+  PositionInfo.msg
   BuildingStates.msg
   LocateInfo.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(FILES
+  BrickPosition.srv
+  FirePosition.srv
   BrickLocate.srv
 )
 
@@ -226,7 +229,9 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-link_directories(/opt/halcon/lib/x64-linux)
+link_directories(
+  /opt/halcon/lib/x64-linux
+)
 
 add_executable(brick_locate
   src/brick_locate.cpp

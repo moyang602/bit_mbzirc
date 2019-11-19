@@ -1,6 +1,0 @@
-[submodule "src/support_package/zed-ros-wrapper"]
-	url = https://github.com/stereolabs/zed-ros-wrapper.git
-[submodule "src/support_package/basler_tof"]
-	url = https://github.com/uos/basler_tof.git
-[submodule "src/support_package/asr_halcon_bridge"]
-	url = https://github.com/asr-ros/asr_halcon_bridge.git
