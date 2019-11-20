@@ -80,3 +80,11 @@ src/block_locate/src/tof640-20gm-22588426-0018-range_gray.tiff
 src/bit_hardware_interface/src/camerair_arm.jpg
 
 src/bit_hardware_interface/src/camerair_car.jpg
+
+*.STL
+
+src/bit_vision/model/campar1.dat
+
+src/bit_vision/model/campar2.dat
+
+*.sm3

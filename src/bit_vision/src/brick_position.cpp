@@ -41,12 +41,14 @@
 using namespace std;
 using namespace HalconCpp;
 
-//定义全局变量
-static HTuple brick_color;    // 左右相机识别的颜色信息
+
 //定义传递三维坐标的全局变量
 static HTuple Brick_X,Brick_Y,Brick_Z;
+static HTuple Brick_RX,Brick_RY,Brick_RZ;
 static HTuple matching_score; //定义匹配得分作为标志 
-
+string brick_color = "green";
+HTuple hv_Red_ShapeModel3DID;
+HTuple hv_Green_ShapeModel3DID;
 //------------------------------ WARNING ------------------------------
 //                                                                     
 //   At least one protected procedure could not be exported.           
@@ -2968,6 +2970,7 @@ void update_pose_information (HTuple hv_WindowHandle, HTuple hv_ObjectModel3DID,
   return;
 }
 
+
 // Main procedure 
 void action(HObject ho_Image)
 {
@@ -2984,8 +2987,8 @@ void action(HObject ho_Image)
   // Local control variables
   HTuple  hv_ErrorVar;
   HTuple  hv_CamParam, hv_ObjectModelGreen, hv_DxfStatus;
-  HTuple  hv_ObjectModelBlue, hv_ObjectModelRed, hv_Red_ShapeModel3DID;
-  HTuple  hv_Green_ShapeModel3DID, hv_color, hv_ObjectModel3DID;
+  HTuple  hv_ObjectModelBlue, hv_ObjectModelRed;
+  HTuple  hv_ObjectModel3DID;
   HTuple  hv_ShapeModel3DID, hv_Error, hv_pathFile, hv_MLPHandle;
   HTuple  hv_Area_1, hv_Row_1, hv_Column_1, hv_Area_2, hv_Row_2;
   HTuple  hv_Column_2, hv_Area_3, hv_Row_3, hv_Column_3, hv_areas;
@@ -2995,33 +2998,33 @@ void action(HObject ho_Image)
   HTuple  hv_Pose, hv_CovPose, hv_Score, hv_I, hv_PoseI, hv_ScoreI;
 
   //step1 :读入相机标定参数
-  ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CamParam);
+  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", &hv_CamParam);
   //step2: 分别读取三种砖块的3d stl模型
   //读取红色转的3d模型
-  ReadObjectModel3d("./src/bit_vision/model/box_01.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelGreen, 
+  ReadObjectModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_01.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelGreen, 
       &hv_DxfStatus);
-  ReadObjectModel3d("./src/bit_vision/model/box_02.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelBlue, 
+  ReadObjectModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_02.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelBlue, 
       &hv_DxfStatus);
-  ReadObjectModel3d("./src/bit_vision/model/box_03.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelRed, 
+  ReadObjectModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_03.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelRed, 
       &hv_DxfStatus);
   //
   //step3 : 分别读取对应三种颜色砖块的形状匹配模型
-  ReadShapeModel3d("./src/bit_vision/model/redbox_sloped_user.sm3", &hv_Red_ShapeModel3DID);
-  ReadShapeModel3d("./src/bit_vision/model/greenbox_sloped_user.sm3", &hv_Green_ShapeModel3DID);
+  
   //read_shape_model_3d ('model/bluebox_sloped_user.sm3', BLue_ShapeModel3DID)
   //step4: 根据颜色分类结果 分别选择不同模型作为模板匹配的输入
-  hv_color = "green";
-  if (0 != (hv_color==HTuple("red")))
+  if (brick_color =="red")
   {
     hv_ObjectModel3DID = hv_ObjectModelRed;
     hv_ShapeModel3DID = hv_Red_ShapeModel3DID;
+    ROS_ERROR("Now is red");
   }
-  else if (0 != (hv_color==HTuple("green")))
+  else if (brick_color =="green")
   {
     hv_ObjectModel3DID = hv_ObjectModelGreen;
     hv_ShapeModel3DID = hv_Green_ShapeModel3DID;
+    ROS_ERROR("Now is green");
   }
-  else if (0 != (hv_color==HTuple("blue")))
+  else if (brick_color =="blue")
   {
     hv_ObjectModel3DID = hv_ObjectModelBlue;
     //ShapeModel3DID := BLue_ShapeModel3DID
@@ -3043,10 +3046,9 @@ void action(HObject ho_Image)
         0.2, 0.25, 10, HTuple(), HTuple(), &hv_ShapeModel3DID);
     WriteShapeModel3d(hv_ShapeModel3DID, "brick_sloped_35.sm3");
   }
-  
   //
   //step5:读入训练好的分割模型
-  hv_pathFile = "./src/bit_vision/model/box_segment_mlp_retrain.mlp";
+  hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
   //step6:读图 并 分割图像
   ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
@@ -3114,37 +3116,40 @@ void action(HObject ho_Image)
   //step8:计数得到的区域个数 分别使用基于形状的三维匹配
   hv_num = hv_Area.TupleLength();
   {
-  HTuple end_val89 = hv_num;
-  HTuple step_val89 = 1;
-  for (hv_Index1=1; hv_Index1.Continue(end_val89, step_val89); hv_Index1 += step_val89)
-  {
-    SelectObj(ho_RegionFillUpOranges, &ho_ObjectSelected, hv_Index1);
-    ReduceDomain(ho_Image, ho_ObjectSelected, &ho_ImageReduced);
-    FindShapeModel3d(ho_ImageReduced, hv_ShapeModel3DID, 0.7, 0.9, 5, (HTuple("num_matches").Append("pose_refinement")), 
-        (HTuple(2).Append("least_squares_very_high")), &hv_Pose, &hv_CovPose, &hv_Score);
+    HTuple end_val89 = hv_num;
+    HTuple step_val89 = 1;
+    for (hv_Index1=1; hv_Index1.Continue(end_val89, step_val89); hv_Index1 += step_val89)
     {
-    HTuple end_val93 = (hv_Score.TupleLength())-1;
-    HTuple step_val93 = 1;
-    for (hv_I=0; hv_I.Continue(end_val93, step_val93); hv_I += step_val93)
-    {
-      //此处得到pose的值
-      hv_PoseI = hv_Pose.TupleSelectRange(hv_I*7,(hv_I*7)+6);
-      //给全局变量赋值
-      Brick_X = ((const HTuple&)hv_PoseI)[0];
-      Brick_Y = ((const HTuple&)hv_PoseI)[1];
-      Brick_Z = ((const HTuple&)hv_PoseI)[2];
-      //此处得到匹配的得分 正确的得分>0.9
-      hv_ScoreI = HTuple(hv_Score[hv_I]);
-      matching_score = hv_ScoreI;
-      //ModelContours是投影后获取的轮廓
-      ProjectShapeModel3d(&ho_ModelContours, hv_ShapeModel3DID, hv_CamParam, hv_PoseI, 
-          "true", 0.523599);
-      
-    }
+      SelectObj(ho_RegionFillUpOranges, &ho_ObjectSelected, hv_Index1);
+      ReduceDomain(ho_Image, ho_ObjectSelected, &ho_ImageReduced);
+      FindShapeModel3d(ho_ImageReduced, hv_ShapeModel3DID, 0.7, 0.9, 5, (HTuple("num_matches").Append("pose_refinement")), 
+          (HTuple(2).Append("least_squares_very_high")), &hv_Pose, &hv_CovPose, &hv_Score);
+      {
+        HTuple end_val93 = (hv_Score.TupleLength())-1;
+        HTuple step_val93 = 1;
+        for (hv_I=0; hv_I.Continue(end_val93, step_val93); hv_I += step_val93)
+        {
+          //此处得到pose的值
+          hv_PoseI = hv_Pose.TupleSelectRange(hv_I*7,(hv_I*7)+6);
+          //给全局变量赋值
+          Brick_X = ((const HTuple&)hv_PoseI)[0];
+          Brick_Y = ((const HTuple&)hv_PoseI)[1];
+          Brick_Z = ((const HTuple&)hv_PoseI)[2];
+          Brick_RX = ((const HTuple&)hv_PoseI)[3];
+          Brick_RY = ((const HTuple&)hv_PoseI)[4];
+          Brick_RZ = ((const HTuple&)hv_PoseI)[5];
+          //此处得到匹配的得分 正确的得分>0.9
+          hv_ScoreI = HTuple(hv_Score[hv_I]);
+          matching_score = hv_ScoreI;
+          //ModelContours是投影后获取的轮廓
+          ProjectShapeModel3d(&ho_ModelContours, hv_ShapeModel3DID, hv_CamParam, hv_PoseI, 
+              "true", 0.523599);
+          double score = matching_score.D();
+          ROS_INFO("matching_score = %lf",score);
+        }
+      }
     }
   }
-  }
-
 }
 
 void LeftCallback(const sensor_msgs::Image::ConstPtr& msg) 
@@ -3155,25 +3160,29 @@ void LeftCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
-    
     // 处理左图图像
     action(ho_Image);
 }
 
 // service 回调函数，输入参数req，输出参数res
-bool GetPositonData(bit_vision::BrickPosition::Request& ,
+bool GetPositonData(bit_vision::BrickPosition::Request& req,
                    bit_vision::BrickPosition::Response& res)
 {
-  if (0 != (matching_score > 0.5))   // 如果有识别结果
+  ROS_INFO("!!!!!!!!!!!");
+  brick_color = req.BrickType;
+  if (matching_score > 0.5)   // 如果有识别结果
   {
     res.PositionData.header.stamp = ros::Time().now();
     res.PositionData.header.frame_id = "zed_link";
 
     res.PositionData.Flag = true;
-    res.PositionData.BrickType = brick_color.S();
+//    res.PositionData.BrickType = brick_color.S();
     res.PositionData.Pose.position.x = Brick_X.D();
     res.PositionData.Pose.position.y = Brick_Y.D();
     res.PositionData.Pose.position.z = Brick_Z.D();
+    res.PositionData.Pose.orientation.x = Brick_RX.D();
+    res.PositionData.Pose.orientation.y = Brick_RY.D();
+    res.PositionData.Pose.orientation.z = Brick_RZ.D();
 
     // 发布TF   zed_link——>target_link
     static tf::TransformBroadcaster br;
@@ -3199,6 +3208,7 @@ bool GetPositonData(bit_vision::BrickPosition::Request& ,
 }
 
 
+
 int main(int argc, char *argv[])
 {
   ros::init(argc, argv, "brick_position");
@@ -3206,8 +3216,10 @@ int main(int argc, char *argv[])
   ros::NodeHandle nh; 
 
   // 接收zed左右相机图像
-  ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color/compressed", 1, LeftCallback);
-  ROS_INFO("matching_score = %lf",matching_score);
+  ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
+  
+  ReadShapeModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/redbox_sloped_user.sm3", &hv_Red_ShapeModel3DID);
+  ReadShapeModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/greenbox_sloped_user.sm3", &hv_Green_ShapeModel3DID);
   // 服务-计算砖堆位置
   ros::ServiceServer service = nh.advertiseService("GetPositonData",GetPositonData);
 
@@ -3215,5 +3227,4 @@ int main(int argc, char *argv[])
 
   return 0;
 }
-
 

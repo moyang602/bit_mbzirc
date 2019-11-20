@@ -53,9 +53,9 @@ using namespace cv;
 
 //定义全局变量 用于三维坐标的传递
 static HTuple xL1,yL1,xL2,yL2;
-static HTuple xR3,yR3,xR4,yR4; 
+static HTuple xL3,yL3,xL4,yL4; 
 //全局变量 用于传递由当前点到指定点需要移动的方向与距离
-static HTuple X1,Y1,Z1,X2,Y2,Z2;
+static double angle;
 static HObject brickregion;
 int Proc_states = 0;
 string brick_color;
@@ -103,7 +103,7 @@ void action1(HObject ho_Image1,HObject *ho_BrickRegion,HTuple *hv_x1,HTuple *hv_
   if (HDevWindowStack::IsOpen())
     CloseWindow(HDevWindowStack::Pop());
   //读入训练好的分割模型
-  hv_pathFile = "/home/moyang/mbzirc_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+  hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
   //读入第一张图像 用于识别砖块的轮廓
   
@@ -154,11 +154,10 @@ void action1(HObject ho_Image1,HObject *ho_BrickRegion,HTuple *hv_x1,HTuple *hv_
     FitLineContourXld(ho_Line1, "tukey", 2, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, 
         &hv_RowEnd, &hv_ColEnd, &hv_Nr1, &hv_Nc1, &hv_Dist1);
   }
-  //得到左图中直线方程
-  //计算第一条直线与法向量的交点
-  (*hv_x1) = hv_Nr1*hv_Dist1;
-  (*hv_y1) = hv_Nc1*hv_Dist1;
-  //还需要结合右图的输入来确定这个点的三维坐标
+  //得到线段端点坐标
+  (*hv_x1) = hv_Nr1;
+  (*hv_y1) = hv_Nc1;
+
   //***************************************************************************
 }
 
@@ -188,7 +187,7 @@ void action2(HObject ho_Image2,HObject ho_BrickRegion,HTuple *hv_x3,HTuple *hv_y
 
   GetImageSize(ho_Image2, &hv_Width, &hv_Height);
   //读入分类器
-  hv_pathFile = "/home/moyang/mbzirc_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+  hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
   ClassifyImageClassMlp(ho_Image2, &ho_ClassRegions2, hv_MLPHandle, 0.5);
   //将拾取砖块对应的区域去除
@@ -235,11 +234,10 @@ void action2(HObject ho_Image2,HObject ho_BrickRegion,HTuple *hv_x3,HTuple *hv_y
     FitLineContourXld(ho_Line2, "tukey", 2, 0, 5, 2, &hv_RowBegin2, &hv_ColBegin2, 
         &hv_RowEnd2, &hv_ColEnd2, &hv_Nr2, &hv_Nc2, &hv_Dist2);
   }
-  //得到左图中墙体边缘的直线方程
-  //***************************************************************************************************
-  //得到墙体边缘直线与法向量的交点
-  (*hv_x3) = hv_Nr2*hv_Dist2;
-  (*hv_y3) = hv_Nc2*hv_Dist2;
+  //得到左图中墙体边缘的线段端点坐标
+  (*hv_x3) = hv_Nr2;
+  (*hv_y3) = hv_Nc2;
+
 }
 
 
@@ -256,99 +254,20 @@ void LeftCallback(const sensor_msgs::Image::ConstPtr& msg)
     if (Proc_states == 1)
     {
       action1(ho_Image,&brickregion,&xL1,&yL1); //获取左图像中的拾取砖块边缘上的点
+      double angle =  atan2(yL1.D(),xL1.D());
+      ROS_INFO_STREAM("Angle is "<<angle*57.3);
+
     }
     else if (Proc_states == 2)
     {
-      action2(ho_Image,brickregion,&xL2,&yL2); //获取左图像中的墙体砖块边缘上的点
+      action2(ho_Image,brickregion,&xL3,&yL3); //获取左图像中的墙体砖块边缘上的点
+      //计算两条直线之间的夹角
+      double angle =  atan2(yL3.D(),xL3.D());
+      ROS_INFO_STREAM("Angle is "<<angle*57.3);
+
     }  
 
 }
-
-void RightCallback(const sensor_msgs::Image::ConstPtr& msg) 
-{
-    //初始化halcon对象
-    HObject  ho_Image;
-    //获取halcon-bridge图像指针
-    halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
-    ho_Image = *halcon_bridge_imagePointer->image;
-    
-    // 处理右图图像
-
-    //根据flag判断使用action1函数或action2函数
-    if (Proc_states == 1)
-    {
-      action1(ho_Image,&brickregion,&xR3,&yR3);//右图拾取砖块边缘上的点
-    }
-    else if (Proc_states == 2)
-    {
-      action2(ho_Image,brickregion,&xR4,&yR4);//右图墙体砖块边缘上的点
-    }   
-}
-
-//定义根据标定参数 定位三维点的函数
-//以左右视图中的行列作为输入,以定位的三维点X,Y,Z作为输出
-int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R,HTuple *Line_X, HTuple *Line_Y, HTuple *Line_Z)
-{
-  HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
-  HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
-  
-  //三维定位
-  try
-  {
-    ReadCamPar("/home/moyang/mbzirc_ws/src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
-    ReadCamPar("/home/moyang/mbzirc_ws/src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
-    ReadPose("/home/moyang/mbzirc_ws/src/bit_vision/model/relpose.dat", &hv_RealPose);
-
-    IntersectLinesOfSight(hv_CameraParameters1, hv_CameraParameters2, hv_RealPose, 
-    row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
-
-    (*Line_X) = HTuple(hv_X);
-    (*Line_Y) = HTuple(hv_Y);
-    (*Line_Z) = HTuple(hv_Z);
-
-    return 0;
-  }
-  catch (HException &exception)
-  {
-    ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
-            (const char *)exception.ProcName(),
-            (const char *)exception.ErrorMessage());
-    return 1;
-  }
-}
-
-//已知P1,P2 利用eigen求相对位姿转换
-
-int calculate_pose(geometry_msgs::Quaternion& q)
-{
-    //1.p1 world position
-    double p1yaw=0;
-    double p1x=X1;
-    double p1y=Y1;
-    double p1z=Z1;
-    Eigen::AngleAxisd rotzp1(p1yaw*M_PI/180, Eigen::Vector3d::UnitZ());
-    Eigen::Vector3d  t1= Eigen::Vector3d(p1x,p1y, p1z);
-    Eigen::Quaterniond q1=Eigen::Quaterniond(rotzp1);
-
-   //2.p2 world position
-    double p2yaw=0;
-    double p2x=X2;
-    double p2y=Y2;
-    double p2z=Z2;
-    Eigen::AngleAxisd rotzp2(p2yaw*M_PI/180, Eigen::Vector3d::UnitZ());
-    Eigen::Vector3d  t2= Eigen::Vector3d(p2x,p2y, p2z);
-    Eigen::Quaterniond q2=Eigen::Quaterniond(rotzp2);
-
-    // 3.calculate T12
-    //q1*q12=q2
-    //求解姿态为q12
-    Eigen::Quaterniond q12=q1.inverse()*q2;
-    Eigen::Vector3d  t12=q1.toRotationMatrix().inverse()*(t2-t1);
-    /// Converts an Eigen Quaternion into a Quaternion message
-    tf::quaternionEigenToMsg(q12, q);
-
-}
-
 
 
 // service 回调函数，输入参数req，输出参数res
@@ -361,24 +280,22 @@ bool GetPutData(bit_vision::BrickPosition::Request& req,
   if (req.Proc_states == 1)
   {
     Proc_states = 1;
+    res.PositionData.header.stamp = ros::Time().now();
+    res.PositionData.header.frame_id = "zed_link";
+    res.PositionData.Flag = true;
+    //res.PositionData.Pose.orientation.z = delta.D();
+
   }
   else if (req.Proc_states == 2)
   {
     Proc_states = 2;
     ros::Duration(0.2).sleep();  // 等待双目线程处理结果
-    if (stero_location(xL1,yL1,xR3,yR3,&X1,&Y1,&Z1)==0&&stero_location(xL2,yL2,xR4,yR4,&X2,&Y2,&Z2)==0)   // 如果有识别结果
+    if (0 != (xL1 == 0))   // 如果有识别结果//假设点的起始在0处是无识别结果
     {
       res.PositionData.header.stamp = ros::Time().now();
       res.PositionData.header.frame_id = "zed_link";
       res.PositionData.Flag = true;
-
-      res.PositionData.Pose.position.x = X2-X1;
-      res.PositionData.Pose.position.y = Y2-Y1;
-      res.PositionData.Pose.position.z = Z2-Z1;
-
-      geometry_msgs::Quaternion q;
-      calculate_pose(q);
-      res.PositionData.Pose.orientation = q;
+      res.PositionData.Pose.orientation.z = angle;
 
       // 发布TF   zed_link——>target_link
       static tf::TransformBroadcaster br;
@@ -386,14 +303,10 @@ bool GetPutData(bit_vision::BrickPosition::Request& req,
       transformStamped.header.stamp = ros::Time().now();
       transformStamped.header.frame_id = "zed_link";
       transformStamped.child_frame_id = "target_link";
-      transformStamped.transform.translation.x = X2-X1;
-      transformStamped.transform.translation.y = Y2-Y1;
-      transformStamped.transform.translation.z = Z2-Z1;
-      transformStamped.transform.rotation = q;
+      //transformStamped.transform.angle = delta;
 
       br.sendTransform(transformStamped);
 
-      ROS_INFO_STREAM("Location is : "<<X2-X1<<","<<Y2-Y1<<","<<Z2-Z1);
     }
     else    // 如果没有识别结果
     {
@@ -402,13 +315,8 @@ bool GetPutData(bit_vision::BrickPosition::Request& req,
 
       res.PositionData.Flag = false;
       res.PositionData.BrickType = "NULL";
-      res.PositionData.Pose.position.x = 0.0;
-      res.PositionData.Pose.position.y = 0.0;
-      res.PositionData.Pose.position.z = 0.0;
-      res.PositionData.Pose.orientation.x = 0.0;
-      res.PositionData.Pose.orientation.y = 0.0;
-      res.PositionData.Pose.orientation.z = 0.0;
-      res.PositionData.Pose.orientation.w = 0.0;
+      res.PositionData.Pose.orientation.z = 0;
+
     }
   }
 }
@@ -421,8 +329,7 @@ int main(int argc, char *argv[])
 
   // 接收zed左右相机图像
   ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
-  ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);  
-  // 服务-计算砖堆位置
+
   ros::ServiceServer service = nh.advertiseService("GetPutData",GetPutData);
 
   // 初始化左右相机定位数据
@@ -433,5 +340,3 @@ int main(int argc, char *argv[])
 
   return 0;
 }
-
-
