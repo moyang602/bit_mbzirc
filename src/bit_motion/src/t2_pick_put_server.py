@@ -257,8 +257,6 @@ class pick_put_act(object):
                 z = PositionData.Pose.position.z
                 theta = 0
 
-
-
             # 伪力控放置
             rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
             _force_prenvent_wrongdata_ = 0

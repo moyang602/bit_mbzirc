@@ -38,28 +38,1457 @@
 #include "tf/transform_broadcaster.h"
 #include "bit_vision/BrickPosition.h"
 
-
 using namespace std;
 using namespace HalconCpp;
 
-//定义全局变量 用于三维坐标的传递
-static HTuple Xl,Yl,Xr,Yr;    // 左右相机定位目标的像素位置
-static HTuple brick_color_L, brick_color_R;    // 左右相机识别的颜色信息
+//定义全局变量
+static HTuple brick_color;    // 左右相机识别的颜色信息
 //定义传递三维坐标的全局变量
 static HTuple Brick_X,Brick_Y,Brick_Z;
+static HTuple matching_score; //定义匹配得分作为标志 
+
+//------------------------------ WARNING ------------------------------
+//                                                                     
+//   At least one protected procedure could not be exported.           
+//   Exported code might be inconsistent.                              
+//                                                                     
+//---------------------------------------------------------------------
 
 // Procedure declarations 
+// Chapter: Calibration / Camera Parameters
+// Short Description: Get the value of a specified camera parameter from the camera parameter tuple. 
+void get_cam_par_data (HTuple hv_CameraParam, HTuple hv_ParamName, HTuple *hv_ParamValue);
+// Chapter: Calibration / Camera Parameters
+// Short Description: Get the names of the parameters in a camera parameter tuple. 
+void get_cam_par_names (HTuple hv_CameraParam, HTuple *hv_CameraType, HTuple *hv_ParamNames);
+// Chapter: Calibration / Camera Parameters
+// Short Description: Set the value of a specified camera parameter in the camera parameter tuple. 
+void set_cam_par_data (HTuple hv_CameraParamIn, HTuple hv_ParamName, HTuple hv_ParamValue, 
+    HTuple *hv_CameraParamOut);
+// Chapter: Graphics / Text
+// Short Description: Set font independent of OS 
+void set_display_font (HTuple hv_WindowHandle, HTuple hv_Size, HTuple hv_Font, HTuple hv_Bold, 
+    HTuple hv_Slant);
 // Local procedures 
+// Chapter: Matching-3D
+// Short Description: Reflect the movement of the camera 
+void analyze_graph_event_camera (HObject ho_BackgroundImage, HObject ho_TrackballContour, 
+    HTuple hv_Button, HTuple hv_Row, HTuple hv_Column, HTuple hv_WindowHandle, HTuple hv_WindowHandleBuffer, 
+    HTuple hv_VirtualTrackball, HTuple hv_TrackballSize, HTuple hv_VisualizeTrackball, 
+    HTuple hv_ObjectModel3DID, HTuple hv_CamParam, HTuple hv_HiddenSurfaceRemoval, 
+    HTuple hv_ImageNo, HTuple hv_ModelColor, HTuple hv_RefPose, HTuple hv_MinFaceAngle, 
+    HTuple hv_OffsetRow, HTuple hv_OffsetCol, HTuple hv_RelQuaternionIn, HTuple hv_NumAddIn, 
+    HTuple hv_DistIn, HTuple *hv_RelQuaternionOut, HTuple *hv_NumAddOut, HTuple *hv_DistOut);
+// Chapter: Matching-3D
+// Short Description: Reflect the movement of the background image 
+void analyze_graph_event_image (HObject ho_BackgroundImage, HObject ho_ModelContours, 
+    HObject ho_TrackballContour, HTuple hv_Button, HTuple hv_Row, HTuple hv_Column, 
+    HTuple hv_WindowHandle, HTuple hv_WindowHandleBuffer, HTuple hv_OffsetRowIn, 
+    HTuple hv_OffsetColIn, HTuple hv_ImageNo, HTuple hv_VisualizeTrackball, HTuple hv_ModelColor, 
+    HTuple *hv_OffsetRowOut, HTuple *hv_OffsetColOut);
+// Chapter: Matching-3D
+// Short Description: Reflect the selection of a menu button 
+void analyze_menu_event (HObject ho_MenuRegions, HTuple hv_MenuText, HTuple hv_WindowHandleMenu, 
+    HTuple hv_Row, HTuple hv_Col, HTuple hv_LongitudeMinIn, HTuple hv_LongitudeMaxIn, 
+    HTuple hv_LatitudeMinIn, HTuple hv_LatitudeMaxIn, HTuple hv_CamRollMinIn, HTuple hv_CamRollMaxIn, 
+    HTuple hv_DistMinIn, HTuple hv_DistMaxIn, HTuple hv_MinFaceAngleIn, HTuple hv_RefPoseIn, 
+    HTuple hv_RelQuaternionIn, HTuple hv_ImageNoIn, HTuple hv_HiddenSurfaceRemovalIn, 
+    HTuple hv_MouseModeIn, HTuple hv_Dist, HTuple hv_ObjectModel3DID, HTuple hv_RefPoseReset, 
+    HTuple *hv_SelectedButton, HTuple *hv_Exit, HTuple *hv_LongitudeMinOut, HTuple *hv_LongitudeMaxOut, 
+    HTuple *hv_LatitudeMinOut, HTuple *hv_LatitudeMaxOut, HTuple *hv_CamRollMinOut, 
+    HTuple *hv_CamRollMaxOut, HTuple *hv_DistMinOut, HTuple *hv_DistMaxOut, HTuple *hv_MinFaceAngleOut, 
+    HTuple *hv_RefPoseOut, HTuple *hv_RelQuaternionOut, HTuple *hv_ImageNoOut, HTuple *hv_HiddenSurfaceRemovalOut, 
+    HTuple *hv_MouseModeOut);
 void classify (HObject ho_Regions, HTuple hv_MLPHandle, HTuple *hv_Classes);
+void classify_color_regions (HObject ho_Image, HObject *ho_RegionSelected, HTuple hv_MLPHandle, 
+    HTuple *hv_row, HTuple *hv_column, HTuple *hv_index);
+// Chapter: Matching-3D
+// Short Description: Determine the optimum viewing distance for a 3D model 
+void determine_optimum_viewing_distance (HTuple hv_ObjectModel3DID, HTuple hv_CamParam, 
+    HTuple hv_MinImageSize, HTuple hv_ImageCoverage, HTuple *hv_Dist);
+// Chapter: Matching-3D
+// Short Description: Displays the menu buttons 
+void disp_menu (HObject ho_MenuRegions, HTuple hv_WindowHandle, HTuple hv_Texts);
+// Chapter: Matching-3D
+// Short Description: Display a 3D matching pose at the projected reference point 
+void display_match_pose (HTuple hv_ShapeModel3DID, HTuple hv_Pose, HTuple hv_WindowHandle);
+// Chapter: Matching-3D
+// Short Description: Generate a contour in form of an arrow 
+void gen_arrow_cont (HObject *ho_Arrow, HTuple hv_Row1, HTuple hv_Column1, HTuple hv_Row2, 
+    HTuple hv_Column2);
 // Short Description: compute texture features on multiple pyramid levels 
 void gen_features (HObject ho_Image, HTuple *hv_FeatureVector);
+// Chapter: Matching-3D
+// Short Description: Creates rectangular regions at the top or bottom of the current window 
+void gen_menu_regions (HObject *ho_MenuRegions, HTuple hv_WindowHandle, HTuple hv_NumCols, 
+    HTuple hv_NumRows, HTuple hv_PercentageHeight, HTuple hv_TopBottom);
 // Short Description: compute various texture features and append them to input feature vector 
 void gen_sobel_features (HObject ho_Image, HTuple hv_Features, HTuple *hv_FeaturesExtended);
 void get_features (HObject ho_Region, HTuple *hv_Features);
+// Chapter: Matching-3D
+// Short Description: Determine the text of the selected button 
+void get_selected_button (HObject ho_MenuRegions, HTuple hv_Texts, HTuple hv_WindowHandle, 
+    HTuple hv_Row, HTuple hv_Col, HTuple *hv_SelectedButton);
+// Chapter: Matching-3D
+// Short Description: Inspect a 3D object model and/or determine the 3D shape model parameters 
+void inspect_object_model_3d (HObject ho_BackgroundImages, HTuple hv_ObjectModel3DID, 
+    HTuple hv_CamParam, HTuple *hv_RefRotX, HTuple *hv_RefRotY, HTuple *hv_RefRotZ, 
+    HTuple *hv_LongitudeMin, HTuple *hv_LongitudeMax, HTuple *hv_LatitudeMin, HTuple *hv_LatitudeMax, 
+    HTuple *hv_CamRollMin, HTuple *hv_CamRollMax, HTuple *hv_DistMin, HTuple *hv_DistMax, 
+    HTuple *hv_MinFaceAngle);
+// Chapter: Matching-3D
+// Short Description: Project an image point onto the trackball 
+void project_point_on_trackball (HTuple hv_X, HTuple hv_Y, HTuple hv_VirtualTrackball, 
+    HTuple hv_TrackballSize, HTuple *hv_V);
 void segment (HObject ho_Image, HObject *ho_Regions);
+void select_box_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area1, 
+    HTuple *hv_Row1, HTuple *hv_Column1, HTuple *hv_Indices, HTuple *hv_num, HTuple *hv_Area, 
+    HTuple *hv_Row, HTuple *hv_Column);
+void select_color_regions (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area, 
+    HTuple *hv_Row, HTuple *hv_Column);
+void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area, 
+    HTuple *hv_Row, HTuple *hv_Column);
+void select_region_according_area (HObject ho_ConnectedRegions1, HObject *ho_ObjectSelected, 
+    HTuple *hv_Area, HTuple *hv_Row, HTuple *hv_Column);
+void select_regions_according_colors (HObject ho_Image, HObject *ho_RegionSelected, 
+    HTuple hv_MLPHandle, HTuple *hv_index, HTuple *hv_row, HTuple *hv_column);
+// Chapter: Matching-3D
+// Short Description: Compute the 3D rotation from the mouse movement 
+void trackball (HTuple hv_MX1, HTuple hv_MY1, HTuple hv_MX2, HTuple hv_MY2, HTuple hv_VirtualTrackball, 
+    HTuple hv_TrackballSize, HTuple *hv_QuatRotation);
+// Chapter: Matching-3D
+// Short Description: Compute the vector cross product 
+void tuple_vector_cross_product (HTuple hv_V1, HTuple hv_V2, HTuple *hv_VC);
+// Chapter: Matching-3D
+// Short Description: Visualize the pose information of a 3D model 
+void update_pose_information (HTuple hv_WindowHandle, HTuple hv_ObjectModel3DID, 
+    HTuple hv_CamParam, HTuple hv_RefPose, HTuple hv_RelQuaternion, HTuple hv_Dist, 
+    HTuple hv_LatitudeMin, HTuple hv_LatitudeMax, HTuple hv_LongitudeMin, HTuple hv_LongitudeMax, 
+    HTuple hv_CamRollMin, HTuple hv_CamRollMax, HTuple hv_DistMin, HTuple hv_DistMax, 
+    HTuple hv_MinFaceAngle, HTuple hv_HiddenSurfaceRemoval, HTuple hv_ModelColor);
 
 // Procedures 
+// Chapter: Calibration / Camera Parameters
+// Short Description: Get the value of a specified camera parameter from the camera parameter tuple. 
+void get_cam_par_data (HTuple hv_CameraParam, HTuple hv_ParamName, HTuple *hv_ParamValue)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_CameraType, hv_CameraParamNames, hv_Index;
+  HTuple  hv_ParamNameInd, hv_I;
+
+  //get_cam_par_data returns in ParamValue the value of the
+  //parameter that is given in ParamName from the tuple of
+  //camera parameters that is given in CameraParam.
+  //
+  //Get the parameter names that correspond to the
+  //elements in the input camera parameter tuple.
+  get_cam_par_names(hv_CameraParam, &hv_CameraType, &hv_CameraParamNames);
+  //
+  //Find the index of the requested camera data and return
+  //the corresponding value.
+  (*hv_ParamValue) = HTuple();
+  {
+  HTuple end_val11 = (hv_ParamName.TupleLength())-1;
+  HTuple step_val11 = 1;
+  for (hv_Index=0; hv_Index.Continue(end_val11, step_val11); hv_Index += step_val11)
+  {
+    hv_ParamNameInd = HTuple(hv_ParamName[hv_Index]);
+    if (0 != (hv_ParamNameInd==HTuple("camera_type")))
+    {
+      (*hv_ParamValue) = (*hv_ParamValue).TupleConcat(hv_CameraType);
+      continue;
+    }
+    hv_I = hv_CameraParamNames.TupleFind(hv_ParamNameInd);
+    if (0 != (hv_I!=-1))
+    {
+      (*hv_ParamValue) = (*hv_ParamValue).TupleConcat(HTuple(hv_CameraParam[hv_I]));
+    }
+    else
+    {
+      throw HException("Unknown camera parameter "+hv_ParamNameInd);
+    }
+  }
+  }
+  return;
+}
+
+// Chapter: Calibration / Camera Parameters
+// Short Description: Get the names of the parameters in a camera parameter tuple. 
+void get_cam_par_names (HTuple hv_CameraParam, HTuple *hv_CameraType, HTuple *hv_ParamNames)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_CameraParamAreaScanDivision, hv_CameraParamAreaScanPolynomial;
+  HTuple  hv_CameraParamAreaScanTelecentricDivision, hv_CameraParamAreaScanTelecentricPolynomial;
+  HTuple  hv_CameraParamAreaScanTiltDivision, hv_CameraParamAreaScanTiltPolynomial;
+  HTuple  hv_CameraParamAreaScanImageSideTelecentricTiltDivision;
+  HTuple  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial;
+  HTuple  hv_CameraParamAreaScanBilateralTelecentricTiltDivision;
+  HTuple  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial;
+  HTuple  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision;
+  HTuple  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial;
+  HTuple  hv_CameraParamAreaScanHypercentricDivision, hv_CameraParamAreaScanHypercentricPolynomial;
+  HTuple  hv_CameraParamLinesScan, hv_CameraParamAreaScanTiltDivisionLegacy;
+  HTuple  hv_CameraParamAreaScanTiltPolynomialLegacy, hv_CameraParamAreaScanTelecentricDivisionLegacy;
+  HTuple  hv_CameraParamAreaScanTelecentricPolynomialLegacy;
+  HTuple  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy;
+  HTuple  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy;
+
+  //get_cam_par_names returns for each element in the camera
+  //parameter tuple that is passed in CameraParam the name
+  //of the respective camera parameter. The parameter names
+  //are returned in ParamNames. Additionally, the camera
+  //type is returned in CameraType. Alternatively, instead of
+  //the camera parameters, the camera type can be passed in
+  //CameraParam in form of one of the following strings:
+  //  - 'area_scan_division'
+  //  - 'area_scan_polynomial'
+  //  - 'area_scan_tilt_division'
+  //  - 'area_scan_tilt_polynomial'
+  //  - 'area_scan_telecentric_division'
+  //  - 'area_scan_telecentric_polynomial'
+  //  - 'area_scan_tilt_bilateral_telecentric_division'
+  //  - 'area_scan_tilt_bilateral_telecentric_polynomial'
+  //  - 'area_scan_tilt_object_side_telecentric_division'
+  //  - 'area_scan_tilt_object_side_telecentric_polynomial'
+  //  - 'area_scan_hypercentric_division'
+  //  - 'area_scan_hypercentric_polynomial'
+  //  - 'line_scan'
+  //
+  hv_CameraParamAreaScanDivision.Clear();
+  hv_CameraParamAreaScanDivision[0] = "focus";
+  hv_CameraParamAreaScanDivision[1] = "kappa";
+  hv_CameraParamAreaScanDivision[2] = "sx";
+  hv_CameraParamAreaScanDivision[3] = "sy";
+  hv_CameraParamAreaScanDivision[4] = "cx";
+  hv_CameraParamAreaScanDivision[5] = "cy";
+  hv_CameraParamAreaScanDivision[6] = "image_width";
+  hv_CameraParamAreaScanDivision[7] = "image_height";
+  hv_CameraParamAreaScanPolynomial.Clear();
+  hv_CameraParamAreaScanPolynomial[0] = "focus";
+  hv_CameraParamAreaScanPolynomial[1] = "k1";
+  hv_CameraParamAreaScanPolynomial[2] = "k2";
+  hv_CameraParamAreaScanPolynomial[3] = "k3";
+  hv_CameraParamAreaScanPolynomial[4] = "p1";
+  hv_CameraParamAreaScanPolynomial[5] = "p2";
+  hv_CameraParamAreaScanPolynomial[6] = "sx";
+  hv_CameraParamAreaScanPolynomial[7] = "sy";
+  hv_CameraParamAreaScanPolynomial[8] = "cx";
+  hv_CameraParamAreaScanPolynomial[9] = "cy";
+  hv_CameraParamAreaScanPolynomial[10] = "image_width";
+  hv_CameraParamAreaScanPolynomial[11] = "image_height";
+  hv_CameraParamAreaScanTelecentricDivision.Clear();
+  hv_CameraParamAreaScanTelecentricDivision[0] = "magnification";
+  hv_CameraParamAreaScanTelecentricDivision[1] = "kappa";
+  hv_CameraParamAreaScanTelecentricDivision[2] = "sx";
+  hv_CameraParamAreaScanTelecentricDivision[3] = "sy";
+  hv_CameraParamAreaScanTelecentricDivision[4] = "cx";
+  hv_CameraParamAreaScanTelecentricDivision[5] = "cy";
+  hv_CameraParamAreaScanTelecentricDivision[6] = "image_width";
+  hv_CameraParamAreaScanTelecentricDivision[7] = "image_height";
+  hv_CameraParamAreaScanTelecentricPolynomial.Clear();
+  hv_CameraParamAreaScanTelecentricPolynomial[0] = "magnification";
+  hv_CameraParamAreaScanTelecentricPolynomial[1] = "k1";
+  hv_CameraParamAreaScanTelecentricPolynomial[2] = "k2";
+  hv_CameraParamAreaScanTelecentricPolynomial[3] = "k3";
+  hv_CameraParamAreaScanTelecentricPolynomial[4] = "p1";
+  hv_CameraParamAreaScanTelecentricPolynomial[5] = "p2";
+  hv_CameraParamAreaScanTelecentricPolynomial[6] = "sx";
+  hv_CameraParamAreaScanTelecentricPolynomial[7] = "sy";
+  hv_CameraParamAreaScanTelecentricPolynomial[8] = "cx";
+  hv_CameraParamAreaScanTelecentricPolynomial[9] = "cy";
+  hv_CameraParamAreaScanTelecentricPolynomial[10] = "image_width";
+  hv_CameraParamAreaScanTelecentricPolynomial[11] = "image_height";
+  hv_CameraParamAreaScanTiltDivision.Clear();
+  hv_CameraParamAreaScanTiltDivision[0] = "focus";
+  hv_CameraParamAreaScanTiltDivision[1] = "kappa";
+  hv_CameraParamAreaScanTiltDivision[2] = "image_plane_dist";
+  hv_CameraParamAreaScanTiltDivision[3] = "tilt";
+  hv_CameraParamAreaScanTiltDivision[4] = "rot";
+  hv_CameraParamAreaScanTiltDivision[5] = "sx";
+  hv_CameraParamAreaScanTiltDivision[6] = "sy";
+  hv_CameraParamAreaScanTiltDivision[7] = "cx";
+  hv_CameraParamAreaScanTiltDivision[8] = "cy";
+  hv_CameraParamAreaScanTiltDivision[9] = "image_width";
+  hv_CameraParamAreaScanTiltDivision[10] = "image_height";
+  hv_CameraParamAreaScanTiltPolynomial.Clear();
+  hv_CameraParamAreaScanTiltPolynomial[0] = "focus";
+  hv_CameraParamAreaScanTiltPolynomial[1] = "k1";
+  hv_CameraParamAreaScanTiltPolynomial[2] = "k2";
+  hv_CameraParamAreaScanTiltPolynomial[3] = "k3";
+  hv_CameraParamAreaScanTiltPolynomial[4] = "p1";
+  hv_CameraParamAreaScanTiltPolynomial[5] = "p2";
+  hv_CameraParamAreaScanTiltPolynomial[6] = "image_plane_dist";
+  hv_CameraParamAreaScanTiltPolynomial[7] = "tilt";
+  hv_CameraParamAreaScanTiltPolynomial[8] = "rot";
+  hv_CameraParamAreaScanTiltPolynomial[9] = "sx";
+  hv_CameraParamAreaScanTiltPolynomial[10] = "sy";
+  hv_CameraParamAreaScanTiltPolynomial[11] = "cx";
+  hv_CameraParamAreaScanTiltPolynomial[12] = "cy";
+  hv_CameraParamAreaScanTiltPolynomial[13] = "image_width";
+  hv_CameraParamAreaScanTiltPolynomial[14] = "image_height";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision.Clear();
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[0] = "focus";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[1] = "kappa";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[2] = "tilt";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[3] = "rot";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[4] = "sx";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[5] = "sy";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[6] = "cx";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[7] = "cy";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[8] = "image_width";
+  hv_CameraParamAreaScanImageSideTelecentricTiltDivision[9] = "image_height";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial.Clear();
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[0] = "focus";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[1] = "k1";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[2] = "k2";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[3] = "k3";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[4] = "p1";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[5] = "p2";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[6] = "tilt";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[7] = "rot";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[8] = "sx";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[9] = "sy";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[10] = "cx";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[11] = "cy";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[12] = "image_width";
+  hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial[13] = "image_height";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision.Clear();
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[0] = "magnification";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[1] = "kappa";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[2] = "tilt";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[3] = "rot";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[4] = "sx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[5] = "sy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[6] = "cx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[7] = "cy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[8] = "image_width";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivision[9] = "image_height";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial.Clear();
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[0] = "magnification";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[1] = "k1";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[2] = "k2";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[3] = "k3";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[4] = "p1";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[5] = "p2";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[6] = "tilt";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[7] = "rot";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[8] = "sx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[9] = "sy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[10] = "cx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[11] = "cy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[12] = "image_width";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial[13] = "image_height";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision.Clear();
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[0] = "magnification";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[1] = "kappa";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[2] = "image_plane_dist";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[3] = "tilt";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[4] = "rot";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[5] = "sx";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[6] = "sy";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[7] = "cx";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[8] = "cy";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[9] = "image_width";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltDivision[10] = "image_height";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial.Clear();
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[0] = "magnification";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[1] = "k1";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[2] = "k2";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[3] = "k3";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[4] = "p1";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[5] = "p2";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[6] = "image_plane_dist";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[7] = "tilt";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[8] = "rot";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[9] = "sx";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[10] = "sy";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[11] = "cx";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[12] = "cy";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[13] = "image_width";
+  hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial[14] = "image_height";
+  hv_CameraParamAreaScanHypercentricDivision.Clear();
+  hv_CameraParamAreaScanHypercentricDivision[0] = "focus";
+  hv_CameraParamAreaScanHypercentricDivision[1] = "kappa";
+  hv_CameraParamAreaScanHypercentricDivision[2] = "sx";
+  hv_CameraParamAreaScanHypercentricDivision[3] = "sy";
+  hv_CameraParamAreaScanHypercentricDivision[4] = "cx";
+  hv_CameraParamAreaScanHypercentricDivision[5] = "cy";
+  hv_CameraParamAreaScanHypercentricDivision[6] = "image_width";
+  hv_CameraParamAreaScanHypercentricDivision[7] = "image_height";
+  hv_CameraParamAreaScanHypercentricPolynomial.Clear();
+  hv_CameraParamAreaScanHypercentricPolynomial[0] = "focus";
+  hv_CameraParamAreaScanHypercentricPolynomial[1] = "k1";
+  hv_CameraParamAreaScanHypercentricPolynomial[2] = "k2";
+  hv_CameraParamAreaScanHypercentricPolynomial[3] = "k3";
+  hv_CameraParamAreaScanHypercentricPolynomial[4] = "p1";
+  hv_CameraParamAreaScanHypercentricPolynomial[5] = "p2";
+  hv_CameraParamAreaScanHypercentricPolynomial[6] = "sx";
+  hv_CameraParamAreaScanHypercentricPolynomial[7] = "sy";
+  hv_CameraParamAreaScanHypercentricPolynomial[8] = "cx";
+  hv_CameraParamAreaScanHypercentricPolynomial[9] = "cy";
+  hv_CameraParamAreaScanHypercentricPolynomial[10] = "image_width";
+  hv_CameraParamAreaScanHypercentricPolynomial[11] = "image_height";
+  hv_CameraParamLinesScan.Clear();
+  hv_CameraParamLinesScan[0] = "focus";
+  hv_CameraParamLinesScan[1] = "kappa";
+  hv_CameraParamLinesScan[2] = "sx";
+  hv_CameraParamLinesScan[3] = "sy";
+  hv_CameraParamLinesScan[4] = "cx";
+  hv_CameraParamLinesScan[5] = "cy";
+  hv_CameraParamLinesScan[6] = "image_width";
+  hv_CameraParamLinesScan[7] = "image_height";
+  hv_CameraParamLinesScan[8] = "vx";
+  hv_CameraParamLinesScan[9] = "vy";
+  hv_CameraParamLinesScan[10] = "vz";
+  //Legacy parameter names
+  hv_CameraParamAreaScanTiltDivisionLegacy.Clear();
+  hv_CameraParamAreaScanTiltDivisionLegacy[0] = "focus";
+  hv_CameraParamAreaScanTiltDivisionLegacy[1] = "kappa";
+  hv_CameraParamAreaScanTiltDivisionLegacy[2] = "tilt";
+  hv_CameraParamAreaScanTiltDivisionLegacy[3] = "rot";
+  hv_CameraParamAreaScanTiltDivisionLegacy[4] = "sx";
+  hv_CameraParamAreaScanTiltDivisionLegacy[5] = "sy";
+  hv_CameraParamAreaScanTiltDivisionLegacy[6] = "cx";
+  hv_CameraParamAreaScanTiltDivisionLegacy[7] = "cy";
+  hv_CameraParamAreaScanTiltDivisionLegacy[8] = "image_width";
+  hv_CameraParamAreaScanTiltDivisionLegacy[9] = "image_height";
+  hv_CameraParamAreaScanTiltPolynomialLegacy.Clear();
+  hv_CameraParamAreaScanTiltPolynomialLegacy[0] = "focus";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[1] = "k1";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[2] = "k2";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[3] = "k3";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[4] = "p1";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[5] = "p2";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[6] = "tilt";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[7] = "rot";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[8] = "sx";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[9] = "sy";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[10] = "cx";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[11] = "cy";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[12] = "image_width";
+  hv_CameraParamAreaScanTiltPolynomialLegacy[13] = "image_height";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy.Clear();
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[0] = "focus";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[1] = "kappa";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[2] = "sx";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[3] = "sy";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[4] = "cx";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[5] = "cy";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[6] = "image_width";
+  hv_CameraParamAreaScanTelecentricDivisionLegacy[7] = "image_height";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy.Clear();
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[0] = "focus";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[1] = "k1";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[2] = "k2";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[3] = "k3";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[4] = "p1";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[5] = "p2";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[6] = "sx";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[7] = "sy";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[8] = "cx";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[9] = "cy";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[10] = "image_width";
+  hv_CameraParamAreaScanTelecentricPolynomialLegacy[11] = "image_height";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy.Clear();
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[0] = "focus";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[1] = "kappa";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[2] = "tilt";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[3] = "rot";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[4] = "sx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[5] = "sy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[6] = "cx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[7] = "cy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[8] = "image_width";
+  hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy[9] = "image_height";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy.Clear();
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[0] = "focus";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[1] = "k1";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[2] = "k2";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[3] = "k3";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[4] = "p1";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[5] = "p2";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[6] = "tilt";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[7] = "rot";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[8] = "sx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[9] = "sy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[10] = "cx";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[11] = "cy";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[12] = "image_width";
+  hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy[13] = "image_height";
+  //
+  //If the camera type is passed in CameraParam
+  if (0 != (HTuple((hv_CameraParam.TupleLength())==1).TupleAnd(HTuple(hv_CameraParam[0]).TupleIsString())))
+  {
+    (*hv_CameraType) = ((const HTuple&)hv_CameraParam)[0];
+    if (0 != ((*hv_CameraType)==HTuple("area_scan_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_telecentric_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTelecentricDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_telecentric_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTelecentricPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_image_side_telecentric_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanImageSideTelecentricTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_image_side_telecentric_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_bilateral_telecentric_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanBilateralTelecentricTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_bilateral_telecentric_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_object_side_telecentric_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanObjectSideTelecentricTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_object_side_telecentric_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_hypercentric_division")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanHypercentricDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_hypercentric_polynomial")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanHypercentricPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("line_scan")))
+    {
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamLinesScan);
+    }
+    else
+    {
+      throw HException(("Unknown camera type '"+(*hv_CameraType))+"' passed in CameraParam.");
+    }
+    return;
+  }
+  //
+  //If the camera parameters are passed in CameraParam
+  if (0 != ((HTuple(hv_CameraParam[0]).TupleIsString()).TupleNot()))
+  {
+    //Format of camera parameters for HALCON 12 and earlier
+    switch ((hv_CameraParam.TupleLength()).I())
+    {
+      //
+      //Area Scan
+    case 8:
+      //CameraType: 'area_scan_division' or 'area_scan_telecentric_division'
+      if (0 != (HTuple(hv_CameraParam[0])!=0.0))
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanDivision;
+        (*hv_CameraType) = "area_scan_division";
+      }
+      else
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanTelecentricDivisionLegacy;
+        (*hv_CameraType) = "area_scan_telecentric_division";
+      }
+      break;
+    case 10:
+      //CameraType: 'area_scan_tilt_division' or 'area_scan_telecentric_tilt_division'
+      if (0 != (HTuple(hv_CameraParam[0])!=0.0))
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanTiltDivisionLegacy;
+        (*hv_CameraType) = "area_scan_tilt_division";
+      }
+      else
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanBilateralTelecentricTiltDivisionLegacy;
+        (*hv_CameraType) = "area_scan_tilt_bilateral_telecentric_division";
+      }
+      break;
+    case 12:
+      //CameraType: 'area_scan_polynomial' or 'area_scan_telecentric_polynomial'
+      if (0 != (HTuple(hv_CameraParam[0])!=0.0))
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanPolynomial;
+        (*hv_CameraType) = "area_scan_polynomial";
+      }
+      else
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanTelecentricPolynomialLegacy;
+        (*hv_CameraType) = "area_scan_telecentric_polynomial";
+      }
+      break;
+    case 14:
+      //CameraType: 'area_scan_tilt_polynomial' or 'area_scan_telecentric_tilt_polynomial'
+      if (0 != (HTuple(hv_CameraParam[0])!=0.0))
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanTiltPolynomialLegacy;
+        (*hv_CameraType) = "area_scan_tilt_polynomial";
+      }
+      else
+      {
+        (*hv_ParamNames) = hv_CameraParamAreaScanBilateralTelecentricTiltPolynomialLegacy;
+        (*hv_CameraType) = "area_scan_tilt_bilateral_telecentric_polynomial";
+      }
+      break;
+      //
+      //Line Scan
+    case 11:
+      //CameraType: 'line_scan'
+      (*hv_ParamNames) = hv_CameraParamLinesScan;
+      (*hv_CameraType) = "line_scan";
+      break;
+    default:
+      throw HException("Wrong number of values in CameraParam.");
+    }
+  }
+  else
+  {
+    //Format of camera parameters since HALCON 13
+    (*hv_CameraType) = ((const HTuple&)hv_CameraParam)[0];
+    if (0 != ((*hv_CameraType)==HTuple("area_scan_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=9))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=13))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_telecentric_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=9))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTelecentricDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_telecentric_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=13))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTelecentricPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=12))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=16))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_image_side_telecentric_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=11))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanImageSideTelecentricTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_image_side_telecentric_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=15))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanImageSideTelecentricTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_bilateral_telecentric_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=11))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanBilateralTelecentricTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_bilateral_telecentric_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=15))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanBilateralTelecentricTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_object_side_telecentric_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=12))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanObjectSideTelecentricTiltDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_tilt_object_side_telecentric_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=16))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanObjectSideTelecentricTiltPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_hypercentric_division")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=9))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanHypercentricDivision);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("area_scan_hypercentric_polynomial")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=13))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamAreaScanHypercentricPolynomial);
+    }
+    else if (0 != ((*hv_CameraType)==HTuple("line_scan")))
+    {
+      if (0 != ((hv_CameraParam.TupleLength())!=12))
+      {
+        throw HException("Wrong number of values in CameraParam.");
+      }
+      (*hv_ParamNames).Clear();
+      (*hv_ParamNames)[0] = "camera_type";
+      (*hv_ParamNames).Append(hv_CameraParamLinesScan);
+    }
+    else
+    {
+      throw HException("Unknown camera type in CameraParam.");
+    }
+  }
+  return;
+}
+
+// Chapter: Calibration / Camera Parameters
+// Short Description: Set the value of a specified camera parameter in the camera parameter tuple. 
+void set_cam_par_data (HTuple hv_CameraParamIn, HTuple hv_ParamName, HTuple hv_ParamValue, 
+    HTuple *hv_CameraParamOut)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_Index, hv_ParamNameInd, hv_CameraParamNames;
+  HTuple  hv_I, hv_CameraType, hv_IsTelecentric;
+
+  //set_cam_par_data sets the value of the parameter that
+  //is given in ParamName in the tuple of camera parameters
+  //given in CameraParamIn. The modified camera parameters
+  //are returned in CameraParamOut.
+  //
+  //Check for consistent length of input parameters
+  if (0 != ((hv_ParamName.TupleLength())!=(hv_ParamValue.TupleLength())))
+  {
+    throw HException("Different number of values in ParamName and ParamValue");
+  }
+  //First, get the parameter names that correspond to the
+  //elements in the input camera parameter tuple.
+  get_cam_par_names(hv_CameraParamIn, &hv_CameraType, &hv_CameraParamNames);
+  //
+  //Find the index of the requested camera data and return
+  //the corresponding value.
+  (*hv_CameraParamOut) = hv_CameraParamIn;
+  {
+  HTuple end_val16 = (hv_ParamName.TupleLength())-1;
+  HTuple step_val16 = 1;
+  for (hv_Index=0; hv_Index.Continue(end_val16, step_val16); hv_Index += step_val16)
+  {
+    hv_ParamNameInd = HTuple(hv_ParamName[hv_Index]);
+    hv_I = hv_CameraParamNames.TupleFind(hv_ParamNameInd);
+    if (0 != (hv_I!=-1))
+    {
+      (*hv_CameraParamOut)[hv_I] = HTuple(hv_ParamValue[hv_Index]);
+    }
+    else
+    {
+      throw HException("Wrong ParamName "+hv_ParamNameInd);
+    }
+    //Check the consistency of focus and telecentricity
+    if (0 != (hv_ParamNameInd==HTuple("focus")))
+    {
+      hv_IsTelecentric = HTuple((hv_CameraType.TupleStrstr("telecentric"))!=-1).TupleAnd((hv_CameraType.TupleStrstr("image_side_telecentric"))==-1);
+      if (0 != hv_IsTelecentric)
+      {
+        throw HException(HTuple("Focus for telecentric lenses is always 0, and hence, cannot be changed."));
+      }
+      if (0 != (HTuple(hv_IsTelecentric.TupleNot()).TupleAnd(HTuple(hv_ParamValue[hv_Index])==0.0)))
+      {
+        throw HException("Focus for non-telecentric lenses must not be 0.");
+      }
+    }
+  }
+  }
+  return;
+}
+
+// Chapter: Graphics / Text
+// Short Description: Set font independent of OS 
+void set_display_font (HTuple hv_WindowHandle, HTuple hv_Size, HTuple hv_Font, HTuple hv_Bold, 
+    HTuple hv_Slant)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_OS, hv_Fonts, hv_Style, hv_Exception;
+  HTuple  hv_AvailableFonts, hv_Fdx, hv_Indices;
+
+  //This procedure sets the text font of the current window with
+  //the specified attributes.
+  //
+  //Input parameters:
+  //WindowHandle: The graphics window for which the font will be set
+  //Size: The font size. If Size=-1, the default of 16 is used.
+  //Bold: If set to 'true', a bold font is used
+  //Slant: If set to 'true', a slanted font is used
+  //
+  GetSystem("operating_system", &hv_OS);
+  if (0 != (HTuple(hv_Size==HTuple()).TupleOr(hv_Size==-1)))
+  {
+    hv_Size = 16;
+  }
+  if (0 != ((hv_OS.TupleSubstr(0,2))==HTuple("Win")))
+  {
+    //Restore previous behaviour
+    hv_Size = (1.13677*hv_Size).TupleInt();
+  }
+  else
+  {
+    hv_Size = hv_Size.TupleInt();
+  }
+  if (0 != (hv_Font==HTuple("Courier")))
+  {
+    hv_Fonts.Clear();
+    hv_Fonts[0] = "Courier";
+    hv_Fonts[1] = "Courier 10 Pitch";
+    hv_Fonts[2] = "Courier New";
+    hv_Fonts[3] = "CourierNew";
+    hv_Fonts[4] = "Liberation Mono";
+  }
+  else if (0 != (hv_Font==HTuple("mono")))
+  {
+    hv_Fonts.Clear();
+    hv_Fonts[0] = "Consolas";
+    hv_Fonts[1] = "Menlo";
+    hv_Fonts[2] = "Courier";
+    hv_Fonts[3] = "Courier 10 Pitch";
+    hv_Fonts[4] = "FreeMono";
+    hv_Fonts[5] = "Liberation Mono";
+  }
+  else if (0 != (hv_Font==HTuple("sans")))
+  {
+    hv_Fonts.Clear();
+    hv_Fonts[0] = "Luxi Sans";
+    hv_Fonts[1] = "DejaVu Sans";
+    hv_Fonts[2] = "FreeSans";
+    hv_Fonts[3] = "Arial";
+    hv_Fonts[4] = "Liberation Sans";
+  }
+  else if (0 != (hv_Font==HTuple("serif")))
+  {
+    hv_Fonts.Clear();
+    hv_Fonts[0] = "Times New Roman";
+    hv_Fonts[1] = "Luxi Serif";
+    hv_Fonts[2] = "DejaVu Serif";
+    hv_Fonts[3] = "FreeSerif";
+    hv_Fonts[4] = "Utopia";
+    hv_Fonts[5] = "Liberation Serif";
+  }
+  else
+  {
+    hv_Fonts = hv_Font;
+  }
+  hv_Style = "";
+  if (0 != (hv_Bold==HTuple("true")))
+  {
+    hv_Style += HTuple("Bold");
+  }
+  else if (0 != (hv_Bold!=HTuple("false")))
+  {
+    hv_Exception = "Wrong value of control parameter Bold";
+    throw HException(hv_Exception);
+  }
+  if (0 != (hv_Slant==HTuple("true")))
+  {
+    hv_Style += HTuple("Italic");
+  }
+  else if (0 != (hv_Slant!=HTuple("false")))
+  {
+    hv_Exception = "Wrong value of control parameter Slant";
+    throw HException(hv_Exception);
+  }
+  if (0 != (hv_Style==HTuple("")))
+  {
+    hv_Style = "Normal";
+  }
+  QueryFont(hv_WindowHandle, &hv_AvailableFonts);
+  hv_Font = "";
+  {
+  HTuple end_val48 = (hv_Fonts.TupleLength())-1;
+  HTuple step_val48 = 1;
+  for (hv_Fdx=0; hv_Fdx.Continue(end_val48, step_val48); hv_Fdx += step_val48)
+  {
+    hv_Indices = hv_AvailableFonts.TupleFind(HTuple(hv_Fonts[hv_Fdx]));
+    if (0 != ((hv_Indices.TupleLength())>0))
+    {
+      if (0 != (HTuple(hv_Indices[0])>=0))
+      {
+        hv_Font = HTuple(hv_Fonts[hv_Fdx]);
+        break;
+      }
+    }
+  }
+  }
+  if (0 != (hv_Font==HTuple("")))
+  {
+    throw HException("Wrong value of control parameter Font");
+  }
+  hv_Font = (((hv_Font+"-")+hv_Style)+"-")+hv_Size;
+  SetFont(hv_WindowHandle, hv_Font);
+  return;
+}
+
 // Local procedures 
+// Chapter: Matching-3D
+// Short Description: Reflect the movement of the camera 
+void analyze_graph_event_camera (HObject ho_BackgroundImage, HObject ho_TrackballContour, 
+    HTuple hv_Button, HTuple hv_Row, HTuple hv_Column, HTuple hv_WindowHandle, HTuple hv_WindowHandleBuffer, 
+    HTuple hv_VirtualTrackball, HTuple hv_TrackballSize, HTuple hv_VisualizeTrackball, 
+    HTuple hv_ObjectModel3DID, HTuple hv_CamParam, HTuple hv_HiddenSurfaceRemoval, 
+    HTuple hv_ImageNo, HTuple hv_ModelColor, HTuple hv_RefPose, HTuple hv_MinFaceAngle, 
+    HTuple hv_OffsetRow, HTuple hv_OffsetCol, HTuple hv_RelQuaternionIn, HTuple hv_NumAddIn, 
+    HTuple hv_DistIn, HTuple *hv_RelQuaternionOut, HTuple *hv_NumAddOut, HTuple *hv_DistOut)
+{
+
+  // Local iconic variables
+  HObject  ho_ModelContours, ho_BackgroundImageTrans;
+
+  // Local control variables
+  HTuple  hv_ErrorVar;
+  HTuple  hv_Cx, hv_Cy, hv_Width, hv_Height, hv_MinImageSize;
+  HTuple  hv_HomMat2DIdentity, hv_MRow1, hv_MCol1, hv_Error;
+  HTuple  hv_MRow2, hv_MCol2, hv_MX1, hv_MY1, hv_MX2, hv_MY2;
+  HTuple  hv_DeltaQuatRotation, hv_RelHomMat, hv_RefHomMat;
+  HTuple  hv_AbsHomMat, hv_AbsPose, hv_HomMat2DTranslate;
+  HTuple  hv_DRow;
+
+  get_cam_par_data(hv_CamParam, "cx", &hv_Cx);
+  get_cam_par_data(hv_CamParam, "cy", &hv_Cy);
+  get_cam_par_data(hv_CamParam, "image_width", &hv_Width);
+  get_cam_par_data(hv_CamParam, "image_height", &hv_Height);
+  hv_MinImageSize = (hv_Width.TupleConcat(hv_Height)).TupleMin();
+  // Error variable 'hv_ErrorVar' activated
+  hv_ErrorVar = 2;
+  HomMat2dIdentity(&hv_HomMat2DIdentity);
+  if (0 != (hv_Button==1))
+  {
+    hv_MRow1 = hv_Row;
+    hv_MCol1 = hv_Column;
+    while (0 != (hv_Button==1))
+    {
+      // dev_set_check ("~give_error")
+      try
+      {
+        hv_ErrorVar = 2;
+        GetMposition(hv_WindowHandle, &hv_Row, &hv_Column, &hv_Button);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_Error = hv_ErrorVar;
+      // dev_set_check ("give_error")
+      if (0 != (hv_Error==2))
+      {
+        hv_MRow2 = hv_Row;
+        hv_MCol2 = hv_Column;
+        //Transform the pixel coordinates to relative image coordinates
+        hv_MX1 = (hv_Cx-hv_MCol1)/(0.5*hv_MinImageSize);
+        hv_MY1 = (hv_Cy-hv_MRow1)/(0.5*hv_MinImageSize);
+        hv_MX2 = (hv_Cx-hv_MCol2)/(0.5*hv_MinImageSize);
+        hv_MY2 = (hv_Cy-hv_MRow2)/(0.5*hv_MinImageSize);
+        //Compute the quaternion rotation that corresponds to the mouse
+        //movement
+        trackball(hv_MX1, hv_MY1, hv_MX2, hv_MY2, hv_VirtualTrackball, hv_TrackballSize, 
+            &hv_DeltaQuatRotation);
+        //Add the incremental quaternion
+        QuatCompose(hv_DeltaQuatRotation, hv_RelQuaternionIn, &hv_RelQuaternionIn);
+        (*hv_NumAddOut) = hv_NumAddIn+1;
+        //Normalize the quaternion every 1000 additions
+        if (0 != ((*hv_NumAddOut)>1000))
+        {
+          QuatNormalize(hv_RelQuaternionIn, &hv_RelQuaternionIn);
+          (*hv_NumAddOut) = 0;
+        }
+        //Transform the quaternion to a rotation matrix
+        QuatToHomMat3d(hv_RelQuaternionIn, &hv_RelHomMat);
+        PoseToHomMat3d(hv_RefPose, &hv_RefHomMat);
+        HomMat3dCompose(hv_RelHomMat, hv_RefHomMat, &hv_AbsHomMat);
+        HomMat3dToPose(hv_AbsHomMat, &hv_AbsPose);
+        hv_AbsPose[2] = HTuple(hv_AbsPose[2])+hv_DistIn;
+        ProjectObjectModel3d(&ho_ModelContours, hv_ObjectModel3DID, hv_CamParam, 
+            hv_AbsPose, hv_HiddenSurfaceRemoval, hv_MinFaceAngle);
+        //
+        ClearWindow(hv_WindowHandleBuffer);
+        SetColor(hv_WindowHandleBuffer, hv_ModelColor);
+        if (0 != (hv_ImageNo>0))
+        {
+          HomMat2dTranslate(hv_HomMat2DIdentity, HTuple(hv_OffsetRow[hv_ImageNo-1]), 
+              HTuple(hv_OffsetCol[hv_ImageNo-1]), &hv_HomMat2DTranslate);
+          AffineTransImage(ho_BackgroundImage, &ho_BackgroundImageTrans, hv_HomMat2DTranslate, 
+              "constant", "false");
+          DispImage(ho_BackgroundImageTrans, hv_WindowHandleBuffer);
+          SetTposition(hv_WindowHandleBuffer, 10, 10);
+          WriteString(hv_WindowHandleBuffer, "Image No.: "+(hv_ImageNo.TupleString("2d")));
+        }
+        else
+        {
+          SetTposition(hv_WindowHandleBuffer, 10, 10);
+          WriteString(hv_WindowHandleBuffer, "(No Background Image)");
+        }
+        SetTposition(hv_WindowHandleBuffer, 10, hv_Width-180);
+        WriteString(hv_WindowHandleBuffer, "Mouse Mode: Move Camera");
+        DispXld(ho_ModelContours, hv_WindowHandleBuffer);
+        if (0 != (HTuple(hv_VisualizeTrackball==HTuple("always")).TupleOr(hv_VisualizeTrackball==HTuple("on_button"))))
+        {
+          SetColor(hv_WindowHandleBuffer, "dim gray");
+          DispXld(ho_TrackballContour, hv_WindowHandleBuffer);
+        }
+        CopyRectangle(hv_WindowHandleBuffer, hv_WindowHandle, 0, 0, hv_Height-1, 
+            hv_Width-1, 0, 0);
+        //
+        hv_MRow1 = hv_MRow2;
+        hv_MCol1 = hv_MCol2;
+      }
+    }
+  }
+  if (0 != (hv_Button==4))
+  {
+    hv_MRow1 = hv_Row;
+    while (0 != (hv_Button==4))
+    {
+      // dev_set_check ("~give_error")
+      try
+      {
+        hv_ErrorVar = 2;
+        GetMposition(hv_WindowHandle, &hv_Row, &hv_Column, &hv_Button);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_Error = hv_ErrorVar;
+      // dev_set_check ("give_error")
+      if (0 != (hv_Error==2))
+      {
+        hv_MRow2 = hv_Row;
+        hv_DRow = hv_MRow2-hv_MRow1;
+        hv_DistIn = hv_DistIn-((hv_DistIn*hv_DRow)*0.003);
+        QuatToHomMat3d(hv_RelQuaternionIn, &hv_RelHomMat);
+        PoseToHomMat3d(hv_RefPose, &hv_RefHomMat);
+        HomMat3dCompose(hv_RelHomMat, hv_RefHomMat, &hv_AbsHomMat);
+        HomMat3dToPose(hv_AbsHomMat, &hv_AbsPose);
+        hv_AbsPose[2] = HTuple(hv_AbsPose[2])+hv_DistIn;
+        ProjectObjectModel3d(&ho_ModelContours, hv_ObjectModel3DID, hv_CamParam, 
+            hv_AbsPose, hv_HiddenSurfaceRemoval, hv_MinFaceAngle);
+        //
+        ClearWindow(hv_WindowHandleBuffer);
+        SetColor(hv_WindowHandleBuffer, hv_ModelColor);
+        if (0 != (hv_ImageNo>0))
+        {
+          HomMat2dTranslate(hv_HomMat2DIdentity, HTuple(hv_OffsetRow[hv_ImageNo-1]), 
+              HTuple(hv_OffsetCol[hv_ImageNo-1]), &hv_HomMat2DTranslate);
+          AffineTransImage(ho_BackgroundImage, &ho_BackgroundImageTrans, hv_HomMat2DTranslate, 
+              "constant", "false");
+          DispImage(ho_BackgroundImageTrans, hv_WindowHandleBuffer);
+          SetTposition(hv_WindowHandleBuffer, 10, 10);
+          WriteString(hv_WindowHandleBuffer, "Image No.: "+(hv_ImageNo.TupleString("2d")));
+        }
+        else
+        {
+          SetTposition(hv_WindowHandleBuffer, 10, 10);
+          WriteString(hv_WindowHandleBuffer, "(No Background Image)");
+        }
+        SetTposition(hv_WindowHandleBuffer, 10, hv_Width-180);
+        WriteString(hv_WindowHandleBuffer, "Mouse Mode: Move Camera");
+        DispXld(ho_ModelContours, hv_WindowHandleBuffer);
+        if (0 != (HTuple(hv_VisualizeTrackball==HTuple("always")).TupleOr(hv_VisualizeTrackball==HTuple("on_button"))))
+        {
+          SetColor(hv_WindowHandleBuffer, "dim gray");
+          DispXld(ho_TrackballContour, hv_WindowHandleBuffer);
+        }
+        CopyRectangle(hv_WindowHandleBuffer, hv_WindowHandle, 0, 0, hv_Height-1, 
+            hv_Width-1, 0, 0);
+        //
+        hv_MRow1 = hv_MRow2;
+      }
+    }
+  }
+  (*hv_DistOut) = hv_DistIn;
+  (*hv_RelQuaternionOut) = hv_RelQuaternionIn;
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Reflect the movement of the background image 
+void analyze_graph_event_image (HObject ho_BackgroundImage, HObject ho_ModelContours, 
+    HObject ho_TrackballContour, HTuple hv_Button, HTuple hv_Row, HTuple hv_Column, 
+    HTuple hv_WindowHandle, HTuple hv_WindowHandleBuffer, HTuple hv_OffsetRowIn, 
+    HTuple hv_OffsetColIn, HTuple hv_ImageNo, HTuple hv_VisualizeTrackball, HTuple hv_ModelColor, 
+    HTuple *hv_OffsetRowOut, HTuple *hv_OffsetColOut)
+{
+
+  // Local iconic variables
+  HObject  ho_BackgroundImageTrans;
+
+  // Local control variables
+  HTuple  hv_ErrorVar;
+  HTuple  hv_Row1, hv_Column1, hv_Width, hv_Height;
+  HTuple  hv_HomMat2DIdentity, hv_MRow1, hv_MCol1, hv_Error;
+  HTuple  hv_MRow2, hv_MCol2, hv_HomMat2DTranslate;
+
+  (*hv_OffsetRowOut) = hv_OffsetRowIn;
+  (*hv_OffsetColOut) = hv_OffsetColIn;
+  if (0 != (hv_ImageNo<=0))
+  {
+    return;
+  }
+  GetWindowExtents(hv_WindowHandle, &hv_Row1, &hv_Column1, &hv_Width, &hv_Height);
+  // Error variable 'hv_ErrorVar' activated
+  hv_ErrorVar = 2;
+  HomMat2dIdentity(&hv_HomMat2DIdentity);
+  if (0 != (hv_Button==1))
+  {
+    hv_MRow1 = hv_Row;
+    hv_MCol1 = hv_Column;
+    while (0 != (hv_Button==1))
+    {
+      // dev_set_check ("~give_error")
+      try
+      {
+        hv_ErrorVar = 2;
+        GetMposition(hv_WindowHandle, &hv_Row, &hv_Column, &hv_Button);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_Error = hv_ErrorVar;
+      // dev_set_check ("give_error")
+      if (0 != (hv_Error==2))
+      {
+        hv_MRow2 = hv_Row;
+        hv_MCol2 = hv_Column;
+        (*hv_OffsetRowOut)[hv_ImageNo-1] = (HTuple((*hv_OffsetRowOut)[hv_ImageNo-1])+hv_MRow2)-hv_MRow1;
+        (*hv_OffsetColOut)[hv_ImageNo-1] = (HTuple((*hv_OffsetColOut)[hv_ImageNo-1])+hv_MCol2)-hv_MCol1;
+        SetColor(hv_WindowHandleBuffer, hv_ModelColor);
+        if (0 != (hv_ImageNo>0))
+        {
+          ClearWindow(hv_WindowHandleBuffer);
+          HomMat2dTranslate(hv_HomMat2DIdentity, HTuple((*hv_OffsetRowOut)[hv_ImageNo-1]), 
+              HTuple((*hv_OffsetColOut)[hv_ImageNo-1]), &hv_HomMat2DTranslate);
+          AffineTransImage(ho_BackgroundImage, &ho_BackgroundImageTrans, hv_HomMat2DTranslate, 
+              "constant", "false");
+          DispImage(ho_BackgroundImageTrans, hv_WindowHandleBuffer);
+          SetTposition(hv_WindowHandleBuffer, 10, 10);
+          WriteString(hv_WindowHandleBuffer, "Image No.: "+(hv_ImageNo.TupleString("2d")));
+        }
+        else
+        {
+          SetTposition(hv_WindowHandleBuffer, 10, 10);
+          WriteString(hv_WindowHandleBuffer, "(No Background Image)");
+        }
+        SetTposition(hv_WindowHandleBuffer, 10, hv_Width-200);
+        WriteString(hv_WindowHandleBuffer, "Mouse Mode: Move Image");
+        DispXld(ho_ModelContours, hv_WindowHandleBuffer);
+        //Visualize the trackball if desired
+        if (0 != (hv_VisualizeTrackball==HTuple("always")))
+        {
+          SetColor(hv_WindowHandleBuffer, "dim gray");
+          DispXld(ho_TrackballContour, hv_WindowHandleBuffer);
+        }
+        CopyRectangle(hv_WindowHandleBuffer, hv_WindowHandle, 0, 0, hv_Height-1, 
+            hv_Width-1, 0, 0);
+        //
+        hv_MRow1 = hv_MRow2;
+        hv_MCol1 = hv_MCol2;
+      }
+    }
+  }
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Reflect the selection of a menu button 
+void analyze_menu_event (HObject ho_MenuRegions, HTuple hv_MenuText, HTuple hv_WindowHandleMenu, 
+    HTuple hv_Row, HTuple hv_Col, HTuple hv_LongitudeMinIn, HTuple hv_LongitudeMaxIn, 
+    HTuple hv_LatitudeMinIn, HTuple hv_LatitudeMaxIn, HTuple hv_CamRollMinIn, HTuple hv_CamRollMaxIn, 
+    HTuple hv_DistMinIn, HTuple hv_DistMaxIn, HTuple hv_MinFaceAngleIn, HTuple hv_RefPoseIn, 
+    HTuple hv_RelQuaternionIn, HTuple hv_ImageNoIn, HTuple hv_HiddenSurfaceRemovalIn, 
+    HTuple hv_MouseModeIn, HTuple hv_Dist, HTuple hv_ObjectModel3DID, HTuple hv_RefPoseReset, 
+    HTuple *hv_SelectedButton, HTuple *hv_Exit, HTuple *hv_LongitudeMinOut, HTuple *hv_LongitudeMaxOut, 
+    HTuple *hv_LatitudeMinOut, HTuple *hv_LatitudeMaxOut, HTuple *hv_CamRollMinOut, 
+    HTuple *hv_CamRollMaxOut, HTuple *hv_DistMinOut, HTuple *hv_DistMaxOut, HTuple *hv_MinFaceAngleOut, 
+    HTuple *hv_RefPoseOut, HTuple *hv_RelQuaternionOut, HTuple *hv_ImageNoOut, HTuple *hv_HiddenSurfaceRemovalOut, 
+    HTuple *hv_MouseModeOut)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_RefHomMat, hv_RelHomMat, hv_AbsHomMat;
+  HTuple  hv_RelPose, hv_RelPoseInv, hv_CameraPos, hv_CurrentLongitude;
+  HTuple  hv_CurrentLatitude, hv_Radius, hv_CurrentCamRoll;
+
+  (*hv_Exit) = 0;
+  get_selected_button(ho_MenuRegions, hv_MenuText, hv_WindowHandleMenu, hv_Row, hv_Col, 
+      &(*hv_SelectedButton));
+  if (0 != ((*hv_SelectedButton)==HTuple("Exit")))
+  {
+    (*hv_Exit) = 1;
+  }
+  //
+  //Copy the input parameters to the output parameters
+  (*hv_LongitudeMinOut) = hv_LongitudeMinIn;
+  (*hv_LongitudeMaxOut) = hv_LongitudeMaxIn;
+  (*hv_LatitudeMinOut) = hv_LatitudeMinIn;
+  (*hv_LatitudeMaxOut) = hv_LatitudeMaxIn;
+  (*hv_CamRollMinOut) = hv_CamRollMinIn;
+  (*hv_CamRollMaxOut) = hv_CamRollMaxIn;
+  (*hv_DistMinOut) = hv_DistMinIn;
+  (*hv_DistMaxOut) = hv_DistMaxIn;
+  (*hv_MinFaceAngleOut) = hv_MinFaceAngleIn;
+  (*hv_RefPoseOut) = hv_RefPoseIn;
+  (*hv_RelQuaternionOut) = hv_RelQuaternionIn;
+  (*hv_ImageNoOut) = hv_ImageNoIn;
+  (*hv_HiddenSurfaceRemovalOut) = hv_HiddenSurfaceRemovalIn;
+  (*hv_MouseModeOut) = hv_MouseModeIn;
+  //
+  //Check which menu button was pressed.
+  if (0 != ((*hv_SelectedButton)==HTuple("Set Reference Pose")))
+  {
+    PoseToHomMat3d((*hv_RefPoseOut), &hv_RefHomMat);
+    QuatToHomMat3d((*hv_RelQuaternionOut), &hv_RelHomMat);
+    HomMat3dCompose(hv_RelHomMat, hv_RefHomMat, &hv_AbsHomMat);
+    HomMat3dToPose(hv_AbsHomMat, &(*hv_RefPoseOut));
+    (*hv_RelQuaternionOut).Clear();
+    (*hv_RelQuaternionOut)[0] = 1;
+    (*hv_RelQuaternionOut)[1] = 0;
+    (*hv_RelQuaternionOut)[2] = 0;
+    (*hv_RelQuaternionOut)[3] = 0;
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Add to Pose Range")))
+  {
+    QuatToHomMat3d(hv_RelQuaternionIn, &hv_RelHomMat);
+    HomMat3dToPose(hv_RelHomMat, &hv_RelPose);
+    hv_RelPose[2] = hv_Dist;
+    PoseInvert(hv_RelPose, &hv_RelPoseInv);
+    hv_CameraPos.Clear();
+    hv_CameraPos.Append(HTuple(hv_RelPoseInv[0]));
+    hv_CameraPos.Append(HTuple(hv_RelPoseInv[1]));
+    hv_CameraPos.Append(HTuple(hv_RelPoseInv[2]));
+    //Compute the current longitude, latitude, and camera roll angle
+    ConvertPoint3dCartToSpher(HTuple(hv_CameraPos[0]), HTuple(hv_CameraPos[1]), HTuple(hv_CameraPos[2]), 
+        "-y", "-z", &hv_CurrentLongitude, &hv_CurrentLatitude, &hv_Radius);
+    hv_CurrentCamRoll = ((const HTuple&)hv_RelPose)[5];
+    while (0 != (hv_CurrentCamRoll>180.0))
+    {
+      hv_CurrentCamRoll = hv_CurrentCamRoll-360.0;
+    }
+    while (0 != (hv_CurrentCamRoll<-180.0))
+    {
+      hv_CurrentCamRoll += 360.0;
+    }
+    hv_CurrentCamRoll = (hv_CurrentCamRoll*3.1416)/180.;
+    (*hv_LongitudeMinOut) = ((*hv_LongitudeMinOut).TupleConcat(hv_CurrentLongitude)).TupleMin();
+    (*hv_LongitudeMaxOut) = ((*hv_LongitudeMaxOut).TupleConcat(hv_CurrentLongitude)).TupleMax();
+    (*hv_LatitudeMinOut) = ((*hv_LatitudeMinOut).TupleConcat(hv_CurrentLatitude)).TupleMin();
+    (*hv_LatitudeMaxOut) = ((*hv_LatitudeMaxOut).TupleConcat(hv_CurrentLatitude)).TupleMax();
+    (*hv_CamRollMinOut) = ((*hv_CamRollMinOut).TupleConcat(hv_CurrentCamRoll)).TupleMin();
+    (*hv_CamRollMaxOut) = ((*hv_CamRollMaxOut).TupleConcat(hv_CurrentCamRoll)).TupleMax();
+    (*hv_DistMinOut) = ((*hv_DistMinOut).TupleConcat(hv_Dist)).TupleMin();
+    (*hv_DistMaxOut) = ((*hv_DistMaxOut).TupleConcat(hv_Dist)).TupleMax();
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Increase MinFaceAngle")))
+  {
+    (*hv_MinFaceAngleOut) += HTuple(1).TupleRad();
+    if (0 != ((*hv_MinFaceAngleOut)>(HTuple(180).TupleRad())))
+    {
+      (*hv_MinFaceAngleOut) = HTuple(180).TupleRad();
+    }
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Decrease MinFaceAngle")))
+  {
+    (*hv_MinFaceAngleOut) = (*hv_MinFaceAngleOut)-(HTuple(1).TupleRad());
+    if (0 != ((*hv_MinFaceAngleOut)<0))
+    {
+      (*hv_MinFaceAngleOut) = 0;
+    }
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Reset Reference Pose")))
+  {
+    //Reset the reference pose
+    (*hv_RefPoseOut) = hv_RefPoseReset;
+    //Reset the pose range
+    (*hv_LongitudeMinOut) = 0;
+    (*hv_LongitudeMaxOut) = 0;
+    (*hv_LatitudeMinOut) = 0;
+    (*hv_LatitudeMaxOut) = 0;
+    (*hv_CamRollMinOut) = 0;
+    (*hv_CamRollMaxOut) = 0;
+    (*hv_DistMinOut) = hv_Dist;
+    (*hv_DistMaxOut) = hv_Dist;
+    //Reset the current relative pose
+    (*hv_RelQuaternionOut).Clear();
+    (*hv_RelQuaternionOut)[0] = 1;
+    (*hv_RelQuaternionOut)[1] = 0;
+    (*hv_RelQuaternionOut)[2] = 0;
+    (*hv_RelQuaternionOut)[3] = 0;
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Reset Pose Range")))
+  {
+    (*hv_LongitudeMinOut) = 0;
+    (*hv_LongitudeMaxOut) = 0;
+    (*hv_LatitudeMinOut) = 0;
+    (*hv_LatitudeMaxOut) = 0;
+    (*hv_CamRollMinOut) = 0;
+    (*hv_CamRollMaxOut) = 0;
+    (*hv_DistMinOut) = hv_Dist;
+    (*hv_DistMaxOut) = hv_Dist;
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Next Image")))
+  {
+    (*hv_ImageNoOut) = hv_ImageNoIn+1;
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Previous Image")))
+  {
+    (*hv_ImageNoOut) = hv_ImageNoIn-1;
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Hidden Line Removal")))
+  {
+    if (0 != (hv_HiddenSurfaceRemovalIn==HTuple("true")))
+    {
+      (*hv_HiddenSurfaceRemovalOut) = "false";
+    }
+    else
+    {
+      (*hv_HiddenSurfaceRemovalOut) = "true";
+    }
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Mouse Mode: Move Camera")))
+  {
+    (*hv_MouseModeOut) = "move_camera";
+  }
+  if (0 != ((*hv_SelectedButton)==HTuple("Mouse Mode: Move Image")))
+  {
+    (*hv_MouseModeOut) = "move_image";
+  }
+  return;
+}
+
 void classify (HObject ho_Regions, HTuple hv_MLPHandle, HTuple *hv_Classes)
 {
 
@@ -86,6 +1515,210 @@ void classify (HObject ho_Regions, HTuple hv_MLPHandle, HTuple *hv_Classes)
   return;
 }
 
+void classify_color_regions (HObject ho_Image, HObject *ho_RegionSelected, HTuple hv_MLPHandle, 
+    HTuple *hv_row, HTuple *hv_column, HTuple *hv_index)
+{
+  // procedure body not exported 
+}
+
+// Chapter: Matching-3D
+// Short Description: Determine the optimum viewing distance for a 3D model 
+void determine_optimum_viewing_distance (HTuple hv_ObjectModel3DID, HTuple hv_CamParam, 
+    HTuple hv_MinImageSize, HTuple hv_ImageCoverage, HTuple *hv_Dist)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_BoundingBox, hv_ReferencePoint, hv_P1;
+  HTuple  hv_P2, hv_P3, hv_P4, hv_P5, hv_P6, hv_P7, hv_P8;
+  HTuple  hv_D, hv_Sx, hv_Sy, hv_Focus, hv_MaxProjectionRadius;
+  HTuple  hv_Aperture;
+
+  //Get the 3D bounding box and the center of the 3D model
+  GetObjectModel3dParams(hv_ObjectModel3DID, "bounding_box1", &hv_BoundingBox);
+  GetObjectModel3dParams(hv_ObjectModel3DID, "reference_point", &hv_ReferencePoint);
+  //
+  //Compute the corner points of the bounding box
+  hv_P1.Clear();
+  hv_P1.Append(HTuple(hv_BoundingBox[0]));
+  hv_P1.Append(HTuple(hv_BoundingBox[1]));
+  hv_P1.Append(HTuple(hv_BoundingBox[2]));
+  hv_P2.Clear();
+  hv_P2.Append(HTuple(hv_BoundingBox[3]));
+  hv_P2.Append(HTuple(hv_BoundingBox[1]));
+  hv_P2.Append(HTuple(hv_BoundingBox[2]));
+  hv_P3.Clear();
+  hv_P3.Append(HTuple(hv_BoundingBox[0]));
+  hv_P3.Append(HTuple(hv_BoundingBox[4]));
+  hv_P3.Append(HTuple(hv_BoundingBox[2]));
+  hv_P4.Clear();
+  hv_P4.Append(HTuple(hv_BoundingBox[0]));
+  hv_P4.Append(HTuple(hv_BoundingBox[1]));
+  hv_P4.Append(HTuple(hv_BoundingBox[5]));
+  hv_P5.Clear();
+  hv_P5.Append(HTuple(hv_BoundingBox[3]));
+  hv_P5.Append(HTuple(hv_BoundingBox[4]));
+  hv_P5.Append(HTuple(hv_BoundingBox[2]));
+  hv_P6.Clear();
+  hv_P6.Append(HTuple(hv_BoundingBox[3]));
+  hv_P6.Append(HTuple(hv_BoundingBox[1]));
+  hv_P6.Append(HTuple(hv_BoundingBox[5]));
+  hv_P7.Clear();
+  hv_P7.Append(HTuple(hv_BoundingBox[0]));
+  hv_P7.Append(HTuple(hv_BoundingBox[4]));
+  hv_P7.Append(HTuple(hv_BoundingBox[5]));
+  hv_P8.Clear();
+  hv_P8.Append(HTuple(hv_BoundingBox[3]));
+  hv_P8.Append(HTuple(hv_BoundingBox[4]));
+  hv_P8.Append(HTuple(hv_BoundingBox[5]));
+  //
+  //Compute the maximum distance from the model center to the corners of
+  //the bounding box
+  hv_D = ((hv_P1-hv_ReferencePoint)*(hv_P1-hv_ReferencePoint)).TupleSum();
+  hv_D = (hv_D.TupleConcat(((hv_P2-hv_ReferencePoint)*(hv_P2-hv_ReferencePoint)).TupleSum())).TupleMax();
+  hv_D = (hv_D.TupleConcat(((hv_P3-hv_ReferencePoint)*(hv_P3-hv_ReferencePoint)).TupleSum())).TupleMax();
+  hv_D = (hv_D.TupleConcat(((hv_P4-hv_ReferencePoint)*(hv_P4-hv_ReferencePoint)).TupleSum())).TupleMax();
+  hv_D = (hv_D.TupleConcat(((hv_P5-hv_ReferencePoint)*(hv_P5-hv_ReferencePoint)).TupleSum())).TupleMax();
+  hv_D = (hv_D.TupleConcat(((hv_P6-hv_ReferencePoint)*(hv_P6-hv_ReferencePoint)).TupleSum())).TupleMax();
+  hv_D = (hv_D.TupleConcat(((hv_P7-hv_ReferencePoint)*(hv_P7-hv_ReferencePoint)).TupleSum())).TupleMax();
+  hv_D = (hv_D.TupleConcat(((hv_P8-hv_ReferencePoint)*(hv_P8-hv_ReferencePoint)).TupleSum())).TupleMax();
+  //
+  //Compute the optimum distance to make the projection cover the desired
+  //image part.
+  get_cam_par_data(hv_CamParam, "sx", &hv_Sx);
+  get_cam_par_data(hv_CamParam, "sy", &hv_Sy);
+  get_cam_par_data(hv_CamParam, "focus", &hv_Focus);
+  hv_MaxProjectionRadius = ((0.5*hv_ImageCoverage)*hv_MinImageSize)*((hv_Sx.TupleConcat(hv_Sy)).TupleMin());
+  hv_Aperture = hv_MaxProjectionRadius.TupleAtan2(hv_Focus);
+  (*hv_Dist) = (hv_D.TupleSqrt())/(hv_Aperture.TupleSin());
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Displays the menu buttons 
+void disp_menu (HObject ho_MenuRegions, HTuple hv_WindowHandle, HTuple hv_Texts)
+{
+
+  // Local iconic variables
+  HObject  ho_MenuRegion, ho_RegionBorder;
+
+  // Local control variables
+  HTuple  hv_NumberRegions, hv_NumberTexts, hv_i;
+  HTuple  hv_Text, hv_Rows, hv_Cols, hv_Ascent, hv_Descent;
+  HTuple  hv_Width, hv_Height;
+
+  //Display the previously created menu buttons
+  CountObj(ho_MenuRegions, &hv_NumberRegions);
+  hv_NumberTexts = hv_Texts.TupleLength();
+  if (0 != (hv_NumberRegions!=hv_NumberTexts))
+  {
+    // stop(...); only in hdevelop
+    //Wrong number of regions or texts
+  }
+  {
+  HTuple end_val7 = hv_NumberRegions;
+  HTuple step_val7 = 1;
+  for (hv_i=1; hv_i.Continue(end_val7, step_val7); hv_i += step_val7)
+  {
+    SelectObj(ho_MenuRegions, &ho_MenuRegion, hv_i);
+    hv_Text = HTuple(hv_Texts[hv_i-1]);
+    SetColor(hv_WindowHandle, "light gray");
+    HDevWindowStack::SetActive(hv_WindowHandle);
+    if (HDevWindowStack::IsOpen())
+      SetDraw(HDevWindowStack::GetActive(),"fill");
+    if (HDevWindowStack::IsOpen())
+      SetColor(HDevWindowStack::GetActive(),"light gray");
+    DispRegion(ho_MenuRegion, hv_WindowHandle);
+    GetRegionContour(ho_MenuRegion, &hv_Rows, &hv_Cols);
+    SetColor(hv_WindowHandle, "dim gray");
+    GenRegionPoints(&ho_RegionBorder, hv_Rows, hv_Cols);
+    DispRegion(ho_RegionBorder, hv_WindowHandle);
+    SetColor(hv_WindowHandle, "black");
+    GetStringExtents(hv_WindowHandle, hv_Text, &hv_Ascent, &hv_Descent, &hv_Width, 
+        &hv_Height);
+    SetTposition(hv_WindowHandle, (hv_Rows.TupleMin())+1, (((hv_Cols.TupleMax())+(hv_Cols.TupleMin()))/2)-(hv_Width/2));
+    WriteString(hv_WindowHandle, hv_Text);
+  }
+  }
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Display a 3D matching pose at the projected reference point 
+void display_match_pose (HTuple hv_ShapeModel3DID, HTuple hv_Pose, HTuple hv_WindowHandle)
+{
+
+  // Local control variables
+  HTuple  hv_ReferencePoint, hv_CamParam, hv_HomMat3D;
+  HTuple  hv_X, hv_Y, hv_Z, hv_Row, hv_Column;
+
+  GetShapeModel3dParams(hv_ShapeModel3DID, "reference_point", &hv_ReferencePoint);
+  GetShapeModel3dParams(hv_ShapeModel3DID, "cam_param", &hv_CamParam);
+  //
+  //Project the reference point
+  PoseToHomMat3d(hv_Pose, &hv_HomMat3D);
+  AffineTransPoint3d(hv_HomMat3D, HTuple(hv_ReferencePoint[0]), HTuple(hv_ReferencePoint[1]), 
+      HTuple(hv_ReferencePoint[2]), &hv_X, &hv_Y, &hv_Z);
+  Project3dPoint(hv_X, hv_Y, hv_Z, hv_CamParam, &hv_Row, &hv_Column);
+  //
+  //Display the pose at the projected reference point
+  SetTposition(hv_WindowHandle, hv_Row, hv_Column-10);
+  WriteString(hv_WindowHandle, "Pose:");
+  SetTposition(hv_WindowHandle, hv_Row+15, hv_Column);
+  WriteString(hv_WindowHandle, ("X: "+((1000*HTuple(hv_Pose[0])).TupleString("4.1f")))+" mm");
+  SetTposition(hv_WindowHandle, hv_Row+30, hv_Column);
+  WriteString(hv_WindowHandle, ("Y: "+((1000*HTuple(hv_Pose[1])).TupleString("4.1f")))+" mm");
+  SetTposition(hv_WindowHandle, hv_Row+45, hv_Column);
+  WriteString(hv_WindowHandle, ("Z: "+((1000*HTuple(hv_Pose[2])).TupleString("4.1f")))+" mm");
+  SetTposition(hv_WindowHandle, hv_Row+60, hv_Column);
+  WriteString(hv_WindowHandle, ("Alpha: "+(HTuple(hv_Pose[3]).TupleString("4.1f")))+"°");
+  SetTposition(hv_WindowHandle, hv_Row+75, hv_Column);
+  WriteString(hv_WindowHandle, ("Beta: "+(HTuple(hv_Pose[4]).TupleString("4.1f")))+"°");
+  SetTposition(hv_WindowHandle, hv_Row+90, hv_Column);
+  WriteString(hv_WindowHandle, ("Gamma: "+(HTuple(hv_Pose[5]).TupleString("4.1f")))+"°");
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Generate a contour in form of an arrow 
+void gen_arrow_cont (HObject *ho_Arrow, HTuple hv_Row1, HTuple hv_Column1, HTuple hv_Row2, 
+    HTuple hv_Column2)
+{
+
+  // Local iconic variables
+  HObject  ho_Cross1, ho_Cross2, ho_CrossP1, ho_CrossP2;
+
+  // Local control variables
+  HTuple  hv_Length, hv_Angle, hv_MinArrowLength;
+  HTuple  hv_DRow, hv_DCol, hv_ArrowLength, hv_Phi, hv_P1R;
+  HTuple  hv_P1C, hv_P2R, hv_P2C;
+
+  //Generate a contour in form of a arrow
+  hv_Length = 7;
+  hv_Angle = 40;
+  hv_MinArrowLength = 2;
+  hv_DRow = hv_Row2-hv_Row1;
+  hv_DCol = hv_Column2-hv_Column1;
+  hv_ArrowLength = ((hv_DRow*hv_DRow)+(hv_DCol*hv_DCol)).TupleSqrt();
+  if (0 != (hv_ArrowLength<hv_MinArrowLength))
+  {
+    hv_Length = 0;
+  }
+  TupleAtan2(hv_DRow, -hv_DCol, &hv_Phi);
+  hv_P1R = hv_Row2-(hv_Length*((hv_Phi-(hv_Angle.TupleRad())).TupleSin()));
+  hv_P1C = hv_Column2+(hv_Length*((hv_Phi-(hv_Angle.TupleRad())).TupleCos()));
+  hv_P2R = hv_Row2-(hv_Length*((hv_Phi+(hv_Angle.TupleRad())).TupleSin()));
+  hv_P2C = hv_Column2+(hv_Length*((hv_Phi+(hv_Angle.TupleRad())).TupleCos()));
+  GenCrossContourXld(&ho_Cross1, hv_Row1, hv_Column1, 6, 0.785398);
+  GenCrossContourXld(&ho_Cross2, hv_Row2, hv_Column2, 6, 0.785398);
+  GenCrossContourXld(&ho_CrossP1, hv_P1R, hv_P1C, 6, 0.785398);
+  GenCrossContourXld(&ho_CrossP2, hv_P2R, hv_P2C, 6, 0.785398);
+  GenContourPolygonXld(&(*ho_Arrow), (((hv_Row1.TupleConcat(hv_Row2)).TupleConcat(hv_P1R)).TupleConcat(hv_Row2)).TupleConcat(hv_P2R), 
+      (((hv_Column1.TupleConcat(hv_Column2)).TupleConcat(hv_P1C)).TupleConcat(hv_Column2)).TupleConcat(hv_P2C));
+  return;
+}
+
 // Short Description: compute texture features on multiple pyramid levels 
 void gen_features (HObject ho_Image, HTuple *hv_FeatureVector)
 {
@@ -107,6 +1740,64 @@ void gen_features (HObject ho_Image, HTuple *hv_FeatureVector)
   //zoom_image_factor (Zoomed3, Zoomed4, 0.5, 0.5, 'constant')
   //gen_sobel_features (Zoomed4, FeatureVector, FeatureVector)
   (*hv_FeatureVector) = (*hv_FeatureVector).TupleReal();
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Creates rectangular regions at the top or bottom of the current window 
+void gen_menu_regions (HObject *ho_MenuRegions, HTuple hv_WindowHandle, HTuple hv_NumCols, 
+    HTuple hv_NumRows, HTuple hv_PercentageHeight, HTuple hv_TopBottom)
+{
+
+  // Local iconic variables
+  HObject  ho_Rectangle;
+
+  // Local control variables
+  HTuple  hv_PartRow1, hv_PartCol1, hv_PartRow2;
+  HTuple  hv_PartCol2, hv_Height, hv_Width, hv_MenuHeight;
+  HTuple  hv_MenuWidth, hv_ButtonHeight, hv_ButtonWidth, hv_Row0;
+  HTuple  hv_Col0, hv_c, hv_r;
+
+  //Generate the menu buttons
+  if (0 != (HTuple(hv_TopBottom!=HTuple("top")).TupleAnd(hv_TopBottom!=HTuple("bottom"))))
+  {
+    // stop(...); only in hdevelop
+    //Wrong parameter: TopBottom must be 'top' or 'bottom'
+  }
+  GetPart(hv_WindowHandle, &hv_PartRow1, &hv_PartCol1, &hv_PartRow2, &hv_PartCol2);
+  hv_Height = (hv_PartRow2-hv_PartRow1)+1;
+  hv_Width = (hv_PartCol2-hv_PartCol1)+1;
+  hv_MenuHeight = (hv_Height*hv_PercentageHeight)/100.0;
+  hv_MenuWidth = hv_Width;
+  hv_ButtonHeight = hv_MenuHeight/hv_NumRows;
+  hv_ButtonWidth = hv_MenuWidth/hv_NumCols;
+  if (0 != (hv_TopBottom==HTuple("top")))
+  {
+    hv_Row0 = hv_PartRow1;
+  }
+  if (0 != (hv_TopBottom==HTuple("bottom")))
+  {
+    hv_Row0 = hv_PartRow2-hv_MenuHeight;
+  }
+  hv_Col0 = hv_PartCol1;
+  GenEmptyObj(&(*ho_MenuRegions));
+  {
+  HTuple end_val20 = hv_NumCols-1;
+  HTuple step_val20 = 1;
+  for (hv_c=0; hv_c.Continue(end_val20, step_val20); hv_c += step_val20)
+  {
+    {
+    HTuple end_val21 = hv_NumRows-1;
+    HTuple step_val21 = 1;
+    for (hv_r=0; hv_r.Continue(end_val21, step_val21); hv_r += step_val21)
+    {
+      GenRectangle1(&ho_Rectangle, hv_Row0+(hv_r*hv_ButtonHeight), hv_Col0+(hv_c*hv_ButtonWidth), 
+          ((hv_Row0+(hv_r*hv_ButtonHeight))+hv_ButtonHeight)-1, ((hv_Col0+(hv_c*hv_ButtonWidth))+hv_ButtonWidth)-1);
+      ConcatObj((*ho_MenuRegions), ho_Rectangle, &(*ho_MenuRegions));
+    }
+    }
+  }
+  }
   return;
 }
 
@@ -172,6 +1863,599 @@ void get_features (HObject ho_Region, HTuple *hv_Features)
   return;
 }
 
+// Chapter: Matching-3D
+// Short Description: Determine the text of the selected button 
+void get_selected_button (HObject ho_MenuRegions, HTuple hv_Texts, HTuple hv_WindowHandle, 
+    HTuple hv_Row, HTuple hv_Col, HTuple *hv_SelectedButton)
+{
+
+  // Local iconic variables
+  HObject  ho_MenuRegion;
+
+  // Local control variables
+  HTuple  hv_NumberRegions, hv_NumberTexts, hv_i;
+  HTuple  hv_IsInside;
+
+  CountObj(ho_MenuRegions, &hv_NumberRegions);
+  hv_NumberTexts = hv_Texts.TupleLength();
+  if (0 != (hv_NumberRegions!=hv_NumberTexts))
+  {
+    // stop(...); only in hdevelop
+    //Wrong number of regions or texts
+  }
+  (*hv_SelectedButton) = "";
+  // dev_set_check ("~give_error")
+  {
+  HTuple end_val8 = hv_NumberRegions;
+  HTuple step_val8 = 1;
+  for (hv_i=1; hv_i.Continue(end_val8, step_val8); hv_i += step_val8)
+  {
+    try
+    {
+            SelectObj(ho_MenuRegions, &ho_MenuRegion, hv_i);
+    }
+    catch(HException e)
+    {
+      int error = e.ErrorCode();
+      if (error < 0)
+        throw e;
+    }
+    try
+    {
+            TestRegionPoint(ho_MenuRegion, hv_Row, hv_Col, &hv_IsInside);
+    }
+    catch(HException e)
+    {
+      int error = e.ErrorCode();
+      if (error < 0)
+        throw e;
+    }
+    if (0 != hv_IsInside)
+    {
+      (*hv_SelectedButton) = HTuple(hv_Texts[hv_i-1]);
+    }
+  }
+  }
+  // dev_set_check ("give_error")
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Inspect a 3D object model and/or determine the 3D shape model parameters 
+void inspect_object_model_3d (HObject ho_BackgroundImages, HTuple hv_ObjectModel3DID, 
+    HTuple hv_CamParam, HTuple *hv_RefRotX, HTuple *hv_RefRotY, HTuple *hv_RefRotZ, 
+    HTuple *hv_LongitudeMin, HTuple *hv_LongitudeMax, HTuple *hv_LatitudeMin, HTuple *hv_LatitudeMax, 
+    HTuple *hv_CamRollMin, HTuple *hv_CamRollMax, HTuple *hv_DistMin, HTuple *hv_DistMax, 
+    HTuple *hv_MinFaceAngle)
+{
+
+  // Local iconic variables
+  HObject  ho_TrackballContour, ho_ModelContours;
+  HObject  ho_MenuRegions, ho_BackgroundImage, ho_BackgroundImageTrans;
+
+  // Local control variables
+  HTuple  hv_ErrorVar;
+  HTuple  hv_TrackballSize, hv_VisualizeTrackball;
+  HTuple  hv_VirtualTrackball, hv_ModelColor, hv_ImageScale;
+  HTuple  hv_ClipRegion, hv_Deg2Rad, hv_CameraType, hv_Sx;
+  HTuple  hv_Sy, hv_Cx, hv_Cy, hv_Width, hv_Height, hv_WidthPose;
+  HTuple  hv_HeightPose, hv_WidthMenu, hv_HeightMenu, hv_WindowHandleMenu;
+  HTuple  hv_WindowHandlePose, hv_WindowHandle, hv_WindowHandleBuffer;
+  HTuple  hv_MinImageSize, hv_TrackballRadiusPixel, hv_ReferencePoint;
+  HTuple  hv_RefPose, hv_RefPoseReset, hv_Dist, hv_CamPose;
+  HTuple  hv_FontSize, hv_MenuText, hv_RelQuaternion, hv_NumAdd;
+  HTuple  hv_NumImage, hv_ImageNo, hv_HiddenSurfaceRemoval;
+  HTuple  hv_MouseMode, hv_OffsetRow, hv_OffsetCol, hv_HomMat2DIdentity;
+  HTuple  hv_RefHomMat, hv_RelHomMat, hv_AbsHomMat, hv_AbsPose;
+  HTuple  hv_HomMat2DTranslate, hv_MenuEvent, hv_GraphEvent;
+  HTuple  hv_GraphButtonRow, hv_GraphButtonColumn, hv_GraphButton;
+  HTuple  hv_ErrorGraph, hv_MenuButtonRow, hv_MenuButtonColumn;
+  HTuple  hv_MenuButton, hv_ErrorMenu, hv_SelectedButton;
+  HTuple  hv_Exit;
+
+  //The procedure inspect_object_model_3d can be used to visualize a 3D object
+  //model. If the 3D object model is used to create a 3D shape model,
+  //inspect_object_model_3d can also be used to find the right values for the
+  //input control parameters of create_shape_model_3d. The usage is briefly
+  //described in the following:
+  //
+  //Three windows are opened to interact with the user. The upper left window
+  //shows the current camera view of the 3D object model. If desired, one of
+  //several background images can be additionally visualized. In this case, the
+  //background images must be passed in the input object parameter
+  //BackgroundImages as a tuple. If no background images are available an empty
+  //tuple must be passed instead. The number of the currently displayed
+  //background image is displayed in the upper left image corner.
+  //If the current mouse mode, which is displayed in the upper right image corner, is
+  //set to 'Move Camera' the mouse can be used to change the current camera
+  //view. The position of the camera on a virtual sphere around the 3D object model
+  //can be changed by moving the mouse while holding the left mouse
+  //pressed. For this, a virtual trackball (displayed as a gray circle) indicates around
+  //which axis the camera should be rotated. If the mouse is inside the circle the
+  // camera is rotated around the x and y axis, while otherwise the rotation is
+  //performed around the z axis. The distance between the 3D object model and the
+  //camera can be changed by moving the mouse in vertical direction while holding
+  //the right  button pressed.
+  //If the current mouse mode is set to 'Move Image', the background image can be
+  //moved by using the left mouse button. This is useful, for example, to make an
+  //image of the 3D object model coincide with the current camera view. Note that
+  //by moving the image an artificial perspective is created that cannot occur in a
+  //real image.
+  //
+  //The upper right window visualizes the position of the camera (yellow coordinate
+  //system) on the virtual (blue) sphere around the 3D object model. Additionally,
+  //the 3D object model is shown viewed from the current camera reference
+  //The camera reference pose in general determines the mean pose under which
+  //the 3D object model is seen in the images, in which the 3D object model should
+  //be found. The range of poses under which the 3D object model should be found
+  //is specified by using spherical coordinates longitude and latitude. If latitude and
+  //longitude both are 0, the current viewing direction coincides with the viewing
+  //direction of the reference pose.
+  //In order to improve the interpretation of the spherical coordinates, additionally
+  //the meridians and the circles of latitude (both with a step width of 30°) are
+  //visualized together with the sphere.
+  //After moving the camera on the sphere (as described above) the yellow camera
+  //coordinate system is updated accordingly. Additionally, the reference pose
+  //angles and the spherical coordinates of the current view are displayed in
+  //numbers. Note that the order of the reference pose angles is 'gba'. Furthermore,
+  // the current camera roll angle (rotation angle around the z axis of the camera
+  //with respect to the reference pose), the distance between the center of the
+  //3D object model and the camera, as well as the minimum face angle is displayed.
+  //In addition to the values of the current camera pose (longitude, latitude, camera
+  //roll angle, and distance) also the respective intervals of the selected pose range
+  //are displayed. The longitude and latitude range is also displayed in form of a
+  //magenta region on the blue sphere.
+  //
+  //The lower window provides several menu buttons.
+  //
+  //- 'Set Reference Pose' sets the reference pose to the current pose
+  //- 'Add to Pose Range' expands the pose range to include the current pose
+  //- 'Next Image' displays the next background image in the tuple
+  //- 'Previous Image' displays the previous background image in the tuple
+  //- 'Increase MinFaceAngle' increases the minimum face angle by 1 degree
+  //- 'Decrease MinFaceAngle' decreases the minimum face angle by 1 degree
+  //- 'Mouse Mode: Move Camera' switch to the mode which allows to move the
+  //  camera
+  //- 'Mouse Mode: Move Image' switch to the mode which allows to move the
+  //   background image
+  //- 'Reset Reference Pose' sets the reference pose angles to 0 and resets the
+  //  pose range
+  //- 'Reset Pose Range' deflates the pose range to the reference pose
+  //- 'Hidden Line Removal' switches the hidden line removal on or off
+  //- 'Exit' exits the inspect_3d_model procedure and returns the current values
+  //   for the reference pose angles, the pose range, and the minimum face angle
+  //   These values can directly be passed to create_shape_model_3d. Note that
+  //   for most applications it is useful to manually extend the interval of the
+  //   camera roll angle to the full circle [0,360°].
+  //
+  //
+  //User Defines
+  //
+  //TrackballSize defines the diameter of the trackball in the image with respect
+  //to the smaller image dimension.
+  hv_TrackballSize = 0.8;
+  //
+  //VisualizeTrackball determines whether the Trackball shall be displayed in
+  //displayed in the image. Possible values are:
+  //  - 'always': always displays the trackball
+  //  - 'never': never displays the trackball
+  //  - 'on_button': displays the trackball while the mouse button is pressed
+  hv_VisualizeTrackball = "always";
+  //VisualizeTrackball := 'never'
+  //VisualizeTrackball := 'on_button'
+  //
+  //VirtualTrackball defines the type of virtual trackball that shall
+  //shall be used ('shoemake' or 'bell').
+  hv_VirtualTrackball = "shoemake";
+  //VirtualTrackball := 'bell'
+  //
+  //ModelColor defines the color of the visualized model
+  hv_ModelColor = "green";
+  //
+  //ImageScale defines the scaling of the displayed image. This is especially useful
+  //if the original camera image is too large to fit onto the screen. If ImageScale is
+  //set to 1, the image is displayed using its original size. If ImageScale is set to
+  //a value smaller than 1, the displayed image will become smaller by this factor.
+  hv_ImageScale = 1.0;
+  //
+  //
+  //
+  // dev_set_preferences(...); only in hdevelop
+  GetSystem("clip_region", &hv_ClipRegion);
+  SetSystem("clip_region", "false");
+  // dev_update_pc(...); only in hdevelop
+  // dev_update_window(...); only in hdevelop
+  // dev_update_var(...); only in hdevelop
+  // dev_update_time(...); only in hdevelop
+  hv_Deg2Rad = 0.017453292;
+  //
+  //Get position of individual camera parameters depending on the
+  //camera type
+  get_cam_par_data(hv_CamParam, "camera_type", &hv_CameraType);
+  if (0 != (HTuple(hv_CameraType.TupleRegexpTest("telecentric")).TupleOr(hv_CameraType==HTuple("line_scan"))))
+  {
+    throw HException(("The camera type "+hv_CameraType)+" is not supported for shape-based 3D matching");
+  }
+  //
+  //Apply the user defined image scaling by adapting the camera parameters
+  get_cam_par_data(hv_CamParam, "sx", &hv_Sx);
+  get_cam_par_data(hv_CamParam, "sy", &hv_Sy);
+  get_cam_par_data(hv_CamParam, "cx", &hv_Cx);
+  get_cam_par_data(hv_CamParam, "cy", &hv_Cy);
+  get_cam_par_data(hv_CamParam, "image_width", &hv_Width);
+  get_cam_par_data(hv_CamParam, "image_height", &hv_Height);
+  //
+  set_cam_par_data(hv_CamParam, "sx", hv_Sx/hv_ImageScale, &hv_CamParam);
+  set_cam_par_data(hv_CamParam, "sy", hv_Sy/hv_ImageScale, &hv_CamParam);
+  set_cam_par_data(hv_CamParam, "cx", hv_Cx*hv_ImageScale, &hv_CamParam);
+  set_cam_par_data(hv_CamParam, "cy", hv_Cy*hv_ImageScale, &hv_CamParam);
+  set_cam_par_data(hv_CamParam, "image_width", (hv_Width*hv_ImageScale).TupleInt(), 
+      &hv_CamParam);
+  set_cam_par_data(hv_CamParam, "image_height", (hv_Height*hv_ImageScale).TupleInt(), 
+      &hv_CamParam);
+  //
+  //Scale the background images accordingly
+  ZoomImageFactor(ho_BackgroundImages, &ho_BackgroundImages, hv_ImageScale, hv_ImageScale, 
+      "weighted");
+  //
+  get_cam_par_data(hv_CamParam, "cx", &hv_Cx);
+  get_cam_par_data(hv_CamParam, "cy", &hv_Cy);
+  get_cam_par_data(hv_CamParam, "image_width", &hv_Width);
+  get_cam_par_data(hv_CamParam, "image_height", &hv_Height);
+  //
+  hv_WidthPose = 300;
+  hv_HeightPose = (hv_Height.TupleConcat(480)).TupleMax();
+  //
+  //Open a window containing the menu structure
+  hv_WidthMenu = (((hv_Width+7)+hv_WidthPose).TupleConcat(840)).TupleMax();
+  hv_HeightMenu = 100;
+  SetWindowAttr("background_color","black");
+  OpenWindow(-50,0,hv_WidthMenu,hv_HeightMenu,0,"visible","",&hv_WindowHandleMenu);
+  HDevWindowStack::Push(hv_WindowHandleMenu);
+  if (HDevWindowStack::IsOpen())
+    SetPart(HDevWindowStack::GetActive(),0, 0, hv_HeightMenu-1, hv_WidthMenu-1);
+  //
+  //Open a window containing the pose information
+  SetWindowAttr("background_color","black");
+  OpenWindow(102,hv_Width+7,hv_WidthPose,hv_HeightPose,0,"visible","",&hv_WindowHandlePose);
+  HDevWindowStack::Push(hv_WindowHandlePose);
+  if (HDevWindowStack::IsOpen())
+    SetPart(HDevWindowStack::GetActive(),0, 0, hv_HeightPose-1, hv_WidthPose-1);
+  if (HDevWindowStack::IsOpen())
+    SetLineWidth(HDevWindowStack::GetActive(),1);
+  //
+  //Open one buffer window and one visible window to avoid flickering
+  SetWindowAttr("background_color","black");
+  OpenWindow(102,0,hv_Width,hv_Height,0,"visible","",&hv_WindowHandle);
+  HDevWindowStack::Push(hv_WindowHandle);
+  if (HDevWindowStack::IsOpen())
+    SetPart(HDevWindowStack::GetActive(),0, 0, hv_Height-1, hv_Width-1);
+  if (HDevWindowStack::IsOpen())
+    SetLineWidth(HDevWindowStack::GetActive(),1);
+  OpenWindow(115, 0, hv_Width, hv_Height, 0, "buffer", "", &hv_WindowHandleBuffer);
+  SetPart(hv_WindowHandleBuffer, 0, 0, hv_Height-1, hv_Width-1);
+  SetLineWidth(hv_WindowHandleBuffer, 1);
+  //
+  //Compute the trackball
+  hv_MinImageSize = (hv_Width.TupleConcat(hv_Height)).TupleMin();
+  hv_TrackballRadiusPixel = (hv_TrackballSize*hv_MinImageSize)/2.0;
+  GenEllipseContourXld(&ho_TrackballContour, hv_Cy, hv_Cx, 0, hv_TrackballRadiusPixel, 
+      hv_TrackballRadiusPixel, 0, 6.28318, "positive", 1.5);
+  //
+  //Set the initial model reference pose. The orientation is parallel to the model
+  //coordinate system, the position is at the center of gravity of the model.
+  GetObjectModel3dParams(hv_ObjectModel3DID, "reference_point", &hv_ReferencePoint);
+  CreatePose(-HTuple(hv_ReferencePoint[0]), -HTuple(hv_ReferencePoint[1]), -HTuple(hv_ReferencePoint[2]), 
+      0, 0, 0, "Rp+T", "gba", "point", &hv_RefPose);
+  //
+  //Remember the original reference pose in order to be able to perform a reset
+  hv_RefPoseReset = hv_RefPose;
+  //
+  //Compute the optimum distance of the camera for visualization
+  determine_optimum_viewing_distance(hv_ObjectModel3DID, hv_CamParam, hv_MinImageSize, 
+      0.8, &hv_Dist);
+  hv_CamPose = hv_RefPose.TupleReplace(2,HTuple(hv_RefPose[2])+hv_Dist);
+  ProjectObjectModel3d(&ho_ModelContours, hv_ObjectModel3DID, hv_CamParam, hv_CamPose, 
+      "true", HTuple(10).TupleRad());
+  //
+  hv_FontSize = 12;
+  set_display_font(hv_WindowHandle, hv_FontSize, "mono", "true", "false");
+  set_display_font(hv_WindowHandleBuffer, hv_FontSize, "mono", "true", "false");
+  set_display_font(hv_WindowHandlePose, hv_FontSize, "mono", "true", "false");
+  set_display_font(hv_WindowHandleMenu, hv_FontSize, "mono", "true", "false");
+  //
+  hv_MenuText.Clear();
+  hv_MenuText[0] = "Set Reference Pose";
+  hv_MenuText[1] = "Add to Pose Range";
+  hv_MenuText[2] = "Next Image";
+  hv_MenuText[3] = "Previous Image";
+  hv_MenuText[4] = "Increase MinFaceAngle";
+  hv_MenuText[5] = "Decrease MinFaceAngle";
+  hv_MenuText[6] = "Mouse Mode: Move Camera";
+  hv_MenuText[7] = "Mouse Mode: Move Image";
+  hv_MenuText[8] = "Reset Reference Pose";
+  hv_MenuText[9] = "Reset Pose Range";
+  hv_MenuText[10] = "Hidden Line Removal";
+  hv_MenuText[11] = "Exit";
+  gen_menu_regions(&ho_MenuRegions, hv_WindowHandleMenu, 3, 4, 100, "top");
+  disp_menu(ho_MenuRegions, hv_WindowHandleMenu, hv_MenuText);
+  //
+  //Initialize some values
+  // Error variable 'hv_ErrorVar' activated
+  hv_ErrorVar = 2;
+  hv_RelQuaternion.Clear();
+  hv_RelQuaternion[0] = 1;
+  hv_RelQuaternion[1] = 0;
+  hv_RelQuaternion[2] = 0;
+  hv_RelQuaternion[3] = 0;
+  hv_NumAdd = 0;
+  CountObj(ho_BackgroundImages, &hv_NumImage);
+  hv_ImageNo = 0;
+  hv_HiddenSurfaceRemoval = "true";
+  hv_MouseMode = "move_camera";
+  hv_OffsetRow = HTuple(hv_NumImage,0);
+  hv_OffsetCol = HTuple(hv_NumImage,0);
+  //
+  //Initialize the return values
+  (*hv_LongitudeMin) = 0;
+  (*hv_LongitudeMax) = 0;
+  (*hv_LatitudeMin) = 0;
+  (*hv_LatitudeMax) = 0;
+  (*hv_CamRollMin) = 0;
+  (*hv_CamRollMax) = 0;
+  (*hv_DistMin) = hv_Dist;
+  (*hv_DistMax) = hv_Dist;
+  (*hv_RefRotX) = 0;
+  (*hv_RefRotY) = 0;
+  (*hv_RefRotZ) = 0;
+  (*hv_MinFaceAngle) = HTuple(30).TupleRad();
+  //
+  //Start the visualization loop
+  HomMat2dIdentity(&hv_HomMat2DIdentity);
+  while (0 != 1)
+  {
+    PoseToHomMat3d(hv_RefPose, &hv_RefHomMat);
+    QuatToHomMat3d(hv_RelQuaternion, &hv_RelHomMat);
+    HomMat3dCompose(hv_RelHomMat, hv_RefHomMat, &hv_AbsHomMat);
+    HomMat3dToPose(hv_AbsHomMat, &hv_AbsPose);
+    hv_AbsPose[2] = HTuple(hv_AbsPose[2])+hv_Dist;
+    ProjectObjectModel3d(&ho_ModelContours, hv_ObjectModel3DID, hv_CamParam, hv_AbsPose, 
+        hv_HiddenSurfaceRemoval, (*hv_MinFaceAngle));
+    //
+    //Clear the window and display the background image if desired
+    if (0 != (hv_ImageNo>hv_NumImage))
+    {
+      hv_ImageNo = 0;
+    }
+    if (0 != (hv_ImageNo<0))
+    {
+      hv_ImageNo = hv_NumImage;
+    }
+    ClearWindow(hv_WindowHandleBuffer);
+    SetColor(hv_WindowHandleBuffer, hv_ModelColor);
+    if (0 != (hv_ImageNo>0))
+    {
+      SelectObj(ho_BackgroundImages, &ho_BackgroundImage, hv_ImageNo);
+      HomMat2dTranslate(hv_HomMat2DIdentity, HTuple(hv_OffsetRow[hv_ImageNo-1]), 
+          HTuple(hv_OffsetCol[hv_ImageNo-1]), &hv_HomMat2DTranslate);
+      AffineTransImage(ho_BackgroundImage, &ho_BackgroundImageTrans, hv_HomMat2DTranslate, 
+          "constant", "false");
+      DispImage(ho_BackgroundImageTrans, hv_WindowHandleBuffer);
+      SetTposition(hv_WindowHandleBuffer, 10, 10);
+      WriteString(hv_WindowHandleBuffer, "Image No.: "+(hv_ImageNo.TupleString("2d")));
+    }
+    else
+    {
+      GenEmptyObj(&ho_BackgroundImage);
+      SetTposition(hv_WindowHandleBuffer, 10, 10);
+      WriteString(hv_WindowHandleBuffer, "(No Background Image)");
+    }
+    SetTposition(hv_WindowHandleBuffer, 10, hv_Width-180);
+    if (0 != (hv_MouseMode==HTuple("move_camera")))
+    {
+      WriteString(hv_WindowHandleBuffer, "Mouse Mode: Move Camera");
+    }
+    else
+    {
+      WriteString(hv_WindowHandleBuffer, "Mouse Mode: Move Image");
+    }
+    DispXld(ho_ModelContours, hv_WindowHandleBuffer);
+    //
+    //Visualize the trackball if desired
+    if (0 != (hv_VisualizeTrackball==HTuple("always")))
+    {
+      SetColor(hv_WindowHandleBuffer, "dim gray");
+      DispXld(ho_TrackballContour, hv_WindowHandleBuffer);
+    }
+    CopyRectangle(hv_WindowHandleBuffer, hv_WindowHandle, 0, 0, hv_Height-1, hv_Width-1, 
+        0, 0);
+    //
+    //Update the parameter ranges
+    update_pose_information(hv_WindowHandlePose, hv_ObjectModel3DID, hv_CamParam, 
+        hv_RefPose, hv_RelQuaternion, hv_Dist, (*hv_LatitudeMin), (*hv_LatitudeMax), 
+        (*hv_LongitudeMin), (*hv_LongitudeMax), (*hv_CamRollMin), (*hv_CamRollMax), 
+        (*hv_DistMin), (*hv_DistMax), (*hv_MinFaceAngle), hv_HiddenSurfaceRemoval, 
+        hv_ModelColor);
+    //
+    //Avoid multiple responses for a single mouse click
+    WaitSeconds(0.1);
+    hv_MenuEvent = 0;
+    hv_GraphEvent = 0;
+    while (0 != 1)
+    {
+      // dev_set_check ("~give_error")
+      try
+      {
+        hv_ErrorVar = 2;
+        GetMposition(hv_WindowHandle, &hv_GraphButtonRow, &hv_GraphButtonColumn, 
+            &hv_GraphButton);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_ErrorGraph = hv_ErrorVar;
+      try
+      {
+        hv_ErrorVar = 2;
+        GetMposition(hv_WindowHandleMenu, &hv_MenuButtonRow, &hv_MenuButtonColumn, 
+            &hv_MenuButton);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_ErrorMenu = hv_ErrorVar;
+      // dev_update_pc(...); only in hdevelop
+      // dev_set_check ("~give_error")
+      if (0 != (HTuple(hv_ErrorGraph==2).TupleAnd(hv_GraphButton!=0)))
+      {
+        hv_GraphEvent = 1;
+        break;
+      }
+      if (0 != (HTuple(hv_ErrorMenu==2).TupleAnd(hv_MenuButton!=0)))
+      {
+        hv_MenuEvent = 1;
+        break;
+      }
+    }
+    if (0 != hv_GraphEvent)
+    {
+      if (0 != (hv_MouseMode==HTuple("move_camera")))
+      {
+        //Reflect the movement of the camera
+        analyze_graph_event_camera(ho_BackgroundImage, ho_TrackballContour, hv_GraphButton, 
+            hv_GraphButtonRow, hv_GraphButtonColumn, hv_WindowHandle, hv_WindowHandleBuffer, 
+            hv_VirtualTrackball, hv_TrackballSize, hv_VisualizeTrackball, hv_ObjectModel3DID, 
+            hv_CamParam, hv_HiddenSurfaceRemoval, hv_ImageNo, hv_ModelColor, hv_RefPose, 
+            (*hv_MinFaceAngle), hv_OffsetRow, hv_OffsetCol, hv_RelQuaternion, hv_NumAdd, 
+            hv_Dist, &hv_RelQuaternion, &hv_NumAdd, &hv_Dist);
+      }
+      else
+      {
+        //Reflect the movement of the background image
+        analyze_graph_event_image(ho_BackgroundImage, ho_ModelContours, ho_TrackballContour, 
+            hv_GraphButton, hv_GraphButtonRow, hv_GraphButtonColumn, hv_WindowHandle, 
+            hv_WindowHandleBuffer, hv_OffsetRow, hv_OffsetCol, hv_ImageNo, hv_VisualizeTrackball, 
+            hv_ModelColor, &hv_OffsetRow, &hv_OffsetCol);
+      }
+    }
+    if (0 != hv_MenuEvent)
+    {
+      //Reflect the selection of the menu button
+      analyze_menu_event(ho_MenuRegions, hv_MenuText, hv_WindowHandleMenu, hv_MenuButtonRow, 
+          hv_MenuButtonColumn, (*hv_LongitudeMin), (*hv_LongitudeMax), (*hv_LatitudeMin), 
+          (*hv_LatitudeMax), (*hv_CamRollMin), (*hv_CamRollMax), (*hv_DistMin), (*hv_DistMax), 
+          (*hv_MinFaceAngle), hv_RefPose, hv_RelQuaternion, hv_ImageNo, hv_HiddenSurfaceRemoval, 
+          hv_MouseMode, hv_Dist, hv_ObjectModel3DID, hv_RefPoseReset, &hv_SelectedButton, 
+          &hv_Exit, &(*hv_LongitudeMin), &(*hv_LongitudeMax), &(*hv_LatitudeMin), 
+          &(*hv_LatitudeMax), &(*hv_CamRollMin), &(*hv_CamRollMax), &(*hv_DistMin), 
+          &(*hv_DistMax), &(*hv_MinFaceAngle), &hv_RefPose, &hv_RelQuaternion, &hv_ImageNo, 
+          &hv_HiddenSurfaceRemoval, &hv_MouseMode);
+      if (0 != hv_Exit)
+      {
+        break;
+      }
+    }
+  }
+  //
+  //Extract the reference pose angles from the reference pose
+  (*hv_RefRotX) = HTuple(hv_RefPose[3])*hv_Deg2Rad;
+  (*hv_RefRotY) = HTuple(hv_RefPose[4])*hv_Deg2Rad;
+  (*hv_RefRotZ) = HTuple(hv_RefPose[5])*hv_Deg2Rad;
+  //
+  //Clean up
+  try
+  {
+    hv_ErrorVar = 2;
+    SetSystem("clip_region", hv_ClipRegion);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  try
+  {
+    hv_ErrorVar = 2;
+    CloseWindow(hv_WindowHandleBuffer);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  // dev_set_preferences(...); only in hdevelop
+  HDevWindowStack::SetActive(hv_WindowHandleMenu);
+  if (HDevWindowStack::IsOpen())
+    CloseWindow(HDevWindowStack::Pop());
+  HDevWindowStack::SetActive(hv_WindowHandlePose);
+  if (HDevWindowStack::IsOpen())
+    CloseWindow(HDevWindowStack::Pop());
+  HDevWindowStack::SetActive(hv_WindowHandle);
+  if (HDevWindowStack::IsOpen())
+    CloseWindow(HDevWindowStack::Pop());
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Project an image point onto the trackball 
+void project_point_on_trackball (HTuple hv_X, HTuple hv_Y, HTuple hv_VirtualTrackball, 
+    HTuple hv_TrackballSize, HTuple *hv_V)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_R, hv_XP, hv_YP, hv_ZP;
+
+  if (0 != (hv_VirtualTrackball==HTuple("shoemake")))
+  {
+    //Virtual Trackball according to Shoemake
+    hv_R = ((hv_X*hv_X)+(hv_Y*hv_Y)).TupleSqrt();
+    if (0 != (hv_R<=hv_TrackballSize))
+    {
+      hv_XP = hv_X;
+      hv_YP = hv_Y;
+      hv_ZP = ((hv_TrackballSize*hv_TrackballSize)-(hv_R*hv_R)).TupleSqrt();
+    }
+    else
+    {
+      hv_XP = (hv_X*hv_TrackballSize)/hv_R;
+      hv_YP = (hv_Y*hv_TrackballSize)/hv_R;
+      hv_ZP = 0;
+    }
+  }
+  else
+  {
+    //Virtual Trackball according to Bell
+    hv_R = ((hv_X*hv_X)+(hv_Y*hv_Y)).TupleSqrt();
+    if (0 != (hv_R<=(hv_TrackballSize*0.70710678)))
+    {
+      hv_XP = hv_X;
+      hv_YP = hv_Y;
+      hv_ZP = ((hv_TrackballSize*hv_TrackballSize)-(hv_R*hv_R)).TupleSqrt();
+    }
+    else
+    {
+      hv_XP = hv_X;
+      hv_YP = hv_Y;
+      hv_ZP = ((0.5*hv_TrackballSize)*hv_TrackballSize)/hv_R;
+    }
+  }
+  (*hv_V).Clear();
+  (*hv_V).Append(hv_XP);
+  (*hv_V).Append(hv_YP);
+  (*hv_V).Append(hv_ZP);
+  return;
+}
+
 void segment (HObject ho_Image, HObject *ho_Regions)
 {
 
@@ -187,146 +2471,81 @@ void segment (HObject ho_Image, HObject *ho_Regions)
   return;
 }
 
-
-/***************************************************************************
-   自己的程序开始
-***************************************************************************/
-
-
-// Main procedure 
-void actionL(HObject Image)
+void select_box_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area1, 
+    HTuple *hv_Row1, HTuple *hv_Column1, HTuple *hv_Indices, HTuple *hv_num, HTuple *hv_Area, 
+    HTuple *hv_Row, HTuple *hv_Column)
 {
+
   // Local iconic variables
-  HObject  ho_ImageL, ho_ClassRegions, ho_ImageR;
-  HObject  ho_ClassRegions2, ho_ClassRed, ho_ClassGreen, ho_ClassBLue;
-  HObject  ho_ConnectedRegions1, ho_ConnectedRegions2, ho_ConnectedRegions3;
-  HObject  ho_ObjectSelectedRed, ho_ObjectSelectedGreen, ho_ObjectSelectedBlue;
-  HObject  ho_ClassRed2, ho_ClassGreen2, ho_ClassBLue2, ho_ConnectedRegions1_2;
-  HObject  ho_ConnectedRegions2_2, ho_ConnectedRegions3_2;
-  HObject  ho_ObjectSelectedRed_2, ho_ObjectSelectedGreen_2;
-  HObject  ho_ObjectSelectedBlue_2;
 
-  // Local control variables
-  HTuple  hv_pathFile, hv_MLPHandle, hv_Area1, hv_Row1;
-  HTuple  hv_Column1, hv_Indices, hv_num, hv_Area_1, hv_Row_1;
-  HTuple  hv_Column_1, hv_Area2, hv_Row2, hv_Column2, hv_Area_2;
-  HTuple  hv_Row_2, hv_Column_2, hv_Area3, hv_Row3, hv_Column3;
-  HTuple  hv_Area_3, hv_Row_3, hv_Column_3, hv_areas, hv_rows;
-  HTuple  hv_columns, hv_index, hv_class, hv_row_L, hv_column_L;
-  HTuple  hv_Area1_2, hv_Row1_2, hv_Column1_2, hv_Indices_2;
-  HTuple  hv_num2, hv_Area_1_2, hv_Row_1_2, hv_Column_1_2;
-  HTuple  hv_Area_2_2, hv_Row_2_2, hv_Column_2_2, hv_Area3_2;
-  HTuple  hv_Row3_2, hv_Column3_2, hv_Area_3_2, hv_Row_3_2;
-  HTuple  hv_Column_3_2, hv_areas_2, hv_rows_2, hv_columns_2;
-  HTuple  hv_index_2, hv_row_R, hv_column_R;
-
-  //读入训练好的分割mlp模型
-  hv_pathFile = "./src/bit_vision/model/box_segment_mlp.mlp";
-  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-
-  ClassifyImageClassMlp(Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-
-  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
-  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
-  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
-
-  Connection(ho_ClassRed, &ho_ConnectedRegions1);
-  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
-  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
-
-  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
-  TupleSortIndex(hv_Area1, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
-
-  AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
-  TupleSortIndex(hv_Area2, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
-
-  AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
-  TupleSortIndex(hv_Area3, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
-
-  //比较3种region的面积 面积最大的作为分类结果
-  hv_areas.Clear();
-  hv_areas.Append(hv_Area_1);
-  hv_areas.Append(hv_Area_2);
-  hv_areas.Append(hv_Area_3);
-  //提取面积最大的区域对应的坐标
-  hv_rows.Clear();
-  hv_rows.Append(hv_Row_1);
-  hv_rows.Append(hv_Row_2);
-  hv_rows.Append(hv_Row_3);
-  hv_columns.Clear();
-  hv_columns.Append(hv_Column_1);
-  hv_columns.Append(hv_Column_2);
-  hv_columns.Append(hv_Column_3);
-
-  TupleSortIndex(hv_areas, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  hv_index = HTuple(hv_Indices[hv_num-1]);
-
-  if (0 != (hv_index==0))
-  {
-    hv_class = "red";
-  }
-  else if (0 != (hv_index==1))
-  {
-    hv_class = "green";
-  }
-  else if (0 != (hv_index==2))
-  {
-    hv_class = "blue";
-  }
-
-  brick_color_L = hv_class;
-
-  hv_row_L = HTuple(hv_rows[hv_index]);
-  hv_column_L = HTuple(hv_columns[hv_index]);
-
-  Xl=hv_row_L;
-  Yl=hv_column_L;
-  
+  AreaCenter(ho_Region, &(*hv_Area1), &(*hv_Row1), &(*hv_Column1));
+  TupleSortIndex((*hv_Area1), &(*hv_Indices));
+  (*hv_num) = (*hv_Indices).TupleLength();
+  SelectObj(ho_Region, &(*ho_ObjectSelected), HTuple((*hv_Indices)[(*hv_num)-1])+1);
+  AreaCenter((*ho_ObjectSelected), &(*hv_Area), &(*hv_Row), &(*hv_Column));
+  return;
+  return;
 }
 
-void actionR(HObject Image)
+void select_color_regions (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area, 
+    HTuple *hv_Row, HTuple *hv_Column)
 {
 
   // Local iconic variables
-  HObject  ho_ImageL, ho_ClassRegions, ho_ImageR;
-  HObject  ho_ClassRegions2, ho_ClassRed, ho_ClassGreen, ho_ClassBLue;
-  HObject  ho_ConnectedRegions1, ho_ConnectedRegions2, ho_ConnectedRegions3;
-  HObject  ho_ObjectSelectedRed, ho_ObjectSelectedGreen, ho_ObjectSelectedBlue;
-  HObject  ho_ClassRed2, ho_ClassGreen2, ho_ClassBLue2, ho_ConnectedRegions1_2;
-  HObject  ho_ConnectedRegions2_2, ho_ConnectedRegions3_2;
-  HObject  ho_ObjectSelectedRed_2, ho_ObjectSelectedGreen_2;
-  HObject  ho_ObjectSelectedBlue_2;
 
   // Local control variables
-  HTuple  hv_pathFile, hv_MLPHandle, hv_Area1, hv_Row1;
-  HTuple  hv_Column1, hv_Indices, hv_num, hv_Area_1, hv_Row_1;
-  HTuple  hv_Column_1, hv_Area2, hv_Row2, hv_Column2, hv_Area_2;
-  HTuple  hv_Row_2, hv_Column_2, hv_Area3, hv_Row3, hv_Column3;
-  HTuple  hv_Area_3, hv_Row_3, hv_Column_3, hv_areas, hv_rows;
-  HTuple  hv_columns, hv_index, hv_class, hv_row_L, hv_column_L;
-  HTuple  hv_Area1_2, hv_Row1_2, hv_Column1_2, hv_Indices_2;
-  HTuple  hv_num2, hv_Area_1_2, hv_Row_1_2, hv_Column_1_2;
-  HTuple  hv_Area_2_2, hv_Row_2_2, hv_Column_2_2, hv_Area3_2;
-  HTuple  hv_Row3_2, hv_Column3_2, hv_Area_3_2, hv_Row_3_2;
-  HTuple  hv_Column_3_2, hv_areas_2, hv_rows_2, hv_columns_2;
-  HTuple  hv_index_2, hv_row_R, hv_column_R;
+  HTuple  hv_Area1, hv_Row1, hv_Column1, hv_Indices;
+  HTuple  hv_num;
 
-  //读入训练好的分割mlp模型
-  hv_pathFile = "./src/bit_vision/model/box_segment_mlp.mlp";
-  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  
-  ClassifyImageClassMlp(Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-  
+  AreaCenter(ho_Region, &hv_Area1, &hv_Row1, &hv_Column1);
+  TupleSortIndex(hv_Area1, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_Region, &(*ho_ObjectSelected), HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter((*ho_ObjectSelected), &(*hv_Area), &(*hv_Row), &(*hv_Column));
+  return;
+}
+
+void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area, 
+    HTuple *hv_Row, HTuple *hv_Column)
+{
+  // procedure body not exported 
+}
+
+void select_region_according_area (HObject ho_ConnectedRegions1, HObject *ho_ObjectSelected, 
+    HTuple *hv_Area, HTuple *hv_Row, HTuple *hv_Column)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_Area1, hv_Row1, hv_Column1, hv_Indices;
+  HTuple  hv_num;
+
+  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+  TupleSortIndex(hv_Area1, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  SelectObj(ho_ConnectedRegions1, &(*ho_ObjectSelected), HTuple(hv_Indices[hv_num-1])+1);
+  AreaCenter((*ho_ObjectSelected), &(*hv_Area), &(*hv_Row), &(*hv_Column));
+  return;
+}
+
+void select_regions_according_colors (HObject ho_Image, HObject *ho_RegionSelected, 
+    HTuple hv_MLPHandle, HTuple *hv_index, HTuple *hv_row, HTuple *hv_column)
+{
+
+  // Local iconic variables
+  HObject  ho_ClassRegions, ho_ClassRed, ho_ClassGreen;
+  HObject  ho_ClassBLue, ho_ConnectedRegions1, ho_ConnectedRegions2;
+  HObject  ho_ConnectedRegions3, ho_ObjectSelectedRed, ho_ObjectSelectedGreen;
+  HObject  ho_ObjectSelectedBlue;
+
+  // Local control variables
+  HTuple  hv_Area_1, hv_Row_1, hv_Column_1, hv_Area_2;
+  HTuple  hv_Row_2, hv_Column_2, hv_Area_3, hv_Row_3, hv_Column_3;
+  HTuple  hv_areas, hv_rows, hv_columns, hv_Indices, hv_num;
+  HTuple  hv_class;
+
+  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
 
   SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
   SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
@@ -335,31 +2554,523 @@ void actionR(HObject Image)
   Connection(ho_ClassRed, &ho_ConnectedRegions1);
   Connection(ho_ClassGreen, &ho_ConnectedRegions2);
   Connection(ho_ClassBLue, &ho_ConnectedRegions3);
-
-  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
-  TupleSortIndex(hv_Area1, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
-
-  AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
-  TupleSortIndex(hv_Area2, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
-
-  AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
-  TupleSortIndex(hv_Area3, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
-
+  //*********
+  select_color_regions(ho_ConnectedRegions1, &ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, 
+      &hv_Column_1);
+  select_color_regions(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, &hv_Area_2, 
+      &hv_Row_2, &hv_Column_2);
+  select_color_regions(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, &hv_Area_3, 
+      &hv_Row_3, &hv_Column_3);
+  //************
   //比较3种region的面积 面积最大的作为分类结果
   hv_areas.Clear();
   hv_areas.Append(hv_Area_1);
   hv_areas.Append(hv_Area_2);
   hv_areas.Append(hv_Area_3);
-  //提取面积最大的区域对应的坐标
+  hv_rows.Clear();
+  hv_rows.Append(hv_Row_1);
+  hv_rows.Append(hv_Row_2);
+  hv_rows.Append(hv_Row_3);
+  hv_columns.Clear();
+  hv_columns.Append(hv_Column_1);
+  hv_columns.Append(hv_Column_2);
+  hv_columns.Append(hv_Column_3);
+
+  TupleSortIndex(hv_areas, &hv_Indices);
+  hv_num = hv_Indices.TupleLength();
+  (*hv_index) = HTuple(hv_Indices[hv_num-1]);
+
+  if (0 != ((*hv_index)==0))
+  {
+    hv_class = "red";
+    (*ho_RegionSelected) = ho_ObjectSelectedRed;
+  }
+  else if (0 != ((*hv_index)==1))
+  {
+    hv_class = "green";
+    (*ho_RegionSelected) = ho_ObjectSelectedGreen;
+  }
+  else if (0 != ((*hv_index)==2))
+  {
+    hv_class = "blue";
+    (*ho_RegionSelected) = ho_ObjectSelectedBlue;
+  }
+
+  (*hv_row) = HTuple(hv_rows[(*hv_index)]);
+  (*hv_column) = HTuple(hv_columns[(*hv_index)]);
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Compute the 3D rotation from the mouse movement 
+void trackball (HTuple hv_MX1, HTuple hv_MY1, HTuple hv_MX2, HTuple hv_MY2, HTuple hv_VirtualTrackball, 
+    HTuple hv_TrackballSize, HTuple *hv_QuatRotation)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_P1, hv_P2, hv_RotAxis, hv_D, hv_T;
+  HTuple  hv_RotAngle, hv_Len, hv_LenInv;
+
+  if (0 != (HTuple(hv_MX1==hv_MX2).TupleAnd(hv_MY1==hv_MY2)))
+  {
+    (*hv_QuatRotation).Clear();
+    (*hv_QuatRotation)[0] = 1;
+    (*hv_QuatRotation)[1] = 0;
+    (*hv_QuatRotation)[2] = 0;
+    (*hv_QuatRotation)[3] = 0;
+    return;
+  }
+  //Project the image point onto the track ball
+  project_point_on_trackball(hv_MX1, hv_MY1, hv_VirtualTrackball, hv_TrackballSize, 
+      &hv_P1);
+  project_point_on_trackball(hv_MX2, hv_MY2, hv_VirtualTrackball, hv_TrackballSize, 
+      &hv_P2);
+  //The cross product of the projected points defines the rotation axis
+  tuple_vector_cross_product(hv_P1, hv_P2, &hv_RotAxis);
+  //Compute the rotation angle
+  hv_D = hv_P2-hv_P1;
+  hv_T = (((hv_D*hv_D).TupleSum()).TupleSqrt())/(2.0*hv_TrackballSize);
+  if (0 != (hv_T>1.0))
+  {
+    hv_T = 1.0;
+  }
+  if (0 != (hv_T<-1.0))
+  {
+    hv_T = -1.0;
+  }
+  hv_RotAngle = 2.0*(hv_T.TupleAsin());
+  hv_Len = ((hv_RotAxis*hv_RotAxis).TupleSum()).TupleSqrt();
+  if (0 != (hv_Len>0.))
+  {
+    hv_LenInv = 1./hv_Len;
+    hv_RotAxis = hv_RotAxis*hv_LenInv;
+  }
+  AxisAngleToQuat(HTuple(hv_RotAxis[0]), HTuple(hv_RotAxis[1]), HTuple(hv_RotAxis[2]), 
+      hv_RotAngle, &(*hv_QuatRotation));
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Compute the vector cross product 
+void tuple_vector_cross_product (HTuple hv_V1, HTuple hv_V2, HTuple *hv_VC)
+{
+
+  // Local iconic variables
+
+  //The caller must ensure that the length of both input vectors is 3
+  (*hv_VC) = (HTuple(hv_V1[1])*HTuple(hv_V2[2]))-(HTuple(hv_V1[2])*HTuple(hv_V2[1]));
+  (*hv_VC) = (*hv_VC).TupleConcat((HTuple(hv_V1[2])*HTuple(hv_V2[0]))-(HTuple(hv_V1[0])*HTuple(hv_V2[2])));
+  (*hv_VC) = (*hv_VC).TupleConcat((HTuple(hv_V1[0])*HTuple(hv_V2[1]))-(HTuple(hv_V1[1])*HTuple(hv_V2[0])));
+  return;
+}
+
+// Chapter: Matching-3D
+// Short Description: Visualize the pose information of a 3D model 
+void update_pose_information (HTuple hv_WindowHandle, HTuple hv_ObjectModel3DID, 
+    HTuple hv_CamParam, HTuple hv_RefPose, HTuple hv_RelQuaternion, HTuple hv_Dist, 
+    HTuple hv_LatitudeMin, HTuple hv_LatitudeMax, HTuple hv_LongitudeMin, HTuple hv_LongitudeMax, 
+    HTuple hv_CamRollMin, HTuple hv_CamRollMax, HTuple hv_DistMin, HTuple hv_DistMax, 
+    HTuple hv_MinFaceAngle, HTuple hv_HiddenSurfaceRemoval, HTuple hv_ModelColor)
+{
+
+  // Local iconic variables
+  HObject  ho_Image1, ho_Image2, ho_Image3, ho_CirclesLon;
+  HObject  ho_CircleLon, ho_CirclesLat, ho_CircleLat, ho_XAxis;
+  HObject  ho_YAxis, ho_ZAxis, ho_LineLong, ho_LineLat, ho_ModelContours;
+  HObject  ho_ReferencePointCross, ho_ContPoseRange, ho_Image;
+
+  // Local control variables
+  HTuple  hv_CoordAxesLength, hv_Row, hv_Column;
+  HTuple  hv_Width, hv_Height, hv_MinImageSize, hv_Cx, hv_Cy;
+  HTuple  hv_CamParamSmall, hv_SphereRadius, hv_SpherePos;
+  HTuple  hv_Lon, hv_Lat, hv_RelHomMat, hv_RelPose, hv_RelHomMatInv;
+  HTuple  hv_X, hv_Y, hv_Z, hv_CamPos, hv_CamXAx, hv_CamYAx;
+  HTuple  hv_CamZAx, hv_ScaleFactor, hv_CamPosProj, hv_CamXAxProj;
+  HTuple  hv_CamYAxProj, hv_CamZAxProj, hv_Vec, hv_CamRow;
+  HTuple  hv_CamCol, hv_CamXAxRow, hv_CamXAxCol, hv_CamYAxRow;
+  HTuple  hv_CamYAxCol, hv_CamZAxRow, hv_CamZAxCol, hv_CamLon;
+  HTuple  hv_CamLat, hv_Radius, hv_CamRoll, hv_XRangeCamPos;
+  HTuple  hv_YRangeCamPos, hv_StepLat, hv_ViewingDist, hv_LongitudeMinDisp;
+  HTuple  hv_LongitudeMaxDisp, hv_LatitudeMinDisp, hv_LatitudeMaxDisp;
+  HTuple  hv_XRangeLatMin, hv_YRangeLatMin, hv_XRangeLatMax;
+  HTuple  hv_YRangeLatMax, hv_Long, hv_XRangeLongMin, hv_YRangeLongMin;
+  HTuple  hv_XRangeLongMax, hv_YRangeLongMax, hv_LineStyle;
+  HTuple  hv_MaxDist, hv_Precision, hv_DistFormat;
+
+  //
+  //Initialize some values
+  hv_CoordAxesLength = 50;
+  GetWindowExtents(hv_WindowHandle, &hv_Row, &hv_Column, &hv_Width, &hv_Height);
+  GenImageConst(&ho_Image1, "byte", hv_Width, hv_Height);
+  GenImageConst(&ho_Image2, "byte", hv_Width, hv_Height);
+  GenImageConst(&ho_Image3, "byte", hv_Width, hv_Height);
+  hv_MinImageSize = (hv_Width.TupleConcat(hv_Height)).TupleMin();
+  hv_Cx = hv_MinImageSize/2;
+  hv_Cy = hv_MinImageSize/2;
+  hv_CamParamSmall = hv_CamParam;
+  set_cam_par_data(hv_CamParamSmall, "cx", hv_Cx, &hv_CamParamSmall);
+  set_cam_par_data(hv_CamParamSmall, "cy", hv_Cy, &hv_CamParamSmall);
+  set_cam_par_data(hv_CamParamSmall, "image_width", hv_MinImageSize, &hv_CamParamSmall);
+  set_cam_par_data(hv_CamParamSmall, "image_height", hv_MinImageSize, &hv_CamParamSmall);
+  hv_SphereRadius = (hv_MinImageSize*0.8)/2;
+  hv_SpherePos = hv_MinImageSize/2;
+  //
+  //Project the viewing sphere
+  GenContourPolygonXld(&ho_CirclesLon, (hv_SpherePos-hv_SphereRadius).TupleConcat(hv_SpherePos+hv_SphereRadius), 
+      hv_SpherePos.TupleConcat(hv_SpherePos));
+  for (hv_Lon=30; hv_Lon<=90; hv_Lon+=30)
+  {
+    GenEllipseContourXld(&ho_CircleLon, hv_SpherePos, hv_SpherePos, 0, hv_SphereRadius*((hv_Lon.TupleRad()).TupleSin()), 
+        hv_SphereRadius, 0, 6.28318, "positive", 1.5);
+    ConcatObj(ho_CirclesLon, ho_CircleLon, &ho_CirclesLon);
+  }
+  GenEmptyObj(&ho_CirclesLat);
+  for (hv_Lat=-60; hv_Lat<=60; hv_Lat+=30)
+  {
+    GenContourPolygonXld(&ho_CircleLat, (hv_SpherePos-(hv_SphereRadius*((hv_Lat.TupleRad()).TupleSin()))).TupleConcat(hv_SpherePos-(hv_SphereRadius*((hv_Lat.TupleRad()).TupleSin()))), 
+        (hv_SpherePos-(hv_SphereRadius*(((90.-hv_Lat).TupleRad()).TupleSin()))).TupleConcat(hv_SpherePos+(hv_SphereRadius*(((90.-hv_Lat).TupleRad()).TupleSin()))));
+    ConcatObj(ho_CirclesLat, ho_CircleLat, &ho_CirclesLat);
+  }
+  //
+  //Project the camera position
+  QuatToHomMat3d(hv_RelQuaternion, &hv_RelHomMat);
+  HomMat3dToPose(hv_RelHomMat, &hv_RelPose);
+  hv_RelPose[2] = hv_Dist;
+  PoseToHomMat3d(hv_RelPose, &hv_RelHomMat);
+  HomMat3dInvert(hv_RelHomMat, &hv_RelHomMatInv);
+  AffineTransPoint3d(hv_RelHomMatInv, 0, 0, 0, &hv_X, &hv_Y, &hv_Z);
+  hv_CamPos.Clear();
+  hv_CamPos.Append(hv_X);
+  hv_CamPos.Append(hv_Y);
+  hv_CamPos.Append(hv_Z);
+  AffineTransPoint3d(hv_RelHomMatInv, 1., 0, 0, &hv_X, &hv_Y, &hv_Z);
+  hv_CamXAx.Clear();
+  hv_CamXAx.Append(hv_X);
+  hv_CamXAx.Append(hv_Y);
+  hv_CamXAx.Append(hv_Z);
+  AffineTransPoint3d(hv_RelHomMatInv, 0, 1., 0, &hv_X, &hv_Y, &hv_Z);
+  hv_CamYAx.Clear();
+  hv_CamYAx.Append(hv_X);
+  hv_CamYAx.Append(hv_Y);
+  hv_CamYAx.Append(hv_Z);
+  AffineTransPoint3d(hv_RelHomMatInv, 0, 0, 1., &hv_X, &hv_Y, &hv_Z);
+  hv_CamZAx.Clear();
+  hv_CamZAx.Append(hv_X);
+  hv_CamZAx.Append(hv_Y);
+  hv_CamZAx.Append(hv_Z);
+  //Scale the position to the viewing sphere
+  hv_ScaleFactor = hv_SphereRadius/(((hv_CamPos*hv_CamPos).TupleSum()).TupleSqrt());
+  hv_CamPosProj = hv_ScaleFactor*hv_CamPos;
+  hv_CamXAxProj = hv_ScaleFactor*hv_CamXAx;
+  hv_CamYAxProj = hv_ScaleFactor*hv_CamYAx;
+  hv_CamZAxProj = hv_ScaleFactor*hv_CamZAx;
+  //Scale the coordinate axis to the desired length
+  hv_Vec = hv_CamXAxProj-hv_CamPosProj;
+  hv_ScaleFactor = hv_CoordAxesLength/(((hv_Vec*hv_Vec).TupleSum()).TupleSqrt());
+  hv_CamXAxProj = hv_CamPosProj+(hv_ScaleFactor*(hv_CamXAxProj-hv_CamPosProj));
+  hv_CamYAxProj = hv_CamPosProj+(hv_ScaleFactor*(hv_CamYAxProj-hv_CamPosProj));
+  hv_CamZAxProj = hv_CamPosProj+(hv_ScaleFactor*(hv_CamZAxProj-hv_CamPosProj));
+  hv_CamRow = hv_SpherePos+HTuple(hv_CamPosProj[1]);
+  hv_CamCol = hv_SpherePos+HTuple(hv_CamPosProj[0]);
+  hv_CamXAxRow = hv_SpherePos+HTuple(hv_CamXAxProj[1]);
+  hv_CamXAxCol = hv_SpherePos+HTuple(hv_CamXAxProj[0]);
+  hv_CamYAxRow = hv_SpherePos+HTuple(hv_CamYAxProj[1]);
+  hv_CamYAxCol = hv_SpherePos+HTuple(hv_CamYAxProj[0]);
+  hv_CamZAxRow = hv_SpherePos+HTuple(hv_CamZAxProj[1]);
+  hv_CamZAxCol = hv_SpherePos+HTuple(hv_CamZAxProj[0]);
+  gen_arrow_cont(&ho_XAxis, hv_CamRow, hv_CamCol, hv_CamXAxRow, hv_CamXAxCol);
+  gen_arrow_cont(&ho_YAxis, hv_CamRow, hv_CamCol, hv_CamYAxRow, hv_CamYAxCol);
+  gen_arrow_cont(&ho_ZAxis, hv_CamRow, hv_CamCol, hv_CamZAxRow, hv_CamZAxCol);
+  //
+  //Compute the current longitude, latitude, and camera roll angle
+  ConvertPoint3dCartToSpher(HTuple(hv_CamPos[0]), HTuple(hv_CamPos[1]), HTuple(hv_CamPos[2]), 
+      "-y", "-z", &hv_CamLon, &hv_CamLat, &hv_Radius);
+  hv_CamRoll = -HTuple(hv_RelPose[5]);
+  while (0 != (hv_CamRoll>180.0))
+  {
+    hv_CamRoll = hv_CamRoll-360.0;
+  }
+  while (0 != (hv_CamRoll<-180.0))
+  {
+    hv_CamRoll += 360.0;
+  }
+  hv_CamRoll = (hv_CamRoll*3.1416)/180.;
+  //
+  //Indicate longitude and latitude by lines
+  GenContourPolygonXld(&ho_LineLong, hv_SpherePos.TupleConcat(hv_SpherePos), hv_SpherePos.TupleConcat(hv_SpherePos+(hv_SphereRadius*(hv_CamLon.TupleSin()))));
+  hv_XRangeCamPos = HTuple();
+  hv_YRangeCamPos = HTuple();
+  hv_StepLat = HTuple(1).TupleRad();
+  if (0 != (hv_CamLat>0))
+  {
+    hv_StepLat = HTuple(1).TupleRad();
+  }
+  else
+  {
+    hv_StepLat = -(HTuple(1).TupleRad());
+  }
+  {
+  HTuple end_val89 = hv_CamLat;
+  HTuple step_val89 = hv_StepLat;
+  for (hv_Lat=0; hv_Lat.Continue(end_val89, step_val89); hv_Lat += step_val89)
+  {
+    ConvertPoint3dSpherToCart(hv_CamLon, hv_Lat, hv_SphereRadius, "-y", "-z", &hv_X, 
+        &hv_Y, &hv_Z);
+    hv_XRangeCamPos = hv_XRangeCamPos.TupleConcat(hv_X);
+    hv_YRangeCamPos = hv_YRangeCamPos.TupleConcat(hv_Y);
+  }
+  }
+  GenContourPolygonXld(&ho_LineLat, hv_SpherePos+hv_YRangeCamPos, hv_SpherePos+hv_XRangeCamPos);
+  //
+  //Project the model using the reference pose
+  determine_optimum_viewing_distance(hv_ObjectModel3DID, hv_CamParamSmall, hv_MinImageSize, 
+      0.7, &hv_ViewingDist);
+  hv_RefPose[2] = HTuple(hv_RefPose[2])+hv_ViewingDist;
+  ProjectObjectModel3d(&ho_ModelContours, hv_ObjectModel3DID, hv_CamParamSmall, hv_RefPose, 
+      hv_HiddenSurfaceRemoval, hv_MinFaceAngle);
+  GenCrossContourXld(&ho_ReferencePointCross, hv_Cy, hv_Cx, 6, 0);
+  //
+  //The pose range can only be displayed from -90° to +90°
+  hv_LongitudeMinDisp = (hv_LongitudeMin.TupleConcat(-(HTuple(90).TupleRad()))).TupleMax();
+  hv_LongitudeMaxDisp = (hv_LongitudeMax.TupleConcat(HTuple(90).TupleRad())).TupleMin();
+  hv_LatitudeMinDisp = (hv_LatitudeMin.TupleConcat(-(HTuple(90).TupleRad()))).TupleMax();
+  hv_LatitudeMaxDisp = (hv_LatitudeMax.TupleConcat(HTuple(90).TupleRad())).TupleMin();
+  //
+  //Project the border of the pose range at LatituteMin and LatitudeMax
+  hv_XRangeLatMin = HTuple();
+  hv_YRangeLatMin = HTuple();
+  hv_XRangeLatMax = HTuple();
+  hv_YRangeLatMax = HTuple();
+  {
+  HTuple end_val113 = hv_LongitudeMaxDisp;
+  HTuple step_val113 = HTuple(1).TupleRad();
+  for (hv_Long=hv_LongitudeMinDisp; hv_Long.Continue(end_val113, step_val113); hv_Long += step_val113)
+  {
+    ConvertPoint3dSpherToCart(hv_Long, hv_LatitudeMinDisp, hv_SphereRadius, "-y", 
+        "-z", &hv_X, &hv_Y, &hv_Z);
+    hv_XRangeLatMin = hv_XRangeLatMin.TupleConcat(hv_X);
+    hv_YRangeLatMin = hv_YRangeLatMin.TupleConcat(hv_Y);
+    ConvertPoint3dSpherToCart(hv_Long, hv_LatitudeMaxDisp, hv_SphereRadius, "-y", 
+        "-z", &hv_X, &hv_Y, &hv_Z);
+    hv_XRangeLatMax = hv_XRangeLatMax.TupleConcat(hv_X);
+    hv_YRangeLatMax = hv_YRangeLatMax.TupleConcat(hv_Y);
+  }
+  }
+  //
+  //Project the border of the pose range at LongitudeMin and LongitudeMax
+  hv_XRangeLongMin = HTuple();
+  hv_YRangeLongMin = HTuple();
+  hv_XRangeLongMax = HTuple();
+  hv_YRangeLongMax = HTuple();
+  {
+  HTuple end_val127 = hv_LatitudeMaxDisp;
+  HTuple step_val127 = HTuple(1).TupleRad();
+  for (hv_Lat=hv_LatitudeMinDisp; hv_Lat.Continue(end_val127, step_val127); hv_Lat += step_val127)
+  {
+    ConvertPoint3dSpherToCart(hv_LongitudeMinDisp, hv_Lat, hv_SphereRadius, "-y", 
+        "-z", &hv_X, &hv_Y, &hv_Z);
+    hv_XRangeLongMin = hv_XRangeLongMin.TupleConcat(hv_X);
+    hv_YRangeLongMin = hv_YRangeLongMin.TupleConcat(hv_Y);
+    ConvertPoint3dSpherToCart(hv_LongitudeMaxDisp, hv_Lat, hv_SphereRadius, "-y", 
+        "-z", &hv_X, &hv_Y, &hv_Z);
+    hv_XRangeLongMax = hv_XRangeLongMax.TupleConcat(hv_X);
+    hv_YRangeLongMax = hv_YRangeLongMax.TupleConcat(hv_Y);
+  }
+  }
+  GenContourPolygonXld(&ho_ContPoseRange, hv_SpherePos+(((hv_YRangeLatMin.TupleConcat(hv_YRangeLongMax)).TupleConcat(hv_YRangeLatMax.TupleInverse())).TupleConcat(hv_YRangeLongMin.TupleInverse())), 
+      hv_SpherePos+(((hv_XRangeLatMin.TupleConcat(hv_XRangeLongMax)).TupleConcat(hv_XRangeLatMax.TupleInverse())).TupleConcat(hv_XRangeLongMin.TupleInverse())));
+  Compose3(ho_Image1, ho_Image2, ho_Image3, &ho_Image);
+  PaintXld(ho_ContPoseRange, ho_Image, &ho_Image, ((HTuple(80).Append(0)).Append(80)));
+  //
+  //Display the graphics
+  HDevWindowStack::SetActive(hv_WindowHandle);
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_Image, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    SetColor(HDevWindowStack::GetActive(),"blue");
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_CirclesLon, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_CirclesLat, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    SetColor(HDevWindowStack::GetActive(),hv_ModelColor);
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_ModelContours, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    SetColor(HDevWindowStack::GetActive(),"light gray");
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_ReferencePointCross, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    SetColor(HDevWindowStack::GetActive(),"magenta");
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_ContPoseRange, HDevWindowStack::GetActive());
+  if (0 != (HTuple(hv_CamLon>(-(HTuple(90).TupleRad()))).TupleAnd(hv_CamLon<(HTuple(90).TupleRad()))))
+  {
+    if (HDevWindowStack::IsOpen())
+      SetColor(HDevWindowStack::GetActive(),"yellow");
+  }
+  else
+  {
+    if (HDevWindowStack::IsOpen())
+      SetColor(HDevWindowStack::GetActive(),"tan");
+  }
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_XAxis, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_YAxis, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_ZAxis, HDevWindowStack::GetActive());
+  SetTposition(hv_WindowHandle, hv_CamXAxRow, hv_CamXAxCol);
+  WriteString(hv_WindowHandle, "x");
+  SetTposition(hv_WindowHandle, hv_CamYAxRow, hv_CamYAxCol);
+  WriteString(hv_WindowHandle, "y");
+  SetTposition(hv_WindowHandle, hv_CamZAxRow, hv_CamZAxCol);
+  WriteString(hv_WindowHandle, "z");
+  GetLineStyle(hv_WindowHandle, &hv_LineStyle);
+  SetLineStyle(hv_WindowHandle, (HTuple(4).Append(4)));
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_LineLong, HDevWindowStack::GetActive());
+  if (HDevWindowStack::IsOpen())
+    DispObj(ho_LineLat, HDevWindowStack::GetActive());
+  SetLineStyle(hv_WindowHandle, hv_LineStyle);
+  //
+  //Display the text
+  //Compute the format string in dependence of the distance magnitude
+  hv_MaxDist = ((hv_Dist.TupleConcat(hv_DistMin)).TupleConcat(hv_DistMax)).TupleMax();
+  if (0 != (hv_MaxDist>0))
+  {
+    hv_Precision = (HTuple(0).TupleConcat(4-((hv_MaxDist.TupleLog10()).TupleInt()))).TupleMax();
+    hv_Precision = (hv_Precision.TupleConcat(4)).TupleMin();
+  }
+  else
+  {
+    hv_Precision = 4;
+  }
+  hv_DistFormat = ("6."+hv_Precision)+"f";
+  if (HDevWindowStack::IsOpen())
+    SetColor(HDevWindowStack::GetActive(),"white");
+  SetTposition(hv_WindowHandle, hv_MinImageSize, 30);
+  WriteString(hv_WindowHandle, "Current Reference Pose Angles:");
+  SetTposition(hv_WindowHandle, hv_MinImageSize+20, 30);
+  WriteString(hv_WindowHandle, ((((((((("   a ="+(HTuple(hv_RefPose[3]).TupleString("4.0f")))+"°")+";")+" b =")+(HTuple(hv_RefPose[4]).TupleString("4.0f")))+"°")+";")+" g =")+(HTuple(hv_RefPose[5]).TupleString("4.0f")))+"°");
+  SetTposition(hv_WindowHandle, hv_MinImageSize+50, 30);
+  WriteString(hv_WindowHandle, (((((((("Longitude: "+(((hv_CamLon*180)/3.1416).TupleString("+4.0f")))+"°")+"; [")+(((hv_LongitudeMin*180)/3.1416).TupleString("+4.0f")))+"°")+"; ")+(((hv_LongitudeMax*180)/3.1416).TupleString("+4.0f")))+"°")+"]");
+  SetTposition(hv_WindowHandle, hv_MinImageSize+70, 30);
+  WriteString(hv_WindowHandle, (((((((("Latitude:  "+(((hv_CamLat*180)/3.1416).TupleString("+4.0f")))+"°")+"; [")+(((hv_LatitudeMin*180)/3.1416).TupleString("+4.0f")))+"°")+"; ")+(((hv_LatitudeMax*180)/3.1416).TupleString("+4.0f")))+"°")+"]");
+  SetTposition(hv_WindowHandle, hv_MinImageSize+90, 30);
+  WriteString(hv_WindowHandle, (((((((("CamRoll:   "+(((hv_CamRoll*180)/3.1416).TupleString("+4.0f")))+"°")+"; [")+(((hv_CamRollMin*180)/3.1416).TupleString("+4.0f")))+"°")+"; ")+(((hv_CamRollMax*180)/3.1416).TupleString("+4.0f")))+"°")+"]");
+  SetTposition(hv_WindowHandle, hv_MinImageSize+110, 30);
+  WriteString(hv_WindowHandle, ((((("Distance: "+(hv_Dist.TupleString(hv_DistFormat)))+"; [")+(hv_DistMin.TupleString(hv_DistFormat)))+"; ")+(hv_DistMax.TupleString(hv_DistFormat)))+"]");
+  SetTposition(hv_WindowHandle, hv_MinImageSize+140, 30);
+  WriteString(hv_WindowHandle, ("MinFaceAngle: "+(((hv_MinFaceAngle*180)/3.1416).TupleString("4.0f")))+"°");
+  return;
+}
+
+// Main procedure 
+void action(HObject ho_Image)
+{
+
+  // Local iconic variables
+  HObject  ho_ClassRegions, ho_ClassRed;
+  HObject  ho_ClassGreen, ho_ClassBLue, ho_ConnectedRegions1;
+  HObject  ho_ConnectedRegions2, ho_ConnectedRegions3, ho_ObjectSelectedRed;
+  HObject  ho_ObjectSelectedGreen, ho_ObjectSelectedBlue, ho_RegionSelected;
+  HObject  ho_RegionClosingOranges, ho_ConnectedRegionsOranges;
+  HObject  ho_RegionFillUpOranges, ho_ObjectSelected, ho_ImageReduced;
+  HObject  ho_ModelContours;
+
+  // Local control variables
+  HTuple  hv_ErrorVar;
+  HTuple  hv_CamParam, hv_ObjectModelGreen, hv_DxfStatus;
+  HTuple  hv_ObjectModelBlue, hv_ObjectModelRed, hv_Red_ShapeModel3DID;
+  HTuple  hv_Green_ShapeModel3DID, hv_color, hv_ObjectModel3DID;
+  HTuple  hv_ShapeModel3DID, hv_Error, hv_pathFile, hv_MLPHandle;
+  HTuple  hv_Area_1, hv_Row_1, hv_Column_1, hv_Area_2, hv_Row_2;
+  HTuple  hv_Column_2, hv_Area_3, hv_Row_3, hv_Column_3, hv_areas;
+  HTuple  hv_rows, hv_columns, hv_Indices, hv_num, hv_index;
+  HTuple  hv_class, hv_row, hv_column, hv_AreasOranges, hv_RowsOranges;
+  HTuple  hv_ColumnsOranges, hv_Area, hv_Row, hv_Column, hv_Index1;
+  HTuple  hv_Pose, hv_CovPose, hv_Score, hv_I, hv_PoseI, hv_ScoreI;
+
+  //step1 :读入相机标定参数
+  ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CamParam);
+  //step2: 分别读取三种砖块的3d stl模型
+  //读取红色转的3d模型
+  ReadObjectModel3d("./src/bit_vision/model/box_01.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelGreen, 
+      &hv_DxfStatus);
+  ReadObjectModel3d("./src/bit_vision/model/box_02.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelBlue, 
+      &hv_DxfStatus);
+  ReadObjectModel3d("./src/bit_vision/model/box_03.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelRed, 
+      &hv_DxfStatus);
+  //
+  //step3 : 分别读取对应三种颜色砖块的形状匹配模型
+  ReadShapeModel3d("./src/bit_vision/model/redbox_sloped_user.sm3", &hv_Red_ShapeModel3DID);
+  ReadShapeModel3d("./src/bit_vision/model/greenbox_sloped_user.sm3", &hv_Green_ShapeModel3DID);
+  //read_shape_model_3d ('model/bluebox_sloped_user.sm3', BLue_ShapeModel3DID)
+  //step4: 根据颜色分类结果 分别选择不同模型作为模板匹配的输入
+  hv_color = "green";
+  if (0 != (hv_color==HTuple("red")))
+  {
+    hv_ObjectModel3DID = hv_ObjectModelRed;
+    hv_ShapeModel3DID = hv_Red_ShapeModel3DID;
+  }
+  else if (0 != (hv_color==HTuple("green")))
+  {
+    hv_ObjectModel3DID = hv_ObjectModelGreen;
+    hv_ShapeModel3DID = hv_Green_ShapeModel3DID;
+  }
+  else if (0 != (hv_color==HTuple("blue")))
+  {
+    hv_ObjectModel3DID = hv_ObjectModelBlue;
+    //ShapeModel3DID := BLue_ShapeModel3DID
+  }
+  //
+  //Inspect the 3D object model and specify the desired pose range
+  //in which the 3D shape model is to be created
+  PrepareObjectModel3d(hv_ObjectModel3DID, "shape_based_matching_3d", "true", HTuple(), 
+      HTuple());
+  // Error variable 'hv_ErrorVar' activated
+  hv_ErrorVar = 2;
+  hv_Error = hv_ErrorVar;
+  // dev_set_check ("give_error")
+  if (0 != (hv_Error!=2))
+  {
+    CreateShapeModel3d(hv_ObjectModel3DID, hv_CamParam, HTuple(180).TupleRad(), 0, 
+        HTuple(90).TupleRad(), "gba", -(HTuple(35).TupleRad()), HTuple(35).TupleRad(), 
+        -(HTuple(35).TupleRad()), HTuple(35).TupleRad(), 0, HTuple(360).TupleRad(), 
+        0.2, 0.25, 10, HTuple(), HTuple(), &hv_ShapeModel3DID);
+    WriteShapeModel3d(hv_ShapeModel3DID, "brick_sloped_35.sm3");
+  }
+  
+  //
+  //step5:读入训练好的分割模型
+  hv_pathFile = "./src/bit_vision/model/box_segment_mlp_retrain.mlp";
+  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+  //step6:读图 并 分割图像
+  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+
+  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
+  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
+  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
+
+  Connection(ho_ClassRed, &ho_ConnectedRegions1);
+  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
+  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
+  //*********
+  select_region_according_area(ho_ConnectedRegions1, &ho_ObjectSelectedRed, &hv_Area_1, 
+      &hv_Row_1, &hv_Column_1);
+  select_region_according_area(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, &hv_Area_2, 
+      &hv_Row_2, &hv_Column_2);
+  select_region_according_area(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, &hv_Area_3, 
+      &hv_Row_3, &hv_Column_3);
+  //************
+  //比较3种region的面积 面积最大的作为分类结果
+  hv_areas.Clear();
+  hv_areas.Append(hv_Area_1);
+  hv_areas.Append(hv_Area_2);
+  hv_areas.Append(hv_Area_3);
   hv_rows.Clear();
   hv_rows.Append(hv_Row_1);
   hv_rows.Append(hv_Row_2);
@@ -376,26 +3087,64 @@ void actionR(HObject Image)
   if (0 != (hv_index==0))
   {
     hv_class = "red";
+    ho_RegionSelected = ho_ObjectSelectedRed;
   }
   else if (0 != (hv_index==1))
   {
     hv_class = "green";
+    ho_RegionSelected = ho_ObjectSelectedGreen;
   }
   else if (0 != (hv_index==2))
   {
     hv_class = "blue";
+    ho_RegionSelected = ho_ObjectSelectedBlue;
   }
 
-  brick_color_L = hv_class;
+  hv_row = HTuple(hv_rows[hv_index]);
+  hv_column = HTuple(hv_columns[hv_index]);
+  //*******************************************************************************************
+  //step7:开闭处理
+  ClosingCircle(ho_RegionSelected, &ho_RegionClosingOranges, 21.5);
+  Connection(ho_RegionClosingOranges, &ho_ConnectedRegionsOranges);
 
-  hv_row_L = HTuple(hv_rows[hv_index]);
-  hv_column_L = HTuple(hv_columns[hv_index]);
+  AreaCenter(ho_ConnectedRegionsOranges, &hv_AreasOranges, &hv_RowsOranges, &hv_ColumnsOranges);
+  //形状转换为凸包
+  ShapeTrans(ho_ConnectedRegionsOranges, &ho_RegionFillUpOranges, "convex");
+  AreaCenter(ho_RegionFillUpOranges, &hv_Area, &hv_Row, &hv_Column);
+  //step8:计数得到的区域个数 分别使用基于形状的三维匹配
+  hv_num = hv_Area.TupleLength();
+  {
+  HTuple end_val89 = hv_num;
+  HTuple step_val89 = 1;
+  for (hv_Index1=1; hv_Index1.Continue(end_val89, step_val89); hv_Index1 += step_val89)
+  {
+    SelectObj(ho_RegionFillUpOranges, &ho_ObjectSelected, hv_Index1);
+    ReduceDomain(ho_Image, ho_ObjectSelected, &ho_ImageReduced);
+    FindShapeModel3d(ho_ImageReduced, hv_ShapeModel3DID, 0.7, 0.9, 5, (HTuple("num_matches").Append("pose_refinement")), 
+        (HTuple(2).Append("least_squares_very_high")), &hv_Pose, &hv_CovPose, &hv_Score);
+    {
+    HTuple end_val93 = (hv_Score.TupleLength())-1;
+    HTuple step_val93 = 1;
+    for (hv_I=0; hv_I.Continue(end_val93, step_val93); hv_I += step_val93)
+    {
+      //此处得到pose的值
+      hv_PoseI = hv_Pose.TupleSelectRange(hv_I*7,(hv_I*7)+6);
+      //给全局变量赋值
+      Brick_X = ((const HTuple&)hv_PoseI)[0];
+      Brick_Y = ((const HTuple&)hv_PoseI)[1];
+      Brick_Z = ((const HTuple&)hv_PoseI)[2];
+      //此处得到匹配的得分 正确的得分>0.9
+      hv_ScoreI = HTuple(hv_Score[hv_I]);
+      matching_score = hv_ScoreI;
+      //ModelContours是投影后获取的轮廓
+      ProjectShapeModel3d(&ho_ModelContours, hv_ShapeModel3DID, hv_CamParam, hv_PoseI, 
+          "true", 0.523599);
+      
+    }
+    }
+  }
+  }
 
-  Xr=hv_row_L;
-  Yr=hv_column_L;
-
- // ROS_INFO_STREAM("Location is : "<<Xr.D()<<","<<Yr.D());
-  
 }
 
 void LeftCallback(const sensor_msgs::Image::ConstPtr& msg) 
@@ -406,75 +3155,22 @@ void LeftCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
+    
     // 处理左图图像
-    actionL(ho_Image);
-}
-
-void RightCallback(const sensor_msgs::Image::ConstPtr& msg) 
-{
-    
-    //初始化halcon对象
-    HObject  ho_Image;
-    //获取halcon-bridge图像指针
-    halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
-    ho_Image = *halcon_bridge_imagePointer->image;
-    
-    // 处理右图图像
-    actionR(ho_Image);
-
-}
-
-
-//定义根据标定参数 定位三维点的函数
-int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R)
-{
-   
-  HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
-  HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
-  
-  //三维定位
-  try
-  {
-    if ((brick_color_L == brick_color_R) == 0)
-    {
-      ROS_WARN_STREAM("Left color isn't match Right color");
-      return 1;
-    }
-   
-    ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
-    ReadCamPar("./src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
-    ReadPose("./src/bit_vision/model/relpose.dat", &hv_RealPose);
-
-    IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
-    row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
-
-    Brick_X = hv_X;
-    Brick_Y = hv_Y;
-    Brick_Z = hv_Z;
-
-    return 0;
-  }
-  catch (HException &exception)
-  {
-    ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
-            (const char *)exception.ProcName(),
-            (const char *)exception.ErrorMessage());
-    return 1;
-  }
-
+    action(ho_Image);
 }
 
 // service 回调函数，输入参数req，输出参数res
 bool GetPositonData(bit_vision::BrickPosition::Request& ,
                    bit_vision::BrickPosition::Response& res)
 {
-  if (stero_location(Xl,Yl,Xr,Yr)==0)   // 如果有识别结果
+  if (0 != (matching_score > 0.5))   // 如果有识别结果
   {
     res.PositionData.header.stamp = ros::Time().now();
     res.PositionData.header.frame_id = "zed_link";
 
     res.PositionData.Flag = true;
-    res.PositionData.BrickType = brick_color_L.S();
+    res.PositionData.BrickType = brick_color.S();
     res.PositionData.Pose.position.x = Brick_X.D();
     res.PositionData.Pose.position.y = Brick_Y.D();
     res.PositionData.Pose.position.z = Brick_Z.D();
@@ -488,7 +3184,6 @@ bool GetPositonData(bit_vision::BrickPosition::Request& ,
     transform.setRotation(q);
     br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "zed_link", "target_link"));
 
-    ROS_INFO_STREAM("Brick Color is: "<<brick_color_L.S()<<"  Location is : "<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
   }
   else    // 如果没有识别结果
   {
@@ -503,6 +3198,7 @@ bool GetPositonData(bit_vision::BrickPosition::Request& ,
   }
 }
 
+
 int main(int argc, char *argv[])
 {
   ros::init(argc, argv, "brick_position");
@@ -510,24 +3206,14 @@ int main(int argc, char *argv[])
   ros::NodeHandle nh; 
 
   // 接收zed左右相机图像
-  ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
-  ros::Subscriber subRight = nh.subscribe("/zed/zed_node/right/image_rect_color", 1, RightCallback);  
+  ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color/compressed", 1, LeftCallback);
+  ROS_INFO("matching_score = %lf",matching_score);
   // 服务-计算砖堆位置
   ros::ServiceServer service = nh.advertiseService("GetPositonData",GetPositonData);
-
-  // 初始化左右相机定位数据
-  Xl = 0;
-  Yl = 0;
-  Xr = 0;
-  Yr = 0;
-
-  ROS_INFO_STREAM("Ready to get brick locate info");
 
   ros::spin();
 
   return 0;
 }
-
-
 
 

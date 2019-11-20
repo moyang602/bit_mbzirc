@@ -39,28 +39,31 @@
 #include "bit_vision/BrickPosition.h"
 #include <opencv2/core/core.hpp>
 
+#include<iostream>
+#undef Success  
+#include<eigen3/Eigen/Core>
+#include<eigen3/Eigen/Geometry>
+#include <eigen_conversions/eigen_msg.h>
+
+
 using namespace std;
 using namespace HalconCpp;
 using namespace cv;
 
+
 //定义全局变量 用于三维坐标的传递
-static HTuple xL1,yL1,xL2,yL2,xL3,yL3,xL4,yL4;
-static HTuple xR1,yR1,xR2,yR2,xR3,yR3,xR4,yR4; 
+static HTuple xL1,yL1,xL2,yL2;
+static HTuple xR3,yR3,xR4,yR4; 
 //全局变量 用于传递由当前点到指定点需要移动的方向与距离
-static HTuple X1,Y1,Z1,X2,Y2,Z2,X3,Y3,Z3,X4,Y4,Z4;
+static HTuple X1,Y1,Z1,X2,Y2,Z2;
+static HObject brickregion;
+int Proc_states = 0;
+string brick_color;
 
 // Procedure declarations 
 // Chapter: Develop
 // Short Description: Switch dev_update_pc, dev_update_var and dev_update_window to 'off'. 
 void dev_update_off ();
-// Local procedures 
-void classify_color_regions (HObject ho_Image, HObject *ho_RegionSelected, HTuple hv_MLPHandle, 
-    HTuple *hv_index, HTuple *hv_row, HTuple *hv_column);
-void extract_region_lines (HObject ho_Image, HObject *ho_SelectedContours, HTuple *hv_Number);
-void gen_region_contours_lines (HObject ho_region, HObject *ho_SelectedContours, 
-    HTuple hv_min1, HTuple hv_max1, HTuple *hv_Number2);
-void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area, 
-    HTuple *hv_Row, HTuple *hv_Column);
 
 // Procedures 
 // Chapter: Develop
@@ -68,420 +71,175 @@ void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTup
 void dev_update_off ()
 {
 
-  //This procedure sets different update settings to 'off'.
-  //This is useful to get the best performance and reduce overhead.
-  //
-  // dev_update_pc(...); only in hdevelop
-  // dev_update_var(...); only in hdevelop
-  // dev_update_window(...); only in hdevelop
-  return;
-}
-
-// Local procedures 
-void classify_color_regions (HObject ho_Image, HObject *ho_RegionSelected, HTuple hv_MLPHandle, 
-    HTuple *hv_index, HTuple *hv_row, HTuple *hv_column)
-{
-
-  // Local iconic variables
-  HObject  ho_ClassRegions, ho_ClassRed, ho_ClassGreen;
-  HObject  ho_ClassBLue, ho_ConnectedRegions1, ho_ConnectedRegions2;
-  HObject  ho_ConnectedRegions3, ho_ObjectSelectedRed, ho_ObjectSelectedGreen;
-  HObject  ho_ObjectSelectedBlue, ho_region1, ho_region2;
-
-  // Local control variables
-  HTuple  hv_Area_1, hv_Row_1, hv_Column_1, hv_Area_2;
-  HTuple  hv_Row_2, hv_Column_2, hv_Area_3, hv_Row_3, hv_Column_3;
-  HTuple  hv_areas, hv_rows, hv_columns, hv_Indices, hv_num;
-  HTuple  hv_index2, hv_class;
-
-  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-
-  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
-  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
-  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
-
-  Connection(ho_ClassRed, &ho_ConnectedRegions1);
-  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
-  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
-
-  select_max_area_region(ho_ConnectedRegions1, &ho_ObjectSelectedRed, &hv_Area_1, 
-      &hv_Row_1, &hv_Column_1);
-  select_max_area_region(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, &hv_Area_2, 
-      &hv_Row_2, &hv_Column_2);
-  select_max_area_region(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, &hv_Area_3, 
-      &hv_Row_3, &hv_Column_3);
-
-  //比较3种region的面积 面积最大的作为分类结果
-  hv_areas.Clear();
-  hv_areas.Append(hv_Area_1);
-  hv_areas.Append(hv_Area_2);
-  hv_areas.Append(hv_Area_3);
-  hv_rows.Clear();
-  hv_rows.Append(hv_Row_1);
-  hv_rows.Append(hv_Row_2);
-  hv_rows.Append(hv_Row_3);
-  hv_columns.Clear();
-  hv_columns.Append(hv_Column_1);
-  hv_columns.Append(hv_Column_2);
-  hv_columns.Append(hv_Column_3);
-
-  TupleSortIndex(hv_areas, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  (*hv_index) = HTuple(hv_Indices[hv_num-1]);
-  hv_index2 = HTuple(hv_Indices[hv_num-2]);
-
-  if (0 != ((*hv_index)==0))
-  {
-    hv_class = "red";
-
-  }
-  else if (0 != ((*hv_index)==1))
-  {
-    hv_class = "green";
-
-  }
-  else if (0 != ((*hv_index)==2))
-  {
-    hv_class = "blue";
-
-  }
-  //选取第一种和第二种区域
-  SelectObj(ho_ClassRegions, &ho_region1, (*hv_index)+1);
-  SelectObj(ho_ClassRegions, &ho_region2, hv_index2+1);
-  ConcatObj(ho_region1, ho_region2, &(*ho_RegionSelected));
-  (*hv_row) = HTuple(hv_rows[(*hv_index)]);
-  (*hv_column) = HTuple(hv_columns[(*hv_index)]);
-  return;
-}
-
-void extract_region_lines (HObject ho_Image, HObject *ho_SelectedContours, HTuple *hv_Number)
-{
-
-  // Local iconic variables
-  HObject  ho_ClassRegions, ho_ObjectSelected3;
-  HObject  ho_ImageReduced, ho_Contours, ho_ContoursSplit;
-  HObject  ho_SelectedContours1;
-
-  // Local control variables
-  HTuple  hv_PI, hv_Width, hv_Height, hv_pathFile;
-  HTuple  hv_MLPHandle, hv_Number2;
-
-  //输入是Image
-  hv_PI = 3.14;
-  GetImageSize(ho_Image, &hv_Width, &hv_Height);
-  hv_pathFile = "box_segment_mlp.mlp";
-  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.5);
-  //分割
-  //提取的index由颜色分类决定
-  SelectObj(ho_ClassRegions, &ho_ObjectSelected3, 3);
-  ReduceDomain(ho_Image, ho_ObjectSelected3, &ho_ImageReduced);
-  //输出是提取的轮廓
-  GenContourRegionXld(ho_ObjectSelected3, &ho_Contours, "border");
-  SegmentContoursXld(ho_Contours, &ho_ContoursSplit, "lines", 2, 4, 1);
-  CountObj(ho_ContoursSplit, &(*hv_Number));
-  hv_Number2 = (*hv_Number);
-  while (0 != (hv_Number2!=2))
-  {
-    SelectContoursXld(ho_ContoursSplit, &(*ho_SelectedContours), "contour_length", 
-        hv_Width/6, hv_Width, 0, 0);
-    CountObj((*ho_SelectedContours), &hv_Number2);
-    SelectContoursXld((*ho_SelectedContours), &ho_SelectedContours1, "direction", 
-        (-hv_PI)/6, hv_PI/6, -0.5, 0.5);
-    CountObj(ho_SelectedContours1, &hv_Number2);
-  }
-  return;
-}
-
-void gen_region_contours_lines (HObject ho_region, HObject *ho_SelectedContours, 
-    HTuple hv_min1, HTuple hv_max1, HTuple *hv_Number2)
-{
-
-  // Local iconic variables
-  HObject  ho_Contours, ho_SortedContours, ho_Lines;
-  HObject  ho_LinesSelected;
-
-  // Local control variables
-  HTuple  hv_PI, hv_Number, hv_I;
-
-  hv_PI = 3.14;
-  GenContourRegionXld(ho_region, &ho_Contours, "border");
-  SegmentContoursXld(ho_Contours, &(*ho_SelectedContours), "lines", 2, 4, 1);
-  CountObj((*ho_SelectedContours), &hv_Number);
-  //可以根据方向和长度来对边缘线段进行选择
-  //可以在循环中选择 直到只有两个线段被选择出来
-  (*hv_Number2) = hv_Number;
-  while (0 != ((*hv_Number2)!=2))
-  {
-    SelectContoursXld((*ho_SelectedContours), &(*ho_SelectedContours), "contour_length", 
-        hv_min1, hv_max1, 0, 0);
-    CountObj((*ho_SelectedContours), &(*hv_Number2));
-    SelectContoursXld((*ho_SelectedContours), &(*ho_SelectedContours), "direction", 
-        (-hv_PI)/6, hv_PI/6, -0.5, 0.5);
-    CountObj((*ho_SelectedContours), &(*hv_Number2));
-    //可以增加条件 选出最长的两条直线
-    //根据视野进行线段的筛选
-    SortContoursXld((*ho_SelectedContours), &ho_SortedContours, "upper_left", "true", 
-        "row");
-    GenEmptyObj(&ho_Lines);
-    for (hv_I=1; hv_I<=2; hv_I+=1)
-    {
-      SelectObj(ho_SortedContours, &ho_LinesSelected, hv_I);
-      if (HDevWindowStack::IsOpen())
-        DispObj(ho_LinesSelected, HDevWindowStack::GetActive());
-      ConcatObj(ho_LinesSelected, ho_Lines, &ho_Lines);
-      CountObj(ho_Lines, &(*hv_Number2));
-    }
-
-  }
-  return;
-}
-
-void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTuple *hv_Area, 
-    HTuple *hv_Row, HTuple *hv_Column)
-{
-
-  // Local iconic variables
-
-  // Local control variables
-  HTuple  hv_Area1, hv_Row1, hv_Column1, hv_Indices;
-  HTuple  hv_num;
-
-  AreaCenter(ho_Region, &hv_Area1, &hv_Row1, &hv_Column1);
-  TupleSortIndex(hv_Area1, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_Region, &(*ho_ObjectSelected), HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter((*ho_ObjectSelected), &(*hv_Area), &(*hv_Row), &(*hv_Column));
-  return;
   return;
 }
 
 
-// 以左相机的视图作为输入
-void actionL(HObject Image)
+// Main procedure 
+//如果一个程序需要输入序列图像应该如何写输入参数呢?
+//第一个函数 输入为只有拾取砖块的图像以及砖块的颜色,输出为砖块对应的区域,以及砖块边缘直线与法线的交点
+void action1(HObject ho_Image1,HObject *ho_BrickRegion,HTuple *hv_x1,HTuple *hv_y1)
 {
 
   // Local iconic variables
-  HObject  ho_Image, ho_region, ho_Contours, ho_SelectedContours;
-  HObject  ho_SortedContours, ho_Lines, ho_LinesSelected, ho_ObjectSelected1;
-  HObject  ho_ObjectSelected2;
+  HObject  ho_ClassRegions;
+  HObject  ho_Contours, ho_SelectedContours;
+  HObject  ho_SortedContours, ho_Line1, ho_Image2, ho_ClassRegions2;
+  HObject  ho_RegionDifference, ho_WallRegion, ho_RegionIntersection;
+  HObject  ho_ImageReduced, ho_WallContours, ho_WallLines;
+  HObject  ho_Lines, ho_wall, ho_Line2;
 
   // Local control variables
-  HTuple  hv_Width, hv_Height, hv_WindowHandle;
-  HTuple  hv_pathFile, hv_MLPHandle, hv_class, hv_row, hv_column;
-  HTuple  hv_PI, hv_Number, hv_Number2, hv_I, hv_num, hv_Attrib;
-  HTuple  hv_RowBegin, hv_ColBegin, hv_RowEnd, hv_ColEnd;
-  HTuple  hv_Nr1, hv_Nc1, hv_Dist1, hv_RowBegin2, hv_ColBegin2;
+  HTuple  hv_pathFile, hv_MLPHandle, hv_Width, hv_Height;
+  HTuple  hv_PI, hv_Number, hv_Attrib, hv_RowBegin, hv_ColBegin;
+  HTuple  hv_RowEnd, hv_ColEnd, hv_Nr1, hv_Nc1, hv_Dist1;
+  HTuple  hv_Number2, hv_RowBegin2, hv_ColBegin2;
   HTuple  hv_RowEnd2, hv_ColEnd2, hv_Nr2, hv_Nc2, hv_Dist2;
+  HTuple  hv_x3, hv_y3;
+  HTuple  hv_index;
 
-  //Detect lines in an image with the help of the Hough transform
-  //and return it in HNF
-  //
+  //input at least 2 images
   dev_update_off();
   if (HDevWindowStack::IsOpen())
     CloseWindow(HDevWindowStack::Pop());
-  //读图
-  ReadImage(&ho_Image, "/home/srt/Link to wx_project/put_bricks/imgs/image3.png");
-  GetImageSize(ho_Image, &hv_Width, &hv_Height);
-  SetWindowAttr("background_color","white");
-  OpenWindow(0,0,hv_Width*0.5,hv_Height*0.5,0,"visible","",&hv_WindowHandle);
-  HDevWindowStack::Push(hv_WindowHandle);
-  if (HDevWindowStack::IsOpen())
-    SetDraw(HDevWindowStack::GetActive(),"margin");
-  if (HDevWindowStack::IsOpen())
-    DispObj(ho_Image, HDevWindowStack::GetActive());
-
-  //*************************************************************************
-  //方法一 分割结合轮廓检测
   //读入训练好的分割模型
-  hv_pathFile = "box_segment_mlp_retrain.mlp";
+  hv_pathFile = "/home/moyang/mbzirc_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  classify_color_regions(ho_Image, &ho_region, hv_MLPHandle, &hv_class, &hv_row, 
-      &hv_column);
+  //读入第一张图像 用于识别砖块的轮廓
+  
+  GetImageSize(ho_Image1, &hv_Width, &hv_Height);
+  
+  ClassifyImageClassMlp(ho_Image1, &ho_ClassRegions, hv_MLPHandle, 0.5);
+  //基于先前举起砖块时做的颜色分类结果 先选择砖块对应的区域
+  //根据输入颜色 给index赋值
+  
+  if (0 != (brick_color=="red"))
+  {
+    hv_index = 1;
+  }
+  else if (0 != (brick_color=="green"))
+  {
+    hv_index = 2;
+  }
+  else if (0 != (brick_color=="blue"))
+  {
+    hv_index = 3;
+  }
+
+  SelectObj(ho_ClassRegions, ho_BrickRegion, hv_index);
+  ReduceDomain(ho_Image1, *ho_BrickRegion, &ho_ImageReduced);
   //*****************************************************************************
+  //提取剩余区域的轮廓
   hv_PI = 3.14;
-  GenContourRegionXld(ho_region, &ho_Contours, "border");
+  GenContourRegionXld(ho_ImageReduced, &ho_Contours, "border");
   SegmentContoursXld(ho_Contours, &ho_SelectedContours, "lines", 2, 4, 1);
   CountObj(ho_SelectedContours, &hv_Number);
-  //可以根据方向和长度来对边缘线段进行选择
-  //可以在循环中选择 直到只有两个线段被选择出来
-  hv_Number2 = hv_Number;
-  while (0 != (hv_Number2!=2))
+  //如果检测到的直线个数为0 则处理下一张图像
+ 
+  //去掉竖直的线段
+  SelectContoursXld(ho_SelectedContours, &ho_SelectedContours, "direction", (-hv_PI)/6, 
+      hv_PI/6, -0.5, 0.5);
+  CountObj(ho_SelectedContours, &hv_Number);
+  //可以增加条件 选出最长的两条直线
+  //根据视野进行线段的筛选
+  SortContoursXld(ho_SelectedContours, &ho_SortedContours, "upper_left", "true", 
+      "row");
+  GenEmptyObj(&ho_Line1);
+  SelectObj(ho_SortedContours, &ho_Line1, 1);
+  //拟合拾取砖块的上边缘直线方程
+  GetContourGlobalAttribXld(ho_Line1, "cont_approx", &hv_Attrib);
+  if (0 != (hv_Attrib==-1))
   {
-    SelectContoursXld(ho_SelectedContours, &ho_SelectedContours, "contour_length", 
-        hv_Width/8, hv_Width, 0, 0);
-    CountObj(ho_SelectedContours, &hv_Number2);
-    SelectContoursXld(ho_SelectedContours, &ho_SelectedContours, "direction", (-hv_PI)/6, 
-        hv_PI/6, -0.5, 0.5);
-    CountObj(ho_SelectedContours, &hv_Number2);
-    //可以增加条件 选出最长的两条直线
-    //根据视野进行线段的筛选
-    SortContoursXld(ho_SelectedContours, &ho_SortedContours, "upper_left", "true", 
-        "row");
-    GenEmptyObj(&ho_Lines);
-    for (hv_I=1; hv_I<=2; hv_I+=1)
-    {
-      SelectObj(ho_SortedContours, &ho_LinesSelected, hv_I);
-      if (HDevWindowStack::IsOpen())
-        DispObj(ho_LinesSelected, HDevWindowStack::GetActive());
-      ConcatObj(ho_LinesSelected, ho_Lines, &ho_Lines);
-      CountObj(ho_Lines, &hv_Number2);
-    }
-
+    //得到直线上两个点的参数
+    FitLineContourXld(ho_Line1, "tukey", 2, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, 
+        &hv_RowEnd, &hv_ColEnd, &hv_Nr1, &hv_Nc1, &hv_Dist1);
   }
-
-  //***************************************************
-  //Lines即为需要的直线
-  //计算第一条直线上的两个点的坐标
-  //检查线段是否为2条
-  hv_num = hv_Number2;
-  //只有检测到两条线之后才继续
-  if (0 != (hv_num==2))
-  {
-    //第一条线段的拟合
-    SelectObj(ho_Lines, &ho_ObjectSelected1, 1);
-    GetContourGlobalAttribXld(ho_ObjectSelected1, "cont_approx", &hv_Attrib);
-    if (0 != (hv_Attrib==-1))
-    {
-      //得到直线上两个点的参数
-      FitLineContourXld(ho_ObjectSelected1, "tukey", 2, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, 
-          &hv_RowEnd, &hv_ColEnd, &hv_Nr1, &hv_Nc1, &hv_Dist1);
-      xL1 = hv_RowBegin;
-      yL1 = hv_ColBegin;
-      xL2 = hv_RowEnd;
-      yL2 = hv_ColEnd;
-    }
-
-    //第二条线段的拟合
-    SelectObj(ho_Lines, &ho_ObjectSelected2, 2);
-    GetContourGlobalAttribXld(ho_ObjectSelected2, "cont_approx", &hv_Attrib);
-    //-1：线 0：椭圆 1：圆
-    if (0 != (hv_Attrib==-1))
-    {
-      //得到第二个直线上两个点的参数
-      FitLineContourXld(ho_ObjectSelected2, "tukey", 2, 0, 5, 2, &hv_RowBegin2, &hv_ColBegin2, 
-          &hv_RowEnd2, &hv_ColEnd2, &hv_Nr2, &hv_Nc2, &hv_Dist2);
-      xL3 = hv_RowBegin2;
-      yL3 = hv_ColBegin2;
-      xL4 = hv_RowEnd2;
-      yL4 = hv_ColEnd2;
-    }
-    // stop(...); only in hdevelop
-  }
-
+  //得到左图中直线方程
+  //计算第一条直线与法向量的交点
+  (*hv_x1) = hv_Nr1*hv_Dist1;
+  (*hv_y1) = hv_Nc1*hv_Dist1;
+  //还需要结合右图的输入来确定这个点的三维坐标
+  //***************************************************************************
 }
 
-//以右相机的视图作为输入
-void actionR(HObject Image)
-{
+//*********************************************************************************//
+//需要设置flag来决定何时运行action1或action2
 
+//action2函数的输入是包含墙体的图像,墙体的颜色,拾取砖块在图像中的区域,输出是墙体边缘与法线的交点
+void action2(HObject ho_Image2,HObject ho_BrickRegion,HTuple *hv_x3,HTuple *hv_y3)
+{
   // Local iconic variables
-  HObject  ho_Image, ho_region, ho_Contours, ho_SelectedContours;
-  HObject  ho_SortedContours, ho_Lines, ho_LinesSelected, ho_ObjectSelected1;
-  HObject  ho_ObjectSelected2;
+  HObject  ho_Image1, ho_ClassRegions;
+  HObject  ho_ImageReduced, ho_Contours, ho_SelectedContours;
+  HObject  ho_SortedContours, ho_Line1, ho_ClassRegions2;
+  HObject  ho_RegionDifference, ho_WallRegion, ho_RegionIntersection;
+  HObject  ho_ImageReduced2, ho_WallContours, ho_WallLines;
+  HObject  ho_Lines, ho_wall, ho_Line2;
 
   // Local control variables
-  HTuple  hv_Width, hv_Height, hv_WindowHandle;
-  HTuple  hv_pathFile, hv_MLPHandle, hv_class, hv_row, hv_column;
-  HTuple  hv_PI, hv_Number, hv_Number2, hv_I, hv_num, hv_Attrib;
-  HTuple  hv_RowBegin, hv_ColBegin, hv_RowEnd, hv_ColEnd;
-  HTuple  hv_Nr1, hv_Nc1, hv_Dist1, hv_RowBegin2, hv_ColBegin2;
+  HTuple  hv_pathFile, hv_MLPHandle, hv_Width, hv_Height;
+  HTuple  hv_PI, hv_Number, hv_Attrib, hv_RowBegin, hv_ColBegin;
+  HTuple  hv_RowEnd, hv_ColEnd, hv_Nr1, hv_Nc1, hv_Dist1;
+  HTuple  hv_x1, hv_y1, hv_Number2, hv_RowBegin2, hv_ColBegin2;
   HTuple  hv_RowEnd2, hv_ColEnd2, hv_Nr2, hv_Nc2, hv_Dist2;
+  HTuple  index;
 
-  //Detect lines in an image with the help of the Hough transform
-  //and return it in HNF
-  //
-  dev_update_off();
-  if (HDevWindowStack::IsOpen())
-    CloseWindow(HDevWindowStack::Pop());
-  //读图
-  ReadImage(&ho_Image, "/home/srt/Link to wx_project/put_bricks/imgs/image3.png");
-  GetImageSize(ho_Image, &hv_Width, &hv_Height);
-  SetWindowAttr("background_color","white");
-  OpenWindow(0,0,hv_Width*0.5,hv_Height*0.5,0,"visible","",&hv_WindowHandle);
-  HDevWindowStack::Push(hv_WindowHandle);
-  if (HDevWindowStack::IsOpen())
-    SetDraw(HDevWindowStack::GetActive(),"margin");
-  if (HDevWindowStack::IsOpen())
-    DispObj(ho_Image, HDevWindowStack::GetActive());
+  //读入第二张图像
 
-  //*************************************************************************
-  //方法一 分割结合轮廓检测
-  //读入训练好的分割模型
-  hv_pathFile = "box_segment_mlp_retrain.mlp";
+  GetImageSize(ho_Image2, &hv_Width, &hv_Height);
+  //读入分类器
+  hv_pathFile = "/home/moyang/mbzirc_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  classify_color_regions(ho_Image, &ho_region, hv_MLPHandle, &hv_class, &hv_row, 
-      &hv_column);
-  //*****************************************************************************
+  ClassifyImageClassMlp(ho_Image2, &ho_ClassRegions2, hv_MLPHandle, 0.5);
+  //将拾取砖块对应的区域去除
+  Difference(ho_Image2, ho_BrickRegion, &ho_RegionDifference);
+  //基于墙体砖块颜色选择区域
+  if (0 != (brick_color=="red"))
+  {
+    index = 1;
+  }
+  else if (0 != (brick_color=="green"))
+  {
+    index = 2;
+  }
+  else if (0 != (brick_color=="blue"))
+  {
+    index = 3;
+  }
+  //取基于颜色判断的区域交集
+  SelectObj(ho_ClassRegions2, &ho_WallRegion, index);
+  Intersection(ho_WallRegion, ho_RegionDifference, &ho_RegionIntersection);
+  ReduceDomain(ho_Image2, ho_RegionIntersection, &ho_ImageReduced2);
+  //*******************************************************************************
+  //提取剩余区域的轮廓
   hv_PI = 3.14;
-  GenContourRegionXld(ho_region, &ho_Contours, "border");
-  SegmentContoursXld(ho_Contours, &ho_SelectedContours, "lines", 2, 4, 1);
-  CountObj(ho_SelectedContours, &hv_Number);
-  //可以根据方向和长度来对边缘线段进行选择
-  //可以在循环中选择 直到只有两个线段被选择出来
-  hv_Number2 = hv_Number;
-  while (0 != (hv_Number2!=2))
+  GenContourRegionXld(ho_ImageReduced2, &ho_WallContours, "border");
+  SegmentContoursXld(ho_WallContours, &ho_WallLines, "lines", 2, 4, 1);
+  CountObj(ho_WallLines, &hv_Number2);
+  //如果检测到的直线个数为0 则处理下一张图像
+  
+  //去掉竖直的线段
+  SelectContoursXld(ho_WallLines, &ho_Lines, "direction", (-hv_PI)/6, hv_PI/6, -0.5, 
+      0.5);
+  CountObj(ho_Lines, &hv_Number2);
+  //可以增加条件 选出最长的两条直线
+  //根据视野进行线段的筛选
+  SortContoursXld(ho_Lines, &ho_wall, "upper_left", "true", "row");
+  GenEmptyObj(&ho_Line2);
+  SelectObj(ho_wall, &ho_Line2, 1);
+  //拟合拾取砖块的上边缘直线方程
+  GetContourGlobalAttribXld(ho_Line2, "cont_approx", &hv_Attrib);
+  if (0 != (hv_Attrib==-1))
   {
-    SelectContoursXld(ho_SelectedContours, &ho_SelectedContours, "contour_length", 
-        hv_Width/8, hv_Width, 0, 0);
-    CountObj(ho_SelectedContours, &hv_Number2);
-    SelectContoursXld(ho_SelectedContours, &ho_SelectedContours, "direction", (-hv_PI)/6, 
-        hv_PI/6, -0.5, 0.5);
-    CountObj(ho_SelectedContours, &hv_Number2);
-    //可以增加条件 选出最长的两条直线
-    //根据视野进行线段的筛选
-    SortContoursXld(ho_SelectedContours, &ho_SortedContours, "upper_left", "true", 
-        "row");
-    GenEmptyObj(&ho_Lines);
-    for (hv_I=1; hv_I<=2; hv_I+=1)
-    {
-      SelectObj(ho_SortedContours, &ho_LinesSelected, hv_I);
-      if (HDevWindowStack::IsOpen())
-        DispObj(ho_LinesSelected, HDevWindowStack::GetActive());
-      ConcatObj(ho_LinesSelected, ho_Lines, &ho_Lines);
-      CountObj(ho_Lines, &hv_Number2);
-    }
-
+    //得到直线上两个点的参数
+    FitLineContourXld(ho_Line2, "tukey", 2, 0, 5, 2, &hv_RowBegin2, &hv_ColBegin2, 
+        &hv_RowEnd2, &hv_ColEnd2, &hv_Nr2, &hv_Nc2, &hv_Dist2);
   }
-
-  //***************************************************
-  //Lines即为需要的直线
-  //计算第一条直线上的两个点的坐标
-  //检查线段是否为2条
-  hv_num = hv_Number2;
-  //只有检测到两条线之后才继续
-  if (0 != (hv_num==2))
-  {
-    //第一条线段的拟合
-    SelectObj(ho_Lines, &ho_ObjectSelected1, 1);
-    GetContourGlobalAttribXld(ho_ObjectSelected1, "cont_approx", &hv_Attrib);
-    if (0 != (hv_Attrib==-1))
-    {
-      //得到直线上两个点的参数
-      FitLineContourXld(ho_ObjectSelected1, "tukey", 2, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, 
-          &hv_RowEnd, &hv_ColEnd, &hv_Nr1, &hv_Nc1, &hv_Dist1);
-      xR1 = hv_RowBegin;
-      yR1 = hv_ColBegin;
-      xR2 = hv_RowEnd;
-      yR2 = hv_ColEnd;
-    }
-
-    //第二条线段的拟合
-    SelectObj(ho_Lines, &ho_ObjectSelected2, 2);
-    GetContourGlobalAttribXld(ho_ObjectSelected2, "cont_approx", &hv_Attrib);
-    //-1：线 0：椭圆 1：圆
-    if (0 != (hv_Attrib==-1))
-    {
-      //得到第二个直线上两个点的参数
-      FitLineContourXld(ho_ObjectSelected2, "tukey", 2, 0, 5, 2, &hv_RowBegin2, &hv_ColBegin2, 
-          &hv_RowEnd2, &hv_ColEnd2, &hv_Nr2, &hv_Nc2, &hv_Dist2);
-      xR3 = hv_RowBegin2;
-      yR3 = hv_ColBegin2;
-      xR4 = hv_RowEnd2;
-      yR4 = hv_ColEnd2;
-    }
-    // stop(...); only in hdevelop
-  }
+  //得到左图中墙体边缘的直线方程
+  //***************************************************************************************************
+  //得到墙体边缘直线与法向量的交点
+  (*hv_x3) = hv_Nr2*hv_Dist2;
+  (*hv_y3) = hv_Nc2*hv_Dist2;
 }
 
 
@@ -493,13 +251,21 @@ void LeftCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     // 处理左图图像
-    actionL(ho_Image); //获取左图像中的四个点的坐标
+
+    //根据flag分别判断运行action1 或action2函数
+    if (Proc_states == 1)
+    {
+      action1(ho_Image,&brickregion,&xL1,&yL1); //获取左图像中的拾取砖块边缘上的点
+    }
+    else if (Proc_states == 2)
+    {
+      action2(ho_Image,brickregion,&xL2,&yL2); //获取左图像中的墙体砖块边缘上的点
+    }  
 
 }
 
 void RightCallback(const sensor_msgs::Image::ConstPtr& msg) 
 {
-    
     //初始化halcon对象
     HObject  ho_Image;
     //获取halcon-bridge图像指针
@@ -507,26 +273,33 @@ void RightCallback(const sensor_msgs::Image::ConstPtr& msg)
     ho_Image = *halcon_bridge_imagePointer->image;
     
     // 处理右图图像
-    actionR(ho_Image); //获取右图像中四个点的坐标
 
+    //根据flag判断使用action1函数或action2函数
+    if (Proc_states == 1)
+    {
+      action1(ho_Image,&brickregion,&xR3,&yR3);//右图拾取砖块边缘上的点
+    }
+    else if (Proc_states == 2)
+    {
+      action2(ho_Image,brickregion,&xR4,&yR4);//右图墙体砖块边缘上的点
+    }   
 }
 
 //定义根据标定参数 定位三维点的函数
 //以左右视图中的行列作为输入,以定位的三维点X,Y,Z作为输出
 int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R,HTuple *Line_X, HTuple *Line_Y, HTuple *Line_Z)
 {
-   
   HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
   HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
   
   //三维定位
   try
   {
-    ReadCamPar("./src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
-    ReadCamPar("./src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
-    ReadPose("./src/bit_vision/model/relpose.dat", &hv_RealPose);
+    ReadCamPar("/home/moyang/mbzirc_ws/src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
+    ReadCamPar("/home/moyang/mbzirc_ws/src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
+    ReadPose("/home/moyang/mbzirc_ws/src/bit_vision/model/relpose.dat", &hv_RealPose);
 
-    IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
+    IntersectLinesOfSight(hv_CameraParameters1, hv_CameraParameters2, hv_RealPose, 
     row_L, column_L, row_R, column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
 
     (*Line_X) = HTuple(hv_X);
@@ -542,177 +315,101 @@ int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R,
             (const char *)exception.ErrorMessage());
     return 1;
   }
+}
+
+//已知P1,P2 利用eigen求相对位姿转换
+
+int calculate_pose(geometry_msgs::Quaternion& q)
+{
+    //1.p1 world position
+    double p1yaw=0;
+    double p1x=X1;
+    double p1y=Y1;
+    double p1z=Z1;
+    Eigen::AngleAxisd rotzp1(p1yaw*M_PI/180, Eigen::Vector3d::UnitZ());
+    Eigen::Vector3d  t1= Eigen::Vector3d(p1x,p1y, p1z);
+    Eigen::Quaterniond q1=Eigen::Quaterniond(rotzp1);
+
+   //2.p2 world position
+    double p2yaw=0;
+    double p2x=X2;
+    double p2y=Y2;
+    double p2z=Z2;
+    Eigen::AngleAxisd rotzp2(p2yaw*M_PI/180, Eigen::Vector3d::UnitZ());
+    Eigen::Vector3d  t2= Eigen::Vector3d(p2x,p2y, p2z);
+    Eigen::Quaterniond q2=Eigen::Quaterniond(rotzp2);
+
+    // 3.calculate T12
+    //q1*q12=q2
+    //求解姿态为q12
+    Eigen::Quaterniond q12=q1.inverse()*q2;
+    Eigen::Vector3d  t12=q1.toRotationMatrix().inverse()*(t2-t1);
+    /// Converts an Eigen Quaternion into a Quaternion message
+    tf::quaternionEigenToMsg(q12, q);
 
 }
 
 
 
-//计算空间两条直线之间的最短距离
-class GetDistanceOf2linesIn3D
-{
-public:
-	//输入直线A的两个点，以便获得A的方程
-	void SetLineA(double A1x, double A1y, double A1z, double A2x, double A2y, double A2z)
-	{
-		a1_x = A1x;
-		a1_y = A1y;
-		a1_z = A1z;
-
-		a2_x = A2x;
-		a2_y = A2y;
-		a2_z = A2z;
-	}
-
-	//输入直线B的两个点，以便获得B的方程
-	void SetLineB(double B1x, double B1y, double B1z, double B2x, double B2y, double B2z)
-	{
-		b1_x = B1x;
-		b1_y = B1y;
-		b1_z = B1z;
-
-		b2_x = B2x;
-		b2_y = B2y;
-		b2_z = B2z;
-	}
-
-	//用SetLineA、SetLineB输入A、B方程后
-	//调用本函数解出结果
-	void GetDistance()
-	{
-
-		double d1_x = a2_x - a1_x;
-		double d1_y = a2_y - a1_y;
-		double d1_z = a2_z - a1_z;
-
-		double d2_x = b2_x - b1_x;
-		double d2_y = b2_y - b1_y;
-		double d2_z = b2_z - b1_z;
-
-		double e_x = b1_x - a1_x;
-		double e_y = b1_y - a1_y;
-		double e_z = b1_z - a1_z;
-
-
-		double cross_e_d2_x, cross_e_d2_y, cross_e_d2_z;
-		cross(e_x, e_y, e_z, d2_x, d2_y, d2_z, cross_e_d2_x, cross_e_d2_y, cross_e_d2_z);
-		double cross_e_d1_x, cross_e_d1_y, cross_e_d1_z;
-		cross(e_x, e_y, e_z, d1_x, d1_y, d1_z, cross_e_d1_x, cross_e_d1_y, cross_e_d1_z);
-		double cross_d1_d2_x, cross_d1_d2_y, cross_d1_d2_z;
-		cross(d1_x, d1_y, d1_z, d2_x, d2_y, d2_z, cross_d1_d2_x, cross_d1_d2_y, cross_d1_d2_z);
-
-		double t1, t2;
-		t1 = dot(cross_e_d2_x, cross_e_d2_y, cross_e_d2_z, cross_d1_d2_x, cross_d1_d2_y, cross_d1_d2_z);
-		t2 = dot(cross_e_d1_x, cross_e_d1_y, cross_e_d1_z, cross_d1_d2_x, cross_d1_d2_y, cross_d1_d2_z);
-		double dd = norm(cross_d1_d2_x, cross_d1_d2_y, cross_d1_d2_z);
-		t1 /= dd*dd;
-		t2 /= dd*dd;
-
-		//得到最近的位置
-		PonA_x = (a1_x + (a2_x - a1_x)*t1);
-		PonA_y = (a1_y + (a2_y - a1_y)*t1);
-		PonA_z = (a1_z + (a2_z - a1_z)*t1);
-
-		PonB_x = (b1_x + (b2_x - b1_x)*t2);
-		PonB_y = (b1_y + (b2_y - b1_y)*t2);
-		PonB_z = (b1_z + (b2_z - b1_z)*t2);
-
-		distance = norm(PonB_x - PonA_x, PonB_y - PonA_y, PonB_z - PonA_z);
-	}
-
-
-
-	double PonA_x;//两直线最近点之A线上的点的x坐标
-	double PonA_y;//两直线最近点之A线上的点的y坐标
-	double PonA_z;//两直线最近点之A线上的点的z坐标
-	double PonB_x;//两直线最近点之B线上的点的x坐标
-	double PonB_y;//两直线最近点之B线上的点的y坐标
-	double PonB_z;//两直线最近点之B线上的点的z坐标
-	double distance;//两直线距离
-private:
-	//直线A的第一个点
-	double a1_x ;
-	double a1_y ;
-	double a1_z ;
-	//直线A的第二个点
-	double a2_x ;
-	double a2_y ;
-	double a2_z ;
-
-	//直线B的第一个点
-	double b1_x;
-	double b1_y ;
-	double b1_z ;
-
-	//直线B的第二个点
-	double b2_x;
-	double b2_y ;
-	double b2_z ;
-
-
-	//点乘
-	double dot(double ax, double ay, double az, double bx, double by, double bz) { return ax*bx + ay*by + az*bz; }
-	//向量叉乘得到法向量，最后三个参数为输出参数
-	void cross(double ax, double ay, double az, double bx, double by, double bz, double& x, double& y, double& z)
-	{ 
-		x = ay*bz - az*by;
-		y = az*bx - ax*bz;
-		z = ax*by - ay*bx;
-	}
-	//向量取模
-	double norm(double ax, double ay, double az) { return sqrt(dot(ax, ay, az, ax, ay, az)); }
-};
-
-
 // service 回调函数，输入参数req，输出参数res
-bool GetPutData(bit_vision::BrickPosition::Request& ,
-                   bit_vision::BrickPosition::Response& res)
+bool GetPutData(bit_vision::BrickPosition::Request& req,
+                bit_vision::BrickPosition::Response& res)
 {
-  //调用双目定位函数,获取四个点的坐标
-  //1,2属于第一条直线 3,4属于第二条直线
-  stero_location(xL1,yL1,xR1,yR1,&X1,&Y1,&Z1);
-  stero_location(xL2,yL2,xR2,yR2,&X2,&Y2,&Z2);
-  stero_location(xL3,yL3,xR3,yR3,&X3,&Y3,&Z3);
-  stero_location(xL4,yL4,xR4,yR4,&X4,&Y4,&Z4);
-
-  GetDistanceOf2linesIn3D g;//初始化计算三维空间直线距离的类
-  g.SetLineA(X1.D(), Y1.D(), Z1.D(), X2.D(), Y2.D(), Z2.D());
-  g.SetLineB(X3.D(), Y3.D(), Z3.D(), X4.D(), Y4.D(), Z4.D());
-  g.GetDistance();//获取距离
-  double d = g.distance;
-
-  if (stero_location(xL1,yL1,xR1,yR1,&X1,&Y1,&Z1)==0)   // 如果有识别结果
+  ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], Proc_states:["<<req.Proc_states<<"]");
+  ROS_INFO("%d",req.Proc_states);
+  brick_color = req.BrickType;
+  if (req.Proc_states == 1)
   {
-
-    res.PositionData.header.stamp = ros::Time().now();
-    res.PositionData.header.frame_id = "zed_link";
-    res.PositionData.Flag = true;
-    //放砖是否需要判断颜色?
-    res.PositionData.Pose.position.x = 0.0;
-    res.PositionData.Pose.position.y = 0.0;
-    res.PositionData.Pose.position.z = 0.0;
-
-
-    // 发布TF   zed_link——>target_link
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(0.0, 0.0, 0.0));
-    tf::Quaternion q;
-    q.setRPY(0, 0, 0);
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "zed_link", "target_link"));
-
-    ROS_INFO_STREAM("Location is : "<<0.0<<","<<0.0<<","<<0.0);
+    Proc_states = 1;
   }
-  else    // 如果没有识别结果
+  else if (req.Proc_states == 2)
   {
-    res.PositionData.header.stamp = ros::Time().now();
-    res.PositionData.header.frame_id = "zed_link";
+    Proc_states = 2;
+    ros::Duration(0.2).sleep();  // 等待双目线程处理结果
+    if (stero_location(xL1,yL1,xR3,yR3,&X1,&Y1,&Z1)==0&&stero_location(xL2,yL2,xR4,yR4,&X2,&Y2,&Z2)==0)   // 如果有识别结果
+    {
+      res.PositionData.header.stamp = ros::Time().now();
+      res.PositionData.header.frame_id = "zed_link";
+      res.PositionData.Flag = true;
 
-    res.PositionData.Flag = false;
-    res.PositionData.BrickType = "NULL";
-    res.PositionData.Pose.position.x = 0.0;
-    res.PositionData.Pose.position.y = 0.0;
-    res.PositionData.Pose.position.z = 0.0;
+      res.PositionData.Pose.position.x = X2-X1;
+      res.PositionData.Pose.position.y = Y2-Y1;
+      res.PositionData.Pose.position.z = Z2-Z1;
+
+      geometry_msgs::Quaternion q;
+      calculate_pose(q);
+      res.PositionData.Pose.orientation = q;
+
+      // 发布TF   zed_link——>target_link
+      static tf::TransformBroadcaster br;
+      geometry_msgs::TransformStamped transformStamped;
+      transformStamped.header.stamp = ros::Time().now();
+      transformStamped.header.frame_id = "zed_link";
+      transformStamped.child_frame_id = "target_link";
+      transformStamped.transform.translation.x = X2-X1;
+      transformStamped.transform.translation.y = Y2-Y1;
+      transformStamped.transform.translation.z = Z2-Z1;
+      transformStamped.transform.rotation = q;
+
+      br.sendTransform(transformStamped);
+
+      ROS_INFO_STREAM("Location is : "<<X2-X1<<","<<Y2-Y1<<","<<Z2-Z1);
+    }
+    else    // 如果没有识别结果
+    {
+      res.PositionData.header.stamp = ros::Time().now();
+      res.PositionData.header.frame_id = "zed_link";
+
+      res.PositionData.Flag = false;
+      res.PositionData.BrickType = "NULL";
+      res.PositionData.Pose.position.x = 0.0;
+      res.PositionData.Pose.position.y = 0.0;
+      res.PositionData.Pose.position.z = 0.0;
+      res.PositionData.Pose.orientation.x = 0.0;
+      res.PositionData.Pose.orientation.y = 0.0;
+      res.PositionData.Pose.orientation.z = 0.0;
+      res.PositionData.Pose.orientation.w = 0.0;
+    }
   }
 }
 
