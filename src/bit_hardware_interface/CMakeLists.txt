@@ -243,14 +243,6 @@ target_link_libraries(interface_encoder
   ${catkin_LIBRARIES}
 )
 
-add_executable(interface_ur5e
-  src/interface_ur5e.cpp
-)
-add_dependencies(interface_ur5e ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_ur5e
-  ${catkin_LIBRARIES}
-)
-
 
 add_executable(interface_camerair
   src/interface_camerair.cpp

@@ -227,14 +227,6 @@ target_link_libraries(task2_action
   ${catkin_LIBRARIES}
 )
 
-add_executable(task2_action_test_pickput
-  src/task2_action_test.cpp
-)
-add_dependencies(task2_action_test_pickput ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(task2_action_test_pickput
-  ${catkin_LIBRARIES}
-)
-
 add_executable(map_address_manage
   src/map_address_manage.cpp
 )

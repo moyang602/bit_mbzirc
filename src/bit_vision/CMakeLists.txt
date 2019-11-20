@@ -7,7 +7,8 @@ project(bit_vision)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS 
+find_package(
+  catkin REQUIRED COMPONENTS 
   roscpp 
   std_msgs 
   rospy 
@@ -16,8 +17,10 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge 
   image_transport 
   sensor_msgs 
-  geometry_msgs
-  tf
+  geometry_msgs 
+  tf 
+  message_filters
+  eigen_conversions
 )
 
 find_package(Boost REQUIRED)
