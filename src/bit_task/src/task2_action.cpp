@@ -16,6 +16,9 @@
 #include "bit_task/FindMapAddress.h"
 #include "bit_task/WriteAddress.h"
 
+#include "bit_task/UAV_msg.h"
+#include "bit_task/UGV_msg.h"
+#include "bit_task/Ground_msg.h"
 
 #define TASK_GET 0
 #define TASK_BUILD 1
@@ -24,6 +27,37 @@ typedef actionlib::SimpleActionClient<bit_motion::locateAction> Client_locate;
 typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client_pickput;
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> Client_movebase;
 typedef actionlib::SimpleActionServer<bit_plan::buildingAction> Server;
+
+struct UAV_data_struct
+{
+    uint8_t UAV_Num;			// 个体编号
+    uint8_t flag_detect_bricks;		// 发现砖堆标志位（++至4，搜索砖堆任务完成）
+    double x_r	;			// 红色位置x坐标
+    double y_r	;			// 红色位置y坐标
+    double x_g	;			// 绿色位置x坐标
+    double y_g	;			// 绿色位置y坐标
+    double x_b	;			// 蓝色位置x坐标
+    double y_b	;			// 蓝色位置y坐标
+    double x_o	;			// 橙色位置x坐标
+    double y_o	;			// 橙色位置y坐标
+    uint8_t flag_detect_L;			// 获取建筑位置标志位
+    double x_L_cross;			// L型交点位置x坐标
+    double y_L_cross;			// L型交点位置y坐标
+    double x_L_1	;			// L型1位置x坐标
+    double y_L_1	;			// L型1位置y坐标
+    double x_L_2	;			// L型2位置x坐标
+    double y_L_2	;			// L型2位置y坐标
+    std::string state	;			// 当前任务状态
+    uint8_t flag_droped;			// 砖块放置完成标志位
+    double x		;			// 当前本机位置x坐标
+    double y		;			// 当前本机位置y坐标
+    double z		;			// 当前本机位置z坐标
+    double vx		;			// 当前本机速度x方向的大小
+    double vy		;			// 当前本机速度y方向的大小
+    double vz		;			// 当前本机速度z方向的大小
+};
+
+UAV_data_struct UAV_data;
 
 class PickPutActionClient   // 取放砖action客户端
 {
@@ -216,7 +250,7 @@ class BuildingActionServer  // UGV建筑action服务器
         {
             // 创建 ugv_building 向plan的反馈信息
             bit_plan::buildingFeedback feedback;    /* 创建一个feedback对象 */
-
+            bit_plan::buildingResult   result;      /* 创建一个result对象 */
             ROS_INFO("The goal brick num is: %d", goal->goal_task.Num);
 
             /*****************************************************
@@ -247,23 +281,14 @@ class BuildingActionServer  // UGV建筑action服务器
             /*****************************************************
             *       判断是否有砖堆信息与放置处信息
             *****************************************************/
-            srv_is.request.AddressToFind = "red";
-            client_is.call(srv_is);
-
-            if (srv_is.response.flag)   // 如果有砖堆信息
+            if(UAV_data.flag_detect_bricks!=4)      // 如果没有搜索完砖堆，返回失败
+            {
+                result.finish_state = 1;
+                server.setAborted(result);
+            }
+            else
             {
                 feedback.task_feedback = "The brick and building position exist";
-                server.publishFeedback(feedback);
-            }
-            else        // 如果没有砖堆信息
-            {
-                feedback.task_feedback = "Looking for the position of brick and building";
-                server.publishFeedback(feedback);
-                // 找砖和墙位置，
-                // 然后在建筑位置进行global costmap的设置，放置车辆开过砖墙区域  
-                LocateClient.sendGoal(locate_goal, 100);     // 找砖程序客户端
-
-                feedback.task_feedback = "The position of brick and building has been found";
                 server.publishFeedback(feedback);
             }
 
@@ -273,17 +298,39 @@ class BuildingActionServer  // UGV建筑action服务器
             for (size_t count = 0; count < goal->goal_task.Num; count++)
             {
                 // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
-                
-                // 查找砖堆位置信息
-                srv_find.request.AddressToFind = goal->goal_task.bricks[count].type;
-                client_find.call(srv_find);
+                double moveX,moveY;
+                switch (goal->goal_task.bricks[count].type[0])     // 判断需搬运砖块颜色位置
+                {
+                    case 'r':
+                        moveX = UAV_data.x_r;
+                        moveY = UAV_data.y_r;
+                        break;
+
+                    case 'g':
+                        moveX = UAV_data.x_g;
+                        moveY = UAV_data.y_g;
+                        break;
+                        
+                    case 'b':
+                        moveX = UAV_data.x_b;
+                        moveY = UAV_data.y_b;
+                        break;
+
+                    case 'o':
+                        moveX = UAV_data.x_o;
+                        moveY = UAV_data.y_o;
+                        break;
+                    default:
+                        break;
+                }
 
                 // 移动至砖堆处
-                move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
+                move_base_goal.target_pose.header.frame_id = "car_link";
                 move_base_goal.target_pose.header.stamp = ros::Time::now();
-                move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;
-                move_base_goal.target_pose.pose.position.y = srv_find.response.AddressPose.pose.position.y;
-                move_base_goal.target_pose.pose.orientation = srv_find.response.AddressPose.pose.orientation;
+                move_base_goal.target_pose.pose.position.x = moveX;             // Todo 设置为运动到以XY为圆心的圈上就行
+                move_base_goal.target_pose.pose.position.y = moveY;
+                target_quat = tf::createQuaternionMsgFromYaw(0);                // Todo 小车运动角度如何设置
+                move_base_goal.target_pose.pose.orientation = target_quat;
 
                 MoveBaseClient.sendGoal(move_base_goal, 100);
                 ROS_INFO_STREAM("Move to the brick type: "<<goal->goal_task.bricks[count].type);
@@ -367,7 +414,9 @@ class BuildingActionServer  // UGV建筑action服务器
         bit_motion::pickputGoal pick_goal;   
         bit_motion::locateGoal locate_goal;
         move_base_msgs::MoveBaseGoal move_base_goal;
-        
+
+        geometry_msgs::Quaternion target_quat;
+
         // 中断回调函数
         void preempt_cb()
         {
@@ -378,16 +427,77 @@ class BuildingActionServer  // UGV建筑action服务器
         }
 };
 
+void UAVmsgCallback(const bit_task::UAV_msg::ConstPtr& msg)
+{
+    UAV_data.UAV_Num	= msg->UAV_Num;		// 个体编号
+    UAV_data.flag_detect_bricks	= msg->flag_detect_bricks;	// 发现砖堆标志位（++至4，搜索砖堆任务完成）
+    UAV_data.x_r			= msg->x_r;	// 红色位置x坐标
+    UAV_data.y_r			= msg->y_r;	// 红色位置y坐标
+    UAV_data.x_g			= msg->x_g;	// 绿色位置x坐标
+    UAV_data.y_g			= msg->y_g;	// 绿色位置y坐标
+    UAV_data.x_b			= msg->x_b;	// 蓝色位置x坐标
+    UAV_data.y_b			= msg->y_b;	// 蓝色位置y坐标
+    UAV_data.x_o			= msg->x_o;	// 橙色位置x坐标
+    UAV_data.y_o			= msg->y_o;	// 橙色位置y坐标
+    UAV_data.flag_detect_L	= msg->flag_detect_L;		// 获取建筑位置标志位
+    UAV_data.x_L_cross		= msg->x_L_cross;	// L型交点位置x坐标
+    UAV_data.y_L_cross		= msg->y_L_cross;	// L型交点位置y坐标
+    UAV_data.x_L_1			= msg->x_L_1;	// L型1位置x坐标
+    UAV_data.y_L_1			= msg->y_L_1;	// L型1位置y坐标
+    UAV_data.x_L_2			= msg->x_L_2;	// L型2位置x坐标
+    UAV_data.y_L_2			= msg->y_L_2;	// L型2位置y坐标
+    UAV_data.state			= msg->state;	// 当前任务状态
+    UAV_data.flag_droped	= msg->flag_droped;		// 砖块放置完成标志位
+    UAV_data.x				= msg->x;	// 当前本机位置x坐标
+    UAV_data.y				= msg->y;	// 当前本机位置y坐标
+    UAV_data.z				= msg->z;	// 当前本机位置z坐标
+    UAV_data.vx				= msg->vx;	// 当前本机速度x方向的大小
+    UAV_data.vy				= msg->vy;	// 当前本机速度y方向的大小
+    UAV_data.vz				= msg->vz;	// 当前本机速度z方向的大小
+}
+
+
+void GroundmsgCallback(const bit_task::Ground_msg::ConstPtr& msg)
+{
+  
+}
 
 int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "task2_action");
     ros::NodeHandle nh;
 
+    ros::Subscriber subUAV = nh.subscribe("UAVmsg", 10, UAVmsgCallback);
+    ros::Subscriber subGround = nh.subscribe("Groundmsg", 10, GroundmsgCallback);
+    
+    ros::Publisher UGVpub = nh.advertise<bit_task::UGV_msg>("UGVmsg", 10);
+
     BuildingActionServer UGVServer(nh, "ugv_building", false);
     UGVServer.Start();
 
-    ros::spin();
+    ros::Rate loop_rate(50);
+
+    while (ros::ok())
+    {
+        bit_task::UGV_msg msg;
+
+        msg.flag_detect_blueprint = 1;          // 识别建筑图案完成标志位
+        msg.blueprint.push_back(1);
+        msg.flag_update_blueprint = 1;		// 监督更新标志位
+        msg.blueprint_update.push_back(11);	// 实时建筑图矩阵
+        msg.flag_finished = 1;				// 任务结束标志位
+        msg.x = 0;						// 当前本机位置x坐标
+        msg.y = 0;						// 当前本机位置y坐标
+        msg.z = 0;						// 当前本机位置z坐标
+        msg.vx = 0;						// 当前本机速度x方向的大小
+        msg.vy = 0;						// 当前本机速度y方向的大小
+        msg.vz = 0;						// 当前本机速度z方向的大小
+
+        UGVpub.publish(msg);
+
+        ros::spinOnce();
+        loop_rate.sleep();
+    }  
 
     return 0;
 }

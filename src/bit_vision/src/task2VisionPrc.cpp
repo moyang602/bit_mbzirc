@@ -36,7 +36,7 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 #include "tf/transform_broadcaster.h"
-#include "bit_vision/BrickPosition.h"
+#include "bit_vision/VisionProc.h"
 #include <opencv2/core/core.hpp>
 
 #include<iostream>
@@ -46,9 +46,22 @@
 #include <eigen_conversions/eigen_msg.h>
 
 
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <tf/transform_listener.h>
+
 using namespace std;
 using namespace HalconCpp;
 using namespace cv;
+
+# define GetBrickPos        1   
+# define GetBrickAngle      2
+# define GetPutPos          3
+# define GetPutAngle        4
+# define GetLPose           5
+# define NotRun             0
+int algorithm = NotRun;     // 当前算法
+bool data_flag = false;     // 数据置信度
 
 static HTuple brick_angle;
 static string brick_color = "blue";
@@ -259,10 +272,10 @@ void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTup
   SelectObj(ho_Region, &(*ho_ObjectSelected), HTuple(hv_Indices[hv_num-1])+1);
   AreaCenter((*ho_ObjectSelected), &(*hv_Area), &(*hv_Row), &(*hv_Column));
   return;
-  return;
+
 }
 
-bool data_flag = false;
+
 // Main procedure 
 void action(HObject ho_Image1)
 {
@@ -418,79 +431,120 @@ void action(HObject ho_Image1)
 
 }
 
-void LeftCallback(const sensor_msgs::Image::ConstPtr& msg) 
+
+void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::Image::ConstPtr& RightImage) 
 {
     //初始化halcon对象
-    HObject  ho_Image;
+    HObject  ho_ImageL, ho_ImageR;
     //获取halcon-bridge图像指针
-    halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
-    ho_Image = *halcon_bridge_imagePointer->image;
-    // 处理左图图像
-    action(ho_Image); 
+    halcon_bridge::HalconImagePtr halcon_bridge_imagePointerL = halcon_bridge::toHalconCopy(LeftImage);
+    ho_ImageL = *halcon_bridge_imagePointerL->image;
+    halcon_bridge::HalconImagePtr halcon_bridge_imagePointerR = halcon_bridge::toHalconCopy(RightImage);
+    ho_ImageR = *halcon_bridge_imagePointerR->image;
+
+    /*****************************************************
+    *                   开始图像处理程序
+    *****************************************************/
+    switch (algorithm)
+    {
+        case GetBrickPos:
+            // 处理左图图像
+            //action(ho_Image); 
+            break;
+        case GetBrickAngle:
+            /* code for condition */
+            break;
+        case GetPutPos:
+            /* code for condition */
+            break;
+        case GetPutAngle:
+            /* code for condition */
+            break;
+        case GetLPose:
+            /* code for condition */
+            break;
+        default:
+            break;
+    }
+     
 }
 
-
-
-bool GetPutData(bit_vision::BrickPosition::Request& req,
-                bit_vision::BrickPosition::Response& res)
+bool GetVisionData(bit_vision::VisionProc::Request&  req,
+                   bit_vision::VisionProc::Response& res)
 {
-  ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"]");
-  brick_color = req.BrickType;
-  if (data_flag)
-  {
-    res.PositionData.header.stamp = ros::Time().now();
-    res.PositionData.header.frame_id = "zed_link";
+    ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], "<<"VisionAlgorithm:["<<req.ProcAlgorithm);
+    // 设置视觉处理颜色与算法
+    brick_color = req.BrickType;
+    algorithm = req.ProcAlgorithm;
+    data_flag = false;
+    ros::Duration(1).sleep();
+    if (data_flag)
+    {
+        // 发布TF   zed_link——>target_link
+        static tf::TransformBroadcaster br;
+        tf::Transform transform1;
+        transform1.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
+        tf::Quaternion q;
+        q.setRPY(0, 0, brick_angle.D());
+        transform1.setRotation(q);
+        br.sendTransform(tf::StampedTransform(transform1, ros::Time::now(), "/zed_link", "/target_link"));
 
-    res.PositionData.Flag = true;
-    res.PositionData.Pose.position.x = 0.0;//Brick_X.D();
-    res.PositionData.Pose.position.y = 0.0;//Brick_Y.D();
-    res.PositionData.Pose.position.z = 0.0;//Brick_Z.D();
-    res.PositionData.Pose.orientation.x = 0.0;
-    res.PositionData.Pose.orientation.y = 0.0;
-    res.PositionData.Pose.orientation.z = brick_angle.D();
+        // 获取 zed_link 在 magnet_link下的坐标
+        tf::TransformListener listener;
+        tf::StampedTransform transform2;
 
-    // 发布TF   zed_link——>target_link
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
-    tf::Quaternion q;
-    q.setRPY(0, 0, brick_angle.D());
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "zed_link", "target_link"));
+        try{
+        listener.lookupTransform("/magnet_link", "/zed_link", ros::Time(0), transform2);
+        }
+        catch (tf::TransformException ex){
+        ROS_ERROR("%s",ex.what());
+        ros::Duration(1.0).sleep();
+        }
+
+        // 返回目标在末端电磁铁坐标系下的位姿
+        res.VisionData.header.stamp = ros::Time().now();
+        res.VisionData.header.frame_id = "zed_link";
+
+        res.VisionData.Flag = true;
+        res.VisionData.Pose.position.x = transform2.getOrigin().x();
+        res.VisionData.Pose.position.y = transform2.getOrigin().x();
+        res.VisionData.Pose.position.z = transform2.getOrigin().x();
+        res.VisionData.Pose.orientation.x = 0.0;
+        res.VisionData.Pose.orientation.y = 0.0;
+        res.VisionData.Pose.orientation.z = transform2.getRotation().getZ();
 
     }
     else    // 如果没有识别结果
     {
-    res.PositionData.header.stamp = ros::Time().now();
-    res.PositionData.header.frame_id = "zed_link";
+        res.VisionData.header.stamp = ros::Time().now();
+        res.VisionData.header.frame_id = "zed_link";
 
-    res.PositionData.Flag = false;
-    res.PositionData.BrickType = "NULL";
-    res.PositionData.Pose.position.x = 0.0;
-    res.PositionData.Pose.position.y = 0.0;
-    res.PositionData.Pose.position.z = 0.0;
-    res.PositionData.Pose.orientation.x = 0.0;
-    res.PositionData.Pose.orientation.y = 0.0;
-    res.PositionData.Pose.orientation.z = 0.0;
-
+        res.VisionData.Flag = false;
+        res.VisionData.Pose.position.x = 0.0;
+        res.VisionData.Pose.position.y = 0.0;
+        res.VisionData.Pose.position.z = 0.0;
+        res.VisionData.Pose.orientation.x = 0.0;
+        res.VisionData.Pose.orientation.y = 0.0;
+        res.VisionData.Pose.orientation.z = 0.0;
     }
 }
 
 
 int main(int argc, char *argv[])
 {
-  ros::init(argc, argv, "put_position");
+  ros::init(argc, argv, "Task2_Vision_node");
 
   ros::NodeHandle nh("~"); 
 
-  // 接收zed左右相机图像
-  ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
+  message_filters::Subscriber<sensor_msgs::Image> subleft(nh,"/zed/zed_node/left/image_rect_color",1);
+  message_filters::Subscriber<sensor_msgs::Image> subRight(nh,"/zed/zed_node/right/image_rect_color",1);
 
-  ros::ServiceServer service = nh.advertiseService("GetPutData",GetPutData);
+  message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subleft, subleft, 5);
+  sync.registerCallback(boost::bind(&callback, _1, _2));
 
-  // 初始化左右相机定位数据
+  ros::ServiceServer service = nh.advertiseService("GetVisionData",GetVisionData);
 
-  ROS_INFO_STREAM("Ready to get brick locate info");
+  ROS_INFO_STREAM("Ready to process vision data");
 
   ros::spin();
 

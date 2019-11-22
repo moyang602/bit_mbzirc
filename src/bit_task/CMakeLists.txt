@@ -60,6 +60,10 @@ add_message_files(
     TaskInfo.msg
     CameraStates.msg
     VisionStates.msg
+    Ground_msg.msg
+    UGV_msg.msg
+    UAV_msg.msg
+    task_msg.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -243,3 +247,4 @@ add_dependencies(task2_action_test_know ${${PROJECT_NAME}_EXPORTED_TARGETS} ${ca
 target_link_libraries(task2_action_test_know
   ${catkin_LIBRARIES}
 )
+

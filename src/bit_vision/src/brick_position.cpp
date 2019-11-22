@@ -41,14 +41,13 @@
 using namespace std;
 using namespace HalconCpp;
 
-
-//定义传递三维坐标的全局变量
+//按照颜色指令拾取特定颜色砖块
+string brick_color = "blue";   
+//增加圆圈标志以定位砖块中心位置
 static HTuple Brick_X,Brick_Y,Brick_Z;
-static HTuple Brick_RX,Brick_RY,Brick_RZ;
-static HTuple matching_score; //定义匹配得分作为标志 
-string brick_color = "green";
-HTuple hv_Red_ShapeModel3DID;
-HTuple hv_Green_ShapeModel3DID;
+//获取砖块绕相机z轴旋转角
+static HTuple rot_Z,brick_pose;
+
 //------------------------------ WARNING ------------------------------
 //                                                                     
 //   At least one protected procedure could not be exported.           
@@ -114,6 +113,9 @@ void disp_menu (HObject ho_MenuRegions, HTuple hv_WindowHandle, HTuple hv_Texts)
 // Chapter: Matching-3D
 // Short Description: Display a 3D matching pose at the projected reference point 
 void display_match_pose (HTuple hv_ShapeModel3DID, HTuple hv_Pose, HTuple hv_WindowHandle);
+void find_pose_from_region (HObject ho_RectangularRegions, HObject ho_Image, HTuple hv_CamParam, 
+    HTuple hv_WindowHandle, HTuple hv_RectWidth, HTuple hv_RectHeight, HTuple hv_FileName, 
+    HTuple *hv_PoseOut);
 // Chapter: Matching-3D
 // Short Description: Generate a contour in form of an arrow 
 void gen_arrow_cont (HObject *ho_Arrow, HTuple hv_Row1, HTuple hv_Column1, HTuple hv_Row2, 
@@ -1682,6 +1684,358 @@ void display_match_pose (HTuple hv_ShapeModel3DID, HTuple hv_Pose, HTuple hv_Win
   return;
 }
 
+void find_pose_from_region (HObject ho_RectangularRegions, HObject ho_Image, HTuple hv_CamParam, 
+    HTuple hv_WindowHandle, HTuple hv_RectWidth, HTuple hv_RectHeight, HTuple hv_FileName, 
+    HTuple *hv_PoseOut)
+{
+
+  // Local iconic variables
+  HObject  ho_RectDilated, ho_RectEroded, ho_RectBorders;
+  HObject  ho_RectSelected, ho_ImageReduced, ho_Edges, ho_ContoursSplit;
+  HObject  ho_SelectedEdges, ho_UnionContours, ho_Cross, ho_Edge;
+  HObject  ho_Quadrangle, ho_ClosedContours;
+
+  // Local control variables
+  HTuple  hv_ErrorVar;
+  HTuple  hv_Number, hv_I, hv_NumberEdges, hv_NumberFilteredEdges;
+  HTuple  hv_RowBegin, hv_ColumnBegin, hv_RowEnd, hv_ColumnEnd;
+  HTuple  hv_Nr, hv_Nc, hv_Dist, hv_J, hv_Row, hv_Column;
+  HTuple  hv_IsOverlapping, hv_Rows, hv_Columns, hv_FinalRow;
+  HTuple  hv_FinalColumn, hv_RowEdge, hv_ColumnEdge, hv_Poses;
+  HTuple  hv_PoseCov, hv_Error, hv_ErrorAgain, hv_Pose, hv_HomMat3D;
+  HTuple  hv_Qx, hv_Qy, hv_Qz;
+
+  // dev_set_check ("~give_error")
+  // Error variable 'hv_ErrorVar' activated
+  hv_ErrorVar = 2;
+  (*hv_PoseOut) = HTuple();
+  //
+  //Reduce the image to the border of the region and extract edges
+  try
+  {
+    hv_ErrorVar = 2;
+    DilationRectangle1(ho_RectangularRegions, &ho_RectDilated, 9, 9);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  try
+  {
+    hv_ErrorVar = 2;
+    ErosionRectangle1(ho_RectangularRegions, &ho_RectEroded, 9, 9);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  try
+  {
+    hv_ErrorVar = 2;
+    Difference(ho_RectDilated, ho_RectEroded, &ho_RectBorders);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  try
+  {
+    hv_ErrorVar = 2;
+    SelectShape(ho_RectBorders, &ho_RectBorders, "area", "and", 600, 99999);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  try
+  {
+    hv_ErrorVar = 2;
+    CountObj(ho_RectBorders, &hv_Number);
+  }
+  catch(HException e)
+  {
+    hv_ErrorVar = (int)e.ErrorCode();
+    if (hv_ErrorVar < 0)
+      throw e;
+  }
+  {
+  HTuple end_val10 = hv_Number;
+  HTuple step_val10 = 1;
+  for (hv_I=1; hv_I.Continue(end_val10, step_val10); hv_I += step_val10)
+  {
+    try
+    {
+      hv_ErrorVar = 2;
+      SelectObj(ho_RectBorders, &ho_RectSelected, hv_I);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      ReduceDomain(ho_Image, ho_RectSelected, &ho_ImageReduced);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    //Extract contours and make them quadrangular
+    try
+    {
+      hv_ErrorVar = 2;
+      EdgesSubPix(ho_ImageReduced, &ho_Edges, "canny", 0.7, 20, 30);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      CountObj(ho_Edges, &hv_NumberEdges);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    if (0 != (hv_NumberEdges==0))
+    {
+      return;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      SegmentContoursXld(ho_Edges, &ho_ContoursSplit, "lines", 7, 4, 2);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 70, 
+          1000, -0.5, 0.5);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours, 10, 1, "attr_keep");
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      CountObj(ho_UnionContours, &hv_NumberFilteredEdges);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    if (0 != (hv_NumberFilteredEdges!=4))
+    {
+      return;
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      FitLineContourXld(ho_UnionContours, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColumnBegin, 
+          &hv_RowEnd, &hv_ColumnEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    //Find intersection points [Rows, Columns]
+    for (hv_J=0; hv_J<=3; hv_J+=1)
+    {
+      try
+      {
+        hv_ErrorVar = 2;
+        IntersectionLines(HTuple(hv_RowBegin[hv_J]), HTuple(hv_ColumnBegin[hv_J]), 
+            HTuple(hv_RowEnd[hv_J]), HTuple(hv_ColumnEnd[hv_J]), HTuple(hv_RowBegin[(hv_J+1)%4]), 
+            HTuple(hv_ColumnBegin[(hv_J+1)%4]), HTuple(hv_RowEnd[(hv_J+1)%4]), HTuple(hv_ColumnEnd[(hv_J+1)%4]), 
+            &hv_Row, &hv_Column, &hv_IsOverlapping);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      try
+      {
+        hv_ErrorVar = 2;
+        GenCrossContourXld(&ho_Cross, hv_Row, hv_Column, 6, 0.785398);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_Rows[hv_J] = hv_Row;
+      hv_Columns[hv_J] = hv_Column;
+    }
+    //Merge points
+    hv_FinalRow = HTuple();
+    hv_FinalColumn = HTuple();
+    for (hv_J=1; hv_J<=4; hv_J+=1)
+    {
+      try
+      {
+        hv_ErrorVar = 2;
+        SelectObj(ho_UnionContours, &ho_Edge, hv_J);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      try
+      {
+        hv_ErrorVar = 2;
+        GetContourXld(ho_Edge, &hv_RowEdge, &hv_ColumnEdge);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_FinalRow = (hv_FinalRow.TupleConcat(hv_RowEdge.TupleSelectRange(5,(hv_RowEdge.TupleLength())-5))).TupleConcat(HTuple(hv_Rows[hv_J-1]));
+      hv_FinalColumn = (hv_FinalColumn.TupleConcat(hv_ColumnEdge.TupleSelectRange(5,(hv_ColumnEdge.TupleLength())-5))).TupleConcat(HTuple(hv_Columns[hv_J-1]));
+    }
+    try
+    {
+      hv_ErrorVar = 2;
+      GenContourPolygonXld(&ho_Quadrangle, hv_FinalRow, hv_FinalColumn);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    //Process contour
+    //dev_set_color ('medium slate blue')
+    //dev_display (Quadrangle)
+    try
+    {
+      hv_ErrorVar = 2;
+      CountObj(ho_Quadrangle, &hv_NumberEdges);
+    }
+    catch(HException e)
+    {
+      hv_ErrorVar = (int)e.ErrorCode();
+      if (hv_ErrorVar < 0)
+        throw e;
+    }
+    if (0 != (hv_NumberEdges>0))
+    {
+      try
+      {
+        hv_ErrorVar = 2;
+        CloseContoursXld(ho_Quadrangle, &ho_ClosedContours);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      try
+      {
+        hv_ErrorVar = 2;
+        GetRectanglePose(ho_ClosedContours, hv_CamParam, hv_RectWidth, hv_RectHeight, 
+            "tukey", 2, &hv_Poses, &hv_PoseCov, &hv_Error);
+      }
+      catch(HException e)
+      {
+        hv_ErrorVar = (int)e.ErrorCode();
+        if (hv_ErrorVar < 0)
+          throw e;
+      }
+      hv_ErrorAgain = hv_ErrorVar;
+      if (0 != (hv_ErrorAgain==2))
+      {
+        //Store pose
+        hv_Pose = hv_Poses.TupleSelectRange(0,6);
+        try
+        {
+          hv_ErrorVar = 2;
+          PoseToHomMat3d(hv_Pose, &hv_HomMat3D);
+        }
+        catch(HException e)
+        {
+          hv_ErrorVar = (int)e.ErrorCode();
+          if (hv_ErrorVar < 0)
+            throw e;
+        }
+        try
+        {
+          hv_ErrorVar = 2;
+          AffineTransPoint3d(hv_HomMat3D, (HTuple(0).Append(0)), (HTuple(0).Append(0)), 
+              (HTuple(0).Append(1)), &hv_Qx, &hv_Qy, &hv_Qz);
+        }
+        catch(HException e)
+        {
+          hv_ErrorVar = (int)e.ErrorCode();
+          if (hv_ErrorVar < 0)
+            throw e;
+        }
+        //Invert (if necessary) direction of z axis to point towards the camera
+        if (0 != ((HTuple(hv_Qz[1])-HTuple(hv_Qz[0]))>0))
+        {
+          hv_Pose[4] = HTuple(hv_Pose[4])+180;
+          hv_Pose[5] = -HTuple(hv_Pose[5]);
+        }
+        (*hv_PoseOut) = (*hv_PoseOut).TupleConcat(hv_Pose);
+      }
+    }
+  }
+  }
+  // Error variable 'hv_ErrorVar' deactivated
+  // dev_set_check ("give_error")
+  return;
+}
+
 // Chapter: Matching-3D
 // Short Description: Generate a contour in form of an arrow 
 void gen_arrow_cont (HObject *ho_Arrow, HTuple hv_Row1, HTuple hv_Column1, HTuple hv_Row2, 
@@ -2971,185 +3325,119 @@ void update_pose_information (HTuple hv_WindowHandle, HTuple hv_ObjectModel3DID,
 }
 
 
+bool data_flag = false;
 // Main procedure 
-void action(HObject ho_Image)
+void pose_estimation(HObject ho_Image)
 {
 
   // Local iconic variables
-  HObject  ho_ClassRegions, ho_ClassRed;
-  HObject  ho_ClassGreen, ho_ClassBLue, ho_ConnectedRegions1;
-  HObject  ho_ConnectedRegions2, ho_ConnectedRegions3, ho_ObjectSelectedRed;
-  HObject  ho_ObjectSelectedGreen, ho_ObjectSelectedBlue, ho_RegionSelected;
-  HObject  ho_RegionClosingOranges, ho_ConnectedRegionsOranges;
-  HObject  ho_RegionFillUpOranges, ho_ObjectSelected, ho_ImageReduced;
-  HObject  ho_ModelContours;
+  HObject  ho_ClassRegions, ho_ClassRegion;
+  HObject  ho_ImageReduced, ho_grayImage, ho_Bright, ho_fillRegion;
+  HObject  ho_RegionOpening, ho_ConnectedRegions2, ho_SelectedRegions;
+  HObject  ho_Contours;
 
   // Local control variables
-  HTuple  hv_ErrorVar;
-  HTuple  hv_CamParam, hv_ObjectModelGreen, hv_DxfStatus;
-  HTuple  hv_ObjectModelBlue, hv_ObjectModelRed;
-  HTuple  hv_ObjectModel3DID;
-  HTuple  hv_ShapeModel3DID, hv_Error, hv_pathFile, hv_MLPHandle;
-  HTuple  hv_Area_1, hv_Row_1, hv_Column_1, hv_Area_2, hv_Row_2;
-  HTuple  hv_Column_2, hv_Area_3, hv_Row_3, hv_Column_3, hv_areas;
-  HTuple  hv_rows, hv_columns, hv_Indices, hv_num, hv_index;
-  HTuple  hv_class, hv_row, hv_column, hv_AreasOranges, hv_RowsOranges;
-  HTuple  hv_ColumnsOranges, hv_Area, hv_Row, hv_Column, hv_Index1;
-  HTuple  hv_Pose, hv_CovPose, hv_Score, hv_I, hv_PoseI, hv_ScoreI;
+  HTuple  hv_CamParam, hv_pathFile, hv_MLPHandle;
+  HTuple  hv_Width, hv_Height, hv_WindowHandle, hv_color;
+  HTuple  hv_index, hv_Number1, hv_Phi, hv_angle, hv_BrickPose;
+  HTuple  hv_CovPose, hv_Error;
 
-  //step1 :读入相机标定参数
-  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", &hv_CamParam);
-  //step2: 分别读取三种砖块的3d stl模型
-  //读取红色转的3d模型
-  ReadObjectModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_01.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelGreen, 
-      &hv_DxfStatus);
-  ReadObjectModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_02.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelBlue, 
-      &hv_DxfStatus);
-  ReadObjectModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_03.STL", "mm", HTuple(), HTuple(), &hv_ObjectModelRed, 
-      &hv_DxfStatus);
-  //
-  //step3 : 分别读取对应三种颜色砖块的形状匹配模型
-  
-  //read_shape_model_3d ('model/bluebox_sloped_user.sm3', BLue_ShapeModel3DID)
-  //step4: 根据颜色分类结果 分别选择不同模型作为模板匹配的输入
-  if (brick_color =="red")
+  try
   {
-    hv_ObjectModel3DID = hv_ObjectModelRed;
-    hv_ShapeModel3DID = hv_Red_ShapeModel3DID;
-    ROS_ERROR("Now is red");
-  }
-  else if (brick_color =="green")
-  {
-    hv_ObjectModel3DID = hv_ObjectModelGreen;
-    hv_ShapeModel3DID = hv_Green_ShapeModel3DID;
-    ROS_ERROR("Now is green");
-  }
-  else if (brick_color =="blue")
-  {
-    hv_ObjectModel3DID = hv_ObjectModelBlue;
-    //ShapeModel3DID := BLue_ShapeModel3DID
-  }
-  //
-  //Inspect the 3D object model and specify the desired pose range
-  //in which the 3D shape model is to be created
-  PrepareObjectModel3d(hv_ObjectModel3DID, "shape_based_matching_3d", "true", HTuple(), 
-      HTuple());
-  // Error variable 'hv_ErrorVar' activated
-  hv_ErrorVar = 2;
-  hv_Error = hv_ErrorVar;
-  // dev_set_check ("give_error")
-  if (0 != (hv_Error!=2))
-  {
-    CreateShapeModel3d(hv_ObjectModel3DID, hv_CamParam, HTuple(180).TupleRad(), 0, 
-        HTuple(90).TupleRad(), "gba", -(HTuple(35).TupleRad()), HTuple(35).TupleRad(), 
-        -(HTuple(35).TupleRad()), HTuple(35).TupleRad(), 0, HTuple(360).TupleRad(), 
-        0.2, 0.25, 10, HTuple(), HTuple(), &hv_ShapeModel3DID);
-    WriteShapeModel3d(hv_ShapeModel3DID, "brick_sloped_35.sm3");
-  }
-  //
-  //step5:读入训练好的分割模型
-  hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
-  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  //step6:读图 并 分割图像
-  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-
-  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
-  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
-  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
-
-  Connection(ho_ClassRed, &ho_ConnectedRegions1);
-  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
-  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
-  //*********
-  select_region_according_area(ho_ConnectedRegions1, &ho_ObjectSelectedRed, &hv_Area_1, 
-      &hv_Row_1, &hv_Column_1);
-  select_region_according_area(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, &hv_Area_2, 
-      &hv_Row_2, &hv_Column_2);
-  select_region_according_area(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, &hv_Area_3, 
-      &hv_Row_3, &hv_Column_3);
-  //************
-  //比较3种region的面积 面积最大的作为分类结果
-  hv_areas.Clear();
-  hv_areas.Append(hv_Area_1);
-  hv_areas.Append(hv_Area_2);
-  hv_areas.Append(hv_Area_3);
-  hv_rows.Clear();
-  hv_rows.Append(hv_Row_1);
-  hv_rows.Append(hv_Row_2);
-  hv_rows.Append(hv_Row_3);
-  hv_columns.Clear();
-  hv_columns.Append(hv_Column_1);
-  hv_columns.Append(hv_Column_2);
-  hv_columns.Append(hv_Column_3);
-
-  TupleSortIndex(hv_areas, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  hv_index = HTuple(hv_Indices[hv_num-1]);
-
-  if (0 != (hv_index==0))
-  {
-    hv_class = "red";
-    ho_RegionSelected = ho_ObjectSelectedRed;
-  }
-  else if (0 != (hv_index==1))
-  {
-    hv_class = "green";
-    ho_RegionSelected = ho_ObjectSelectedGreen;
-  }
-  else if (0 != (hv_index==2))
-  {
-    hv_class = "blue";
-    ho_RegionSelected = ho_ObjectSelectedBlue;
-  }
-
-  hv_row = HTuple(hv_rows[hv_index]);
-  hv_column = HTuple(hv_columns[hv_index]);
-  //*******************************************************************************************
-  //step7:开闭处理
-  ClosingCircle(ho_RegionSelected, &ho_RegionClosingOranges, 21.5);
-  Connection(ho_RegionClosingOranges, &ho_ConnectedRegionsOranges);
-
-  AreaCenter(ho_ConnectedRegionsOranges, &hv_AreasOranges, &hv_RowsOranges, &hv_ColumnsOranges);
-  //形状转换为凸包
-  ShapeTrans(ho_ConnectedRegionsOranges, &ho_RegionFillUpOranges, "convex");
-  AreaCenter(ho_RegionFillUpOranges, &hv_Area, &hv_Row, &hv_Column);
-  //step8:计数得到的区域个数 分别使用基于形状的三维匹配
-  hv_num = hv_Area.TupleLength();
-  {
-    HTuple end_val89 = hv_num;
-    HTuple step_val89 = 1;
-    for (hv_Index1=1; hv_Index1.Continue(end_val89, step_val89); hv_Index1 += step_val89)
+    //step1 :读入相机标定参数
+    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1.dat", &hv_CamParam);
+    //step2:读入训练好的分割模型
+    hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+    ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+    //step3:读图 并 分割图像
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    //SetWindowAttr("background_color","black");
+    //OpenWindow(0,0,hv_Width*0.5,hv_Height*0.5,0,"visible","",&hv_WindowHandle);
+    //HDevWindowStack::Push(hv_WindowHandle);
+    //分类砖块颜色
+    ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+    //比如接收指令拾取green砖块
+    //接收砖块颜色指令
+    if (brick_color=="red")
     {
-      SelectObj(ho_RegionFillUpOranges, &ho_ObjectSelected, hv_Index1);
-      ReduceDomain(ho_Image, ho_ObjectSelected, &ho_ImageReduced);
-      FindShapeModel3d(ho_ImageReduced, hv_ShapeModel3DID, 0.7, 0.9, 5, (HTuple("num_matches").Append("pose_refinement")), 
-          (HTuple(2).Append("least_squares_very_high")), &hv_Pose, &hv_CovPose, &hv_Score);
-      {
-        HTuple end_val93 = (hv_Score.TupleLength())-1;
-        HTuple step_val93 = 1;
-        for (hv_I=0; hv_I.Continue(end_val93, step_val93); hv_I += step_val93)
-        {
-          //此处得到pose的值
-          hv_PoseI = hv_Pose.TupleSelectRange(hv_I*7,(hv_I*7)+6);
-          //给全局变量赋值
-          Brick_X = ((const HTuple&)hv_PoseI)[0];
-          Brick_Y = ((const HTuple&)hv_PoseI)[1];
-          Brick_Z = ((const HTuple&)hv_PoseI)[2];
-          Brick_RX = ((const HTuple&)hv_PoseI)[3];
-          Brick_RY = ((const HTuple&)hv_PoseI)[4];
-          Brick_RZ = ((const HTuple&)hv_PoseI)[5];
-          //此处得到匹配的得分 正确的得分>0.9
-          hv_ScoreI = HTuple(hv_Score[hv_I]);
-          matching_score = hv_ScoreI;
-          //ModelContours是投影后获取的轮廓
-          ProjectShapeModel3d(&ho_ModelContours, hv_ShapeModel3DID, hv_CamParam, hv_PoseI, 
-              "true", 0.523599);
-          double score = matching_score.D();
-          ROS_INFO("matching_score = %lf",score);
-        }
-      }
+      hv_index = 1;
     }
+    else if (brick_color=="green")
+    {
+      hv_index = 2;
+    }
+    else if (brick_color=="blue")
+    {
+      hv_index = 3;
+    }
+    else if (brick_color=="orange")
+    {
+      hv_index = 4;
+    }
+
+    SelectObj(ho_ClassRegions, &ho_ClassRegion, hv_index);
+    //step4: 基于分割结果分割图像并进行开闭运算预处理
+    OpeningCircle(ho_ClassRegion, &ho_ClassRegion, 5.5);
+    ReduceDomain(ho_Image, ho_ClassRegion, &ho_ImageReduced);
+    //step5:以分割结果作为输入
+    Rgb1ToGray(ho_ImageReduced, &ho_grayImage);
+    //阈值可能需要具体实验的时候调节一下
+    Threshold(ho_grayImage, &ho_Bright, 134, 201);
+    FillUp(ho_Bright, &ho_fillRegion);
+    OpeningCircle(ho_fillRegion, &ho_RegionOpening, 5.5);
+    Connection(ho_RegionOpening, &ho_ConnectedRegions2);
+    CountObj(ho_ConnectedRegions2, &hv_Number1);
+
+    SelectShape(ho_ConnectedRegions2, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
+        "and", (HTuple(0.9).Append(80000)), (HTuple(1).Append(1000000)));
+    CountObj(ho_SelectedRegions, &hv_Number1);
+
+    //step6:计算矩形的角度
+    //select_shape_std (SelectedRegions, SelectedRegions, 'rectangle2', 90)
+    OrientationRegion(ho_SelectedRegions, &hv_Phi);
+
+    //将角度控制在-pi/2到pi/2之间
+  if (hv_Phi<(-0.5*3.14)&&hv_Phi>(-3.14))
+  {
+    hv_Phi[0] = 3.14+HTuple(hv_Phi[0]);
   }
+  else if (hv_Phi>(0.5*3.14)&&hv_Phi<3.14)
+  {
+    hv_Phi[0] = HTuple(hv_Phi[0])-3.14;
+  }
+
+    rot_Z = (hv_Phi[0]*180)/3.14;
+    ROS_INFO("rot_Z = %lf",rot_Z.D());
+    Brick_X = 0.0;//通过圆圈定位
+    Brick_Y = 0.0;
+    Brick_Z = 0.0;
+
+    /*
+    //step7: 提取区域轮廓 计算矩形在相机坐标系下的pose
+    GenContourRegionXld(ho_SelectedRegions, &ho_Contours, "border");
+    GetRectanglePose(ho_Contours, hv_CamParam, 0.6, 0.2, "nonweighted", 2, &hv_BrickPose, 
+        &hv_CovPose, &hv_Error);
+    //直接计算矩形的角度与计算的pose中的rotZ关于y轴轴对称,这是由于矩形本身轴对称
+   
+    brick_pose = hv_BrickPose;
+    Brick_X = hv_BrickPose[0];
+    Brick_Y = hv_BrickPose[1];
+    Brick_Z = hv_BrickPose[2];
+    rot_Z = hv_BrickPose[5];
+*/
+    data_flag = true;
+  }
+  catch (HException &exception)
+  {
+    ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
+            (const char *)exception.ProcName(),
+            (const char *)exception.ErrorMessage());
+    data_flag = false;
+
+    return;
+  }
+  
+  
 }
 
 void LeftCallback(const sensor_msgs::Image::ConstPtr& msg) 
@@ -3160,36 +3448,37 @@ void LeftCallback(const sensor_msgs::Image::ConstPtr& msg)
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointer = halcon_bridge::toHalconCopy(msg);
     ho_Image = *halcon_bridge_imagePointer->image;
     
-    // 处理左图图像
-    action(ho_Image);
+    // 计算砖块相对于相机的位姿
+    pose_estimation(ho_Image);
 }
+
 
 // service 回调函数，输入参数req，输出参数res
 bool GetPositonData(bit_vision::BrickPosition::Request& req,
                    bit_vision::BrickPosition::Response& res)
 {
-  ROS_INFO("!!!!!!!!!!!");
   brick_color = req.BrickType;
-  if (matching_score > 0.5)   // 如果有识别结果
+  sleep(0.5);
+
+  if (data_flag)   // 如果有识别结果
   {
     res.PositionData.header.stamp = ros::Time().now();
     res.PositionData.header.frame_id = "zed_link";
 
     res.PositionData.Flag = true;
-//    res.PositionData.BrickType = brick_color.S();
-    res.PositionData.Pose.position.x = Brick_X.D();
-    res.PositionData.Pose.position.y = Brick_Y.D();
-    res.PositionData.Pose.position.z = Brick_Z.D();
-    res.PositionData.Pose.orientation.x = Brick_RX.D();
-    res.PositionData.Pose.orientation.y = Brick_RY.D();
-    res.PositionData.Pose.orientation.z = Brick_RZ.D();
+    res.PositionData.Pose.position.x = 0.0;//Brick_X.D();
+    res.PositionData.Pose.position.y = 0.0;//Brick_Y.D();
+    res.PositionData.Pose.position.z = 0.0;//Brick_Z.D();
+    res.PositionData.Pose.orientation.x = 0.0;
+    res.PositionData.Pose.orientation.y = 0.0;
+    res.PositionData.Pose.orientation.z = rot_Z.D();
 
     // 发布TF   zed_link——>target_link
     static tf::TransformBroadcaster br;
     tf::Transform transform;
     transform.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
     tf::Quaternion q;
-    q.setRPY(0, 0, 0);
+    q.setRPY(0, 0, rot_Z.D());
     transform.setRotation(q);
     br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "zed_link", "target_link"));
 
@@ -3204,10 +3493,12 @@ bool GetPositonData(bit_vision::BrickPosition::Request& req,
     res.PositionData.Pose.position.x = 0.0;
     res.PositionData.Pose.position.y = 0.0;
     res.PositionData.Pose.position.z = 0.0;
+    res.PositionData.Pose.orientation.x = 0.0;
+    res.PositionData.Pose.orientation.y = 0.0;
+    res.PositionData.Pose.orientation.z = 0.0;
   }
 }
-
-
+  
 
 int main(int argc, char *argv[])
 {
@@ -3217,14 +3508,14 @@ int main(int argc, char *argv[])
 
   // 接收zed左右相机图像
   ros::Subscriber subLeft  = nh.subscribe("/zed/zed_node/left/image_rect_color", 1, LeftCallback);
-  
-  ReadShapeModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/redbox_sloped_user.sm3", &hv_Red_ShapeModel3DID);
-  ReadShapeModel3d("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/greenbox_sloped_user.sm3", &hv_Green_ShapeModel3DID);
+
   // 服务-计算砖堆位置
   ros::ServiceServer service = nh.advertiseService("GetPositonData",GetPositonData);
 
   ros::spin();
 
   return 0;
+
 }
+
 

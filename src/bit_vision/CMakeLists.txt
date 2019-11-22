@@ -69,6 +69,7 @@ include_directories(
 
 ## Generate messages in the 'msg' folder
 add_message_files(FILES
+  Task2_vision_msg.msg
   PositionInfo.msg
   BuildingStates.msg
   LocateInfo.msg
@@ -76,6 +77,7 @@ add_message_files(FILES
 
 ## Generate services in the 'srv' folder
 add_service_files(FILES
+  VisionProc.srv
   BrickPosition.srv
   FirePosition.srv
   BrickLocate.srv
@@ -279,4 +281,12 @@ add_dependencies(put_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPOR
 target_link_libraries(put_position
   ${catkin_LIBRARIES}
   /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+)
+
+add_executable(task2VisionPrc
+  src/task2VisionPrc.cpp
+)
+add_dependencies(task2VisionPrc ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(task2VisionPrc
+  ${catkin_LIBRARIES}
 )

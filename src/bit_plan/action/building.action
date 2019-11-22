@@ -2,7 +2,7 @@
 bit_task/TaskInfo goal_task 
 ---
 #part2: the result message, to be sent by the server upon completion
-uint8 finish_state
+uint8 finish_state      # 0 正常完成， 1 失败
 ---
 #part3: the feedback message, to be sent by server during execution
 string task_feedback

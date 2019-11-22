@@ -24,7 +24,7 @@ if sys.version_info[0] < 3:  # support python v2
     input = raw_input
 
 #=============特征点与运动参数==========
-prePickPos = (-1.57, -1.57, -1.57, -1.57, 1.57, 0)
+prePickPos = (-1.57, -1.57, -1.57, -1.57, 1.57, 0)  #取砖准备位姿
 upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
 prePutPos = (-1.57,-1.29, 1.4, 1.4, 1.57, 0)
 lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
@@ -37,6 +37,11 @@ a = 0.3
 r = 0.01
 
 #=====================================
+GetBrickPos = 1   
+GetBrickAngle = 2
+GetPutPos = 3
+GetPutAngle = 4
+GetLPose = 5
 
 SUCCESS = 1
 FAIL_VISION = 2
@@ -69,32 +74,14 @@ def settle(wait):
     pose[5] = 0
     rob.movel(pose, acc=a, vel=v, wait=wait)
 
-def GetLocateData_client():
-    rospy.wait_for_service('GetLocateData')
+def GetVisionData_client(ProcAlgorithm, BrickType):
+    rospy.wait_for_service('GetVisionData')
     try:
-        get_locate_data = rospy.ServiceProxy('GetLocateData',BrickLocate)
-        respl = get_locate_data()
-        return respl.LocateData
+        get_vision_data = rospy.ServiceProxy('GetVisionData',VisionProc)
+        respl = get_vision_data(ProcAlgorithm, BrickType)
+        return respl.VisionData
     except rospy.ServiceException, e:
-        print "Service GetLocateData call failed: %s"%e
-
-def GetPositionData_client():
-    rospy.wait_for_service('GetPositionData')
-    try:
-        get_Position_data = rospy.ServiceProxy('GetPositionData',BrickPosition)
-        respl = get_Position_data()
-        return respl.PositionData
-    except rospy.ServiceException, e:
-        print "Service GetPositionData call failed: %s"%e
-
-def GetPutData_client():
-    rospy.wait_for_service('GetPutData')
-    try:
-        get_Put_data = rospy.ServiceProxy('GetPutData',BrickPosition)
-        respl = get_Put_data()
-        return respl.PositionData
-    except rospy.ServiceException, e:
-        print "Service GetPutData call failed: %s"%e
+        print "Service GetVisionData call failed: %s"%e
 
 ## ================================================== ##
 ## ================================================== ##
@@ -134,103 +121,101 @@ class pick_put_act(object):
         # r = rospy.Rate(1)
         self._result.finish_state = SUCCESS
         try: 
+            # 开始臂车运动
             rospy.loginfo("begining")
-            initj = rob.getl()
-            print("Initial joint configuration is ", initj)
+            pose = rob.getl()
+            print("Initial end pose is ", pose)
             
             t = rob.get_pose()
             print("Transformation from base to tcp is: ", t)
             
             if goal.task == TASK_GET:
+                # 机械臂移动至取砖准备位姿
                 rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-pick position")
-            elif goal.task == TASK_BUILD:
-                rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
-                self.show_tell("arrived pre-put position")
-                print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
-                rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=3*v,wait=True, relative=True )
-                self.show_tell("arrived Brick remembered position")
-            elif goal.task == TASK_LOOK:
-                rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
-                self.show_tell("arrived look forward position")
-                return 0
 
-            # 进行识别
-            ## server ask vision! wait and try some times
-            rospy.sleep(1.0)
-            while True:
-                PositionData = GetPositionData_client()
-                if PositionData.Flag:
-                    break
+                # 视觉搜索目标砖块位置
+                rospy.sleep(0.5)
+                while True:         # Todo 避免进入死循环
+                    VisionData = GetVisionData_client(GetBrickPos, goal.goal_brick.type)
+                    if VisionData.Flag:
+                        break
 
-            # 得到识别结果如下
-            # theta = -0.5
-            # x = 0.0
-            # y = 0.0
-            # z = 0.4
-            # Todo 修改运动数据
-            x = PositionData.Pose.position.x
-            y = PositionData.Pose.position.y
-            z = PositionData.Pose.position.z
-            theta = 0
+                # 得到识别结果如下
 
-            theta = -0.5
-            x = 0.0
-            y = 0.0
-            z = 0.2
+                self.show_tell("Got BrickPos results")
 
-            self.show_tell("Got recognition results")
+                # 判断是否在工作空间，不是任务返回失败    
+                # 工作空间检测函数  Todo
+                if 0:
+                    self._result.finish_state = FAIL_VISION
+                    return 0
+                
+                # 得到识别结果，移动到砖块上方，平移
+                pose = rob.getl()
+                pose[0] += VisionData.Pose.position.x
+                pose[1] += VisionData.Pose.position.y
 
-            # 如果视觉识别失败任务返回失败
-            if 0:
-                self._result.finish_state = FAIL_VISION
-                return 0
-            
-            # 得到识别结果，移动到砖块上方，平移和旋转末端
-            initj = rob.getl()
-            initj[0] += -x
-            initj[1] += -y
+                pose[2] += 0.5     # 0.5是在地上的50cm      Todo   偏移值待确定
+                pose[3] += 0
+                # 下两个坐标使其垂直于地面Brick remembered
+                pose[4] = - pi 
+                pose[5] = 0 
+                rob.movel(pose, acc=a, vel=v, wait=True)
+                rospy.sleep(2.0)
+                self.show_tell("Arrived block up 0.5m position pependicular to ground")
 
-            initj[2] += -z +0.1     # 0.1是在其上的10cm
-            initj[3] += theta
-            # 下两个坐标使其垂直于地面Brick remembered
-            initj[4] = - pi 
-            initj[5] = 0 
-            rob.movel(initj, acc=a, vel=v, wait=True)
-            rospy.sleep(2.0)
-            self.show_tell("Arrived block up 0.1m position pependicular to ground")
+                # 视觉搜索目标砖块角度
+                rospy.sleep(0.5)
+                while True:         # Todo 避免进入死循环
+                    VisionData = GetVisionData_client(GetBrickAngle, goal.goal_brick.type)
+                    if VisionData.Flag:
+                        break
 
-            # 伪力控下落
-            rob.translate((0,0,-0.3), acc=a, vel=v*0.3, wait=False)
-            _force_prenvent_wrongdata_ = 0
-            while force < 20:
-                _force_prenvent_wrongdata_ += 1
-                if _force_prenvent_wrongdata_ >150: 
-                    _force_prenvent_wrongdata_ = 150 
-                rospy.sleep(0.002)
-                if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
-                    rospy.loginfo("did not contact")
-                    break
-            rob.stopl()
-            self.show_tell("Reached Block")
+                # 得到识别结果如下
+                theta = VisionData.Pose.orientation.z
+                self.show_tell("Got BrickAngle results")
 
-            # 操作末端
-            rospy.sleep(1.0)
-            ee.MagState = 100
-            pub_ee.publish(ee)
-            rospy.sleep(1.0)
+                # 得到识别结果，移动到砖块上方0.1m，旋转角度
+                pose = rob.getl()
+                pose[0] += VisionData.Pose.position.x
+                pose[1] += VisionData.Pose.position.y
 
-            # 先提起，后转正
-            rob.translate((0,0,0.3), acc=a, vel=v, wait=True)
+                pose[2] += 0.3     # 0.3是在地上的30cm      Todo   偏移值待确定
+                pose[3] =  theta
+                # 下两个坐标使其垂直于地面Brick remembered
+                pose[4] = - pi 
+                pose[5] = 0
+                rob.movel(pose, acc=a, vel=v, wait=True)
+                rospy.sleep(2.0)
+                self.show_tell("Arrived block up 0.1m position pependicular to ground")
 
-            rob.movej((0, 0, 0, 0, 0, theta),acc=a, vel=v, wait=False , relative=True)
+                # 伪力控下落
+                rob.translate((0,0,-0.2), acc=a, vel=v*0.3, wait=False)
+                _force_prenvent_wrongdata_ = 0
+                while force < 15:
+                    _force_prenvent_wrongdata_ += 1
+                    if _force_prenvent_wrongdata_ >150: 
+                        _force_prenvent_wrongdata_ = 150 
+                    rospy.sleep(0.002)
+                    if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
+                        rospy.loginfo("did not contact")
+                        break
+                rob.stopl()
+                self.show_tell("Reached Block")
 
-            # 移动到头顶
-            # rob.movej(upHeadPos,acc=a, vel=v,wait=True)
-            # self.show_tell("arrived Head-up position")
+                # 操作末端
+                rospy.sleep(1.0)
+                ee.MagState = 100
+                pub_ee.publish(ee)
+                rospy.sleep(1.0)
 
-            # 移动到预放置位置
-            if goal.task == TASK_GET:
+                # 先提起，后转正
+                rob.translate((0,0,0.3), acc=a, vel=v, wait=True)
+
+                rob.movej((0, 0, 0, 0, 0, theta),acc=a, vel=v, wait=False , relative=True)
+
+                # 移动到预放置位置
                 rob.movej(prePutPos,acc=a, vel=v,wait=True)
                 self.show_tell("arrived pre-Put position %d" % goal.goal_brick.Sequence)
                 delta = (0.1, goal.goal_brick.Sequence * 0.2 , 0, 0, 0, 0)
@@ -239,51 +224,125 @@ class pick_put_act(object):
                 # 使用砖块的序列信息来计算自己需要放在那个位置，待完成
                 # 移动到位，并记录posSequence = f(goal.goal_brick.Sequence)
                 posSequence.append(delta)
-            elif goal.task == TASK_BUILD:
-                rob.movej(prePickPos,acc=a, vel=v,wait=True)      # Todo 有问题，需要移动到砖xy，解算出的位置
-                self.show_tell("arrived pre-Build position")
-                
-                # 配合手眼移动到摆放的位置
-                
-                while True:
-                    PutData = GetPutData_client()
-                    if PutData.Flag:
+
+                # 伪力控放置
+                rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
+                _force_prenvent_wrongdata_ = 0
+                while force < 15:
+                    _force_prenvent_wrongdata_ += 1
+                    if _force_prenvent_wrongdata_ >150: 
+                        _force_prenvent_wrongdata_ = 150 
+                    rospy.sleep(0.002)
+                    if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
+                        rospy.loginfo("did not contact")
                         break
+                
+                rob.stopl()
+                self.show_tell("Put Down")
 
-                # 得到识别结果如下
-                # Todo 修改运动数据
-                x = PositionData.Pose.position.x
-                y = PositionData.Pose.position.y
-                z = PositionData.Pose.position.z
-                theta = 0
+                # 释放末端
+                rospy.sleep(1.0)
+                ee.MagState = 0
+                pub_ee.publish(ee)
+                rospy.sleep(1.0)
 
-            # 伪力控放置
-            rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
-            _force_prenvent_wrongdata_ = 0
-            while force < 20:
-                _force_prenvent_wrongdata_ += 1
-                if _force_prenvent_wrongdata_ >150: 
-                    _force_prenvent_wrongdata_ = 150 
-                rospy.sleep(0.002)
-                if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
-                    rospy.loginfo("did not contact")
-                    break
-                    
-            rob.stopl()
-            self.show_tell("Put Down")
-
-            # 释放末端
-            rospy.sleep(1.0)
-            ee.MagState = 0
-            pub_ee.publish(ee)
-            rospy.sleep(1.0)
-
-            if goal.task == TASK_GET:
+                # 移动回来
                 rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-Put position, finished")
+
             elif goal.task == TASK_BUILD:
+                # 移动至车上取砖位姿
+                rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
+                self.show_tell("arrived pre-put position")
+
+                # 移动至对应砖块处
+                print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
+                rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=3*v,wait=True, relative=True )
+                self.show_tell("arrived Brick remembered position")
+
+                # 进行识别
+                ## server ask vision! wait and try some times
+                # 视觉搜索目标砖块位置
+                rospy.sleep(0.5)
+                while True:         # Todo 避免进入死循环
+                    VisionData = GetVisionData_client(GetBrickPos, goal.goal_brick.type)
+                    if VisionData.Flag:
+                        break
+
+                # 得到识别结果，移动到砖块上方，平移
+                pose = rob.getl()
+                pose[0] += VisionData.Pose.position.x
+                pose[1] += VisionData.Pose.position.y
+
+                pose[2] += 0.5     # 0.5是在地上的50cm      Todo   偏移值待确定
+                pose[3] += 0
+                # 下两个坐标使其垂直于地面Brick remembered
+                pose[4] = - pi 
+                pose[5] = 0 
+                rob.movel(pose, acc=a, vel=v, wait=True)
+                rospy.sleep(2.0)
+                self.show_tell("Arrived block up 0.5m position pependicular to ground")
+
+                # 伪力控下落
+                rob.translate((0,0,-0.2), acc=a, vel=v*0.3, wait=False)
+                _force_prenvent_wrongdata_ = 0
+                while force < 15:
+                    _force_prenvent_wrongdata_ += 1
+                    if _force_prenvent_wrongdata_ >150: 
+                        _force_prenvent_wrongdata_ = 150 
+                    rospy.sleep(0.002)
+                    if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
+                        rospy.loginfo("did not contact")
+                        break
+                rob.stopl()
+                self.show_tell("Reached Block")
+
+                # 操作末端
+                rospy.sleep(1.0)
+                ee.MagState = 100
+                pub_ee.publish(ee)
+                rospy.sleep(1.0)
+
+                # 提起
+                rob.translate((0,0,0.3), acc=a, vel=v, wait=True)
+
+
+                rob.movej(prePickPos,acc=a, vel=v,wait=True)      # Todo 有问题，需要移动到砖xy，解算出的位置
+                self.show_tell("arrived pre-Build position")
+                    
+                # 配合手眼移动到摆放的位置
+                    
+                   
+
+                # 伪力控放置
+                rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
+                _force_prenvent_wrongdata_ = 0
+                while force < 20:
+                    _force_prenvent_wrongdata_ += 1
+                    if _force_prenvent_wrongdata_ >150: 
+                        _force_prenvent_wrongdata_ = 150 
+                    rospy.sleep(0.002)
+                    if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
+                        rospy.loginfo("did not contact")
+                        break
+                        
+                rob.stopl()
+                self.show_tell("Put Down")
+
+                # 释放末端
+                rospy.sleep(1.0)
+                ee.MagState = 0
+                pub_ee.publish(ee)
+                rospy.sleep(1.0)
+
                 rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-Build position, finished")
+
+            elif goal.task == TASK_LOOK:
+                rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
+                self.show_tell("arrived look forward position")
+
+            
 
         except Exception as e:
             print("error", e)
