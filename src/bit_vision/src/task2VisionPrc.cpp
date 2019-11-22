@@ -64,11 +64,12 @@ int algorithm = GetBrickPos;     // 当前算法
 bool data_flag = false;     // 数据置信度
 
 //取砖和放砖用同一个变量表示角度
-static HTuple brick_angle(0);
-static string brick_color = "green";
-static HTuple brick_pose;
-HTuple Brick_X,Brick_Y,Brick_Z;
-
+HTuple brick_angle(0);
+string brick_color = "green";
+HTuple Brick_X(0);
+HTuple Brick_Y(0);
+HTuple Brick_Z(0);
+tf::StampedTransform transform_ZedOnBase;
 
 // Procedure declarations 
 // Chapter: Develop
@@ -678,7 +679,7 @@ void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::
     *                   开始图像处理程序
     *****************************************************/
     
-     
+    
 }
 
 bool GetVisionData(bit_vision::VisionProc::Request&  req,
@@ -717,38 +718,26 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
             break;
     }
 
-    ros::Duration(0.5).sleep();
     if (data_flag)
     {
-        // 发布TF   zed_link——>target_link
-        tf::Transform transform1;
-        transform1.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
+        tf::Transform transform_TargetOnZed;
+        transform_TargetOnZed.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
         tf::Quaternion q;
         q.setRPY(0, 0, brick_angle.D());
-        transform1.setRotation(q);
+        transform_TargetOnZed.setRotation(q);
  
-        // 获取 zed_link 在 magnet_link下的坐标
-        tf::TransformListener listener;
-        tf::StampedTransform transform2;
+        tf::Transform transform3 = transform_ZedOnBase*transform_TargetOnZed;
 
-        try{
-        listener.lookupTransform("base_link", "zed_link", ros::Time(0), transform2);
-        }
-        catch (tf::TransformException ex){
-        ROS_ERROR("%s",ex.what());
-        ros::Duration(1.0).sleep();
-        }
-
-        tf::Transform transform3 = transform1*transform2;
-
+        ROS_INFO_STREAM("Vision data:"<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
+        
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "base_link";
 
         res.VisionData.Flag = true;
         res.VisionData.Pose.position.x = transform3.getOrigin().x();
-        res.VisionData.Pose.position.y = transform3.getOrigin().x();
-        res.VisionData.Pose.position.z = transform3.getOrigin().x();
+        res.VisionData.Pose.position.y = transform3.getOrigin().y();
+        res.VisionData.Pose.position.z = transform3.getOrigin().z();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
         res.VisionData.Pose.orientation.z = transform3.getRotation().getZ();
@@ -788,9 +777,28 @@ int main(int argc, char *argv[])
 
   ROS_INFO_STREAM("Ready to process vision data");
 
+  //指定循环的频率 
+  ros::Rate loop_rate(20); 
+  tf::TransformListener listener;
+  
+  while(ros::ok()) 
+  { 
+      // 获取 zed_link 在 base_link下的坐标
+      try{
+      listener.lookupTransform("base_link", "zed_link", ros::Time(0), transform_ZedOnBase);
+      }
+      catch (tf::TransformException ex){
+      //ROS_ERROR("%s",ex.what());
+      ros::Duration(1.0).sleep();
+      }
+      
+      //处理ROS的信息，比如订阅消息,并调用回调函数 
+      ros::spinOnce(); 
+      loop_rate.sleep(); 
+  } 
+
   //ros::MultiThreadedSpinner spinner(3); // Use 4 threads
   //spinner.spin();
-  ros::spin();
   
   return 0;
 }

@@ -72,12 +72,11 @@ def execute_cb():
         initj = rob.getj()
         print("Initial joint angle is ", initj)
 
-        task = TASK_GET
+        task = TASK_BUILD
         if task == TASK_GET:
             # 机械臂移动至取砖准备位姿
             rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
-
-                  
+     
             # 视觉搜索目标砖块位置
             rospy.sleep(0.5)
             while True:         # Todo 避免进入死循环
@@ -192,51 +191,52 @@ def execute_cb():
             
         elif task == TASK_BUILD:
             # 移动至车上取砖位姿
-            rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
-            self.show_tell("arrived pre-put position")
+            rob.movej(prePutPos,acc=a, vel=1*v,wait=True)
 
             # 移动至对应砖块处
-            print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
-            rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=3*v,wait=True, relative=True )
-            self.show_tell("arrived Brick remembered position")
+            # print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
+            delta = (0.1, 0 * 0.2 , 0, 0, 0, 0)
+            posSequence.append(delta)
+            rob.movel(posSequence[0], acc=a, vel=1*v,wait=True, relative=True )
 
             # 进行识别
             ## server ask vision! wait and try some times
             # 视觉搜索目标砖块位置
+            '''
             rospy.sleep(0.5)
             while True:         # Todo 避免进入死循环
                 VisionData = GetVisionData_client(GetBrickPos, goal.goal_brick.type)
                 if VisionData.Flag:
                     break
+            '''
 
             # 得到识别结果，移动到砖块上方，平移
-            pose = rob.getl()
-            pose[0] += VisionData.Pose.position.x
-            pose[1] += VisionData.Pose.position.y
-
-            pose[2] += 0.5     # 0.5是在地上的50cm      Todo   偏移值待确定
-            pose[3] += 0
+            pose[0] = -0.032#VisionData.Pose.position.x
+            pose[1] = 0.42#VisionData.Pose.position.y
+            pose[2] = 0.1                      # Todo   偏移值待确定
+            pose[3] = 0
             # 下两个坐标使其垂直于地面Brick remembered
             pose[4] = - pi 
             pose[5] = 0 
             rob.movel(pose, acc=a, vel=v, wait=True)
             rospy.sleep(2.0)
-            self.show_tell("Arrived block up 0.5m position pependicular to ground")
 
             # 伪力控下落
-            rob.translate((0,0,-0.2), acc=a, vel=v*0.3, wait=False)
+            rob.translate((0,0,-0.2), acc=a, vel=v*0.1, wait=False)
             _force_prenvent_wrongdata_ = 0
             while force < 15:
                 _force_prenvent_wrongdata_ += 1
                 if _force_prenvent_wrongdata_ >150: 
                     _force_prenvent_wrongdata_ = 150 
                 rospy.sleep(0.002)
+                print(force)
                 if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
                     rospy.loginfo("did not contact")
                     break
+   
             rob.stopl()
-            self.show_tell("Reached Block")
 
+            wait()
             # 操作末端
             rospy.sleep(1.0)
             ee.MagState = 100
@@ -244,15 +244,14 @@ def execute_cb():
             rospy.sleep(1.0)
 
             # 提起
-            rob.translate((0,0,0.3), acc=a, vel=v, wait=True)
+            rob.translate((0,0,0.25), acc=a, vel=v, wait=True)
 
-
-            rob.movej(prePickPos,acc=a, vel=v,wait=True)      # Todo 有问题，需要移动到砖xy，解算出的位置
+            rob.movej(prePickPos,acc=a, vel=v,wait=True)      
             self.show_tell("arrived pre-Build position")
                 
             # 配合手眼移动到摆放的位置
-                
-                
+            # Todo 有问题，需要移动到砖xy，解算出的位置
+
 
             # 伪力控放置
             rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
@@ -321,7 +320,16 @@ if __name__ == '__main__':
             # Todo 根据实际末端负载与工具中心设置
             rob.set_tcp((0, 0, 0.074, 0, 0, 0))     #TASK2 参数 m,rad
             rob.set_payload(0.96, (0.004, -0.042, 0.011))
-            '''    
+
+            '''
+            wait()
+            # 操作末端
+            rospy.sleep(1.0)
+            ee.MagState = 100
+            pub_ee.publish(ee)
+            rospy.sleep(1.0)
+            wait()
+               
             # 释放末端
             rospy.sleep(1.0)
             ee.MagState = 0
