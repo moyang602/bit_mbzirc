@@ -63,10 +63,12 @@ using namespace cv;
 int algorithm = NotRun;     // 当前算法
 bool data_flag = false;     // 数据置信度
 
+//取砖和放砖用同一个变量表示角度
 static HTuple brick_angle;
 static string brick_color = "blue";
 static HTuple brick_pose;
 HTuple Brick_X,Brick_Y,Brick_Z;
+
 
 // Procedure declarations 
 // Chapter: Develop
@@ -274,10 +276,225 @@ void select_max_area_region (HObject ho_Region, HObject *ho_ObjectSelected, HTup
   return;
 
 }
+//分别把不同任务加过来
+// 1.定位圆形标志的位置(二维)
+void circle_location(HObject ho_Image,HTuple *hv_x_circle, HTuple *hv_y_circle)
+{
+
+  // Local iconic variables
+  HObject  ho_ClassRegions, ho_ClassRegion;
+  HObject  ho_ImageReduced, ho_ImageMean, ho_Region, ho_RegionFillUp;
+  HObject  ho_ConnectedRegions, ho_RegionErosion, ho_RegionDilation;
+  HObject  ho_Objects, ho_ImageReduced2, ho_ImageResult1, ho_ImageResult2;
+  HObject  ho_ImageResult3, ho_Edges, ho_ContoursSplit, ho_Circles;
+  HObject  ho_Lines, ho_ObjectSelected, ho_SelectedCircles;
+
+  // Local control variables
+  HTuple  hv_Width, hv_Height, hv_WindowHandle;
+  HTuple  hv_pathFile, hv_MLPHandle, hv_color, hv_index, hv_width_m;
+  HTuple  hv_height_m, hv_Number, hv_NumberContours, hv_i;
+  HTuple  hv_Attrib, hv_Row, hv_Column, hv_Radius, hv_StartPhi;
+  HTuple  hv_EndPhi, hv_PointOrder;
+
+  //鲁棒的定位图像中的圆心,并能根据距离排序,选择距离最近的圆心
+  //read_image (Image, '/home/srt/Link to wx_project/put_bricks/test_image/image1.png')
+  ReadImage(&ho_Image, "/home/srt/Link to wx_project/put_bricks/test_image/image13.png");
+  //
+  //Init window
+  if (HDevWindowStack::IsOpen())
+    CloseWindow(HDevWindowStack::Pop());
+  GetImageSize(ho_Image, &hv_Width, &hv_Height);
+  SetWindowAttr("background_color","black");
+  OpenWindow(0,0,hv_Width*0.5,hv_Height*0.5,0,"visible","",&hv_WindowHandle);
+  HDevWindowStack::Push(hv_WindowHandle);
+  //
+  //step1:根据颜色提取指定颜色的砖块区域
+  hv_pathFile = "box_segment_mlp_retrain.mlp";
+  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+  //分类砖块颜色
+  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+  //比如接收指令拾取green砖块
+  hv_color = "green";
+  if (0 != (hv_color==HTuple("red")))
+  {
+    hv_index = 1;
+    hv_width_m = 0.3;
+    hv_height_m = 0.2;
+  }
+  else if (0 != (hv_color==HTuple("green")))
+  {
+    hv_index = 2;
+    hv_width_m = 0.6;
+    hv_height_m = 0.2;
+  }
+  else if (0 != (hv_color==HTuple("blue")))
+  {
+    hv_index = 3;
+    hv_width_m = 1.2;
+    hv_height_m = 0.2;
+  }
+  SelectObj(ho_ClassRegions, &ho_ClassRegion, hv_index);
+  // stop(...); only in hdevelop
+  //
+  //
+  //step2: 提取ROI区域用于轮廓提取 此处用特定颜色的分割以及矩形拟合来提取区域
+  //
+  OpeningCircle(ho_ClassRegion, &ho_ClassRegion, 5.5);
+  ReduceDomain(ho_Image, ho_ClassRegion, &ho_ImageReduced);
+  //
+  MeanImage(ho_ImageReduced, &ho_ImageMean, 20, 20);
+  DynThreshold(ho_Image, ho_ImageMean, &ho_Region, 0, "light");
+  FillUp(ho_Region, &ho_RegionFillUp);
+  Connection(ho_RegionFillUp, &ho_ConnectedRegions);
+  ErosionCircle(ho_ConnectedRegions, &ho_RegionErosion, 3.5);
+  DilationCircle(ho_RegionErosion, &ho_RegionDilation, 3.5);
+  SelectShape(ho_RegionDilation, &ho_Objects, (HTuple("area").Append("convexity")), 
+      "and", (HTuple(2000).Append(0.9)), (HTuple(4000000).Append(1)));
+  CountObj(ho_Objects, &hv_Number);
+  // stop(...); only in hdevelop
+  //
+  //
+  //step 3:提取轮廓 拟合圆形
+  ReduceDomain(ho_Image, ho_Objects, &ho_ImageReduced2);
+  TransFromRgb(ho_ImageReduced2, ho_ImageReduced2, ho_ImageReduced2, &ho_ImageResult1, 
+      &ho_ImageResult2, &ho_ImageResult3, "hsv");
+  //
+  //方法一: 亚像素提取轮廓 选用圆形来拟合轮廓
+  EdgesSubPix(ho_ImageResult3, &ho_Edges, "canny", 1.5, 10, 40);
+  SegmentContoursXld(ho_Edges, &ho_ContoursSplit, "lines_circles", 0, 4, 2);
+  CountObj(ho_ContoursSplit, &hv_NumberContours);
+  GenEmptyObj(&ho_Circles);
+  GenEmptyObj(&ho_Lines);
+  {
+  HTuple end_val59 = hv_NumberContours;
+  HTuple step_val59 = 1;
+  for (hv_i=1; hv_i.Continue(end_val59, step_val59); hv_i += step_val59)
+  {
+    SelectObj(ho_ContoursSplit, &ho_ObjectSelected, hv_i);
+    GetContourGlobalAttribXld(ho_ObjectSelected, "cont_approx", &hv_Attrib);
+    if (0 != (hv_Attrib==-1))
+    {
+      ConcatObj(ho_Lines, ho_ObjectSelected, &ho_Lines);
+    }
+    else
+    {
+      ConcatObj(ho_Circles, ho_ObjectSelected, &ho_Circles);
+    }
+  }
+  }
+  SelectShapeXld(ho_Circles, &ho_SelectedCircles, "circularity", "and", 0.4, 1);
+  FitCircleContourXld(ho_SelectedCircles, "algebraic", -1, 0, 0, 3, 2, &hv_Row, &hv_Column, 
+      &hv_Radius, &hv_StartPhi, &hv_EndPhi, &hv_PointOrder);
+
+  (*hv_x_circle) = hv_Column;
+  (*hv_y_circle) = hv_Row;
+ 
+}
 
 
-// Main procedure 
-void action(HObject ho_Image1)
+//2.拾取砖块角度估计
+void pick_brick(HObject ho_Image)
+{
+
+  // Local iconic variables
+  HObject  ho_ClassRegions, ho_ClassRegion;
+  HObject  ho_ImageReduced, ho_grayImage, ho_Bright, ho_fillRegion;
+  HObject  ho_RegionOpening, ho_ConnectedRegions2, ho_SelectedRegions;
+  HObject  ho_Contours;
+
+  // Local control variables
+  HTuple  hv_CamParam, hv_pathFile, hv_MLPHandle;
+  HTuple  hv_Width, hv_Height, hv_WindowHandle, hv_color;
+  HTuple  hv_index, hv_Number1, hv_Phi, hv_angle, hv_BrickPose;
+  HTuple  hv_CovPose, hv_Error;
+
+  try
+  {
+    //step1 :读入相机标定参数
+    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1.dat", &hv_CamParam);
+    //step2:读入训练好的分割模型
+    hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+    ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+    //step3:读图 并 分割图像
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    //SetWindowAttr("background_color","black");
+    //OpenWindow(0,0,hv_Width*0.5,hv_Height*0.5,0,"visible","",&hv_WindowHandle);
+    //HDevWindowStack::Push(hv_WindowHandle);
+    //分类砖块颜色
+    ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+    //比如接收指令拾取green砖块
+    //接收砖块颜色指令
+    if (brick_color=="red")
+    {
+      hv_index = 1;
+    }
+    else if (brick_color=="green")
+    {
+      hv_index = 2;
+    }
+    else if (brick_color=="blue")
+    {
+      hv_index = 3;
+    }
+    else if (brick_color=="orange")
+    {
+      hv_index = 4;
+    }
+
+    SelectObj(ho_ClassRegions, &ho_ClassRegion, hv_index);
+    //step4: 基于分割结果分割图像并进行开闭运算预处理
+    OpeningCircle(ho_ClassRegion, &ho_ClassRegion, 5.5);
+    ReduceDomain(ho_Image, ho_ClassRegion, &ho_ImageReduced);
+    //step5:以分割结果作为输入
+    Rgb1ToGray(ho_ImageReduced, &ho_grayImage);
+    //阈值可能需要具体实验的时候调节一下
+    Threshold(ho_grayImage, &ho_Bright, 134, 201);
+    FillUp(ho_Bright, &ho_fillRegion);
+    OpeningCircle(ho_fillRegion, &ho_RegionOpening, 5.5);
+    Connection(ho_RegionOpening, &ho_ConnectedRegions2);
+    CountObj(ho_ConnectedRegions2, &hv_Number1);
+
+    SelectShape(ho_ConnectedRegions2, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
+        "and", (HTuple(0.9).Append(80000)), (HTuple(1).Append(1000000)));
+    CountObj(ho_SelectedRegions, &hv_Number1);
+
+    //step6:计算矩形的角度
+    //select_shape_std (SelectedRegions, SelectedRegions, 'rectangle2', 90)
+    OrientationRegion(ho_SelectedRegions, &hv_Phi);
+
+    //将角度控制在-pi/2到pi/2之间
+  if (hv_Phi<(-0.5*3.14)&&hv_Phi>(-3.14))
+  {
+    hv_Phi[0] = 3.14+HTuple(hv_Phi[0]);
+  }
+  else if (hv_Phi>(0.5*3.14)&&hv_Phi<3.14)
+  {
+    hv_Phi[0] = HTuple(hv_Phi[0])-3.14;
+  }
+
+    brick_angle = (hv_Phi[0]*180)/3.14;
+    ROS_INFO("brick_angle = %lf",brick_angle.D());
+    Brick_X = 0.0;//通过圆圈定位
+    Brick_Y = 0.0;
+    Brick_Z = 0.0;
+
+    data_flag = true;
+  }
+  catch (HException &exception)
+  {
+    ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
+            (const char *)exception.ProcName(),
+            (const char *)exception.ErrorMessage());
+    data_flag = false;
+
+    return;
+  }
+   
+}
+
+
+// 3.放砖角度估计
+void put_brick(HObject ho_Image1)
 {
 
   // Local iconic variables
@@ -299,9 +516,7 @@ void action(HObject ho_Image1)
   dev_update_off();
   if (HDevWindowStack::IsOpen())
     CloseWindow(HDevWindowStack::Pop());
-  //SetWindowAttr("background_color","black");
-  //OpenWindow(0,0,512,512,0,"visible","",&hv_WindowHandle);
-  //HDevWindowStack::Push(hv_WindowHandle);
+
   //读入训练好的分割模型
   hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
@@ -309,8 +524,7 @@ void action(HObject ho_Image1)
       &hv_CameraParam);
   //读入第一张图像 用于识别砖块的轮廓
   GetImageSize(ho_Image1, &hv_Width, &hv_Height);
-  /*if (HDevWindowStack::IsOpen())
-    DispObj(ho_Image1, HDevWindowStack::GetActive());*/
+
   try
   {
     ClassifyImageClassMlp(ho_Image1, &ho_ClassRegions, hv_MLPHandle, 0.5);
@@ -426,12 +640,30 @@ void action(HObject ho_Image1)
 
     return;
   }
-  
-  
 
 }
 
+//4.定义根据标定参数 定位三维点的函数
+//注意输入的顺序:行是纵坐标,列是横坐标
+int stero_location(HTuple row_L, HTuple column_L, HTuple row_R, HTuple column_R,
+HTuple *hv_X, HTuple *hv_Y, HTuple *hv_Z)
+{
+   
+  HTuple  hv_CameraParameters1,hv_CameraParameters2, hv_RealPose;
+  HTuple  hv_Dist;
+  
+  //三维定位
 
+    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
+    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
+    ReadPose("/home/srt/test_ws/src/bit_vision/model/relpose.dat", &hv_RealPose);
+
+    IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
+    row_L, column_L, row_R, column_R, hv_X, hv_Y, hv_Z, &hv_Dist);
+    return 0;
+ }
+
+//回调函数
 void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::Image::ConstPtr& RightImage) 
 {
     //初始化halcon对象
@@ -441,30 +673,32 @@ void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::
     ho_ImageL = *halcon_bridge_imagePointerL->image;
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointerR = halcon_bridge::toHalconCopy(RightImage);
     ho_ImageR = *halcon_bridge_imagePointerR->image;
+    HTuple circle_x_L,circle_y_L,circle_x_R,circle_y_R;
 
     /*****************************************************
     *                   开始图像处理程序
     *****************************************************/
-    
     switch (algorithm)
     {
         case GetBrickPos:
-            // 处理左图图像
-            //action(ho_Image); 
-            data_flag = true;
+            circle_location(ho_ImageL,&circle_x_L,&circle_y_L);
+            circle_location(ho_ImageR,&circle_x_R,&circle_y_R);
+            stero_location(circle_y_L,circle_x_L,circle_y_R,circle_x_R,&Brick_X,&Brick_Y,&Brick_Z);
             break;
         case GetBrickAngle:
-            /* code for condition */
-            data_flag = true;
+            pick_brick(ho_ImageL); 
             break;
         case GetPutPos:
-            /* code for condition */
+            //尚未加入L型架检测//目前是定位下面砖的圆形标志
+            circle_location(ho_ImageL,&circle_x_L,&circle_y_L);
+            circle_location(ho_ImageR,&circle_x_R,&circle_y_R);
+            stero_location(circle_y_L,circle_x_L,circle_y_R,circle_x_R,&Brick_X,&Brick_Y,&Brick_Z);
             break;
         case GetPutAngle:
-            /* code for condition */
+            put_brick(ho_ImageL);
             break;
         case GetLPose:
-            /* code for condition */
+            put_brick(ho_ImageL);
             break;
         default:
             break;
@@ -478,12 +712,11 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
     ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], "<<"VisionAlgorithm:["<<dec<<req.ProcAlgorithm);
     // 设置视觉处理颜色与算法
     brick_color = req.BrickType;
-    algorithm = GetBrickPos;//req.ProcAlgorithm;
+    algorithm = req.ProcAlgorithm;
     data_flag = false;
     ros::Duration(1).sleep();
     if (data_flag)
     {
-        /*
         // 发布TF   zed_link——>target_link
         static tf::TransformBroadcaster br;
         tf::Transform transform1;
@@ -498,24 +731,24 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         tf::StampedTransform transform2;
 
         try{
-        listener.lookupTransform("/magnet_link", "/zed_link", ros::Time(0), transform2);
+        listener.lookupTransform("/base_link", "/zed_link", ros::Time(0), transform2);
         }
         catch (tf::TransformException ex){
         ROS_ERROR("%s",ex.what());
         ros::Duration(1.0).sleep();
         }
-        */
+
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "zed_link";
 
         res.VisionData.Flag = true;
-        res.VisionData.Pose.position.x = 0.1;//transform2.getOrigin().x();
-        res.VisionData.Pose.position.y = -0.5;//transform2.getOrigin().x();
-        res.VisionData.Pose.position.z = 0.0;//transform2.getOrigin().x();
+        res.VisionData.Pose.position.x = transform2.getOrigin().x();
+        res.VisionData.Pose.position.y = transform2.getOrigin().x();
+        res.VisionData.Pose.position.z = transform2.getOrigin().x();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
-        res.VisionData.Pose.orientation.z = 0.1;//transform2.getRotation().getZ();
+        res.VisionData.Pose.orientation.z = transform2.getRotation().getZ();
 
     }
     else    // 如果没有识别结果
@@ -554,6 +787,6 @@ int main(int argc, char *argv[])
 
   ros::MultiThreadedSpinner spinner(4); // Use 4 threads
   spinner.spin();
-
+  
   return 0;
 }
