@@ -145,7 +145,7 @@ int main (int argc, char** argv)
             height_pub.publish(hn);
         }  
 
-        // 发布TF   zed_link——>target_link
+        // 发布TF   car_link -> base_link
         static tf::TransformBroadcaster br;
         tf::Transform transform;
         transform.setOrigin(tf::Vector3(0, 0, hn.x/1000.0));

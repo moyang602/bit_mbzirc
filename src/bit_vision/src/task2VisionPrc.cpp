@@ -445,14 +445,17 @@ void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::
     /*****************************************************
     *                   开始图像处理程序
     *****************************************************/
+    
     switch (algorithm)
     {
         case GetBrickPos:
             // 处理左图图像
             //action(ho_Image); 
+            data_flag = true;
             break;
         case GetBrickAngle:
             /* code for condition */
+            data_flag = true;
             break;
         case GetPutPos:
             /* code for condition */
@@ -472,14 +475,15 @@ void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::
 bool GetVisionData(bit_vision::VisionProc::Request&  req,
                    bit_vision::VisionProc::Response& res)
 {
-    ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], "<<"VisionAlgorithm:["<<req.ProcAlgorithm);
+    ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], "<<"VisionAlgorithm:["<<dec<<req.ProcAlgorithm);
     // 设置视觉处理颜色与算法
     brick_color = req.BrickType;
-    algorithm = req.ProcAlgorithm;
+    algorithm = GetBrickPos;//req.ProcAlgorithm;
     data_flag = false;
     ros::Duration(1).sleep();
     if (data_flag)
     {
+        /*
         // 发布TF   zed_link——>target_link
         static tf::TransformBroadcaster br;
         tf::Transform transform1;
@@ -500,18 +504,18 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         ROS_ERROR("%s",ex.what());
         ros::Duration(1.0).sleep();
         }
-
+        */
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "zed_link";
 
         res.VisionData.Flag = true;
-        res.VisionData.Pose.position.x = transform2.getOrigin().x();
-        res.VisionData.Pose.position.y = transform2.getOrigin().x();
-        res.VisionData.Pose.position.z = transform2.getOrigin().x();
+        res.VisionData.Pose.position.x = 0.1;//transform2.getOrigin().x();
+        res.VisionData.Pose.position.y = -0.5;//transform2.getOrigin().x();
+        res.VisionData.Pose.position.z = 0.0;//transform2.getOrigin().x();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
-        res.VisionData.Pose.orientation.z = transform2.getRotation().getZ();
+        res.VisionData.Pose.orientation.z = 0.1;//transform2.getRotation().getZ();
 
     }
     else    // 如果没有识别结果
@@ -527,6 +531,8 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         res.VisionData.Pose.orientation.y = 0.0;
         res.VisionData.Pose.orientation.z = 0.0;
     }
+
+    algorithm = NotRun;
 }
 
 
@@ -534,7 +540,7 @@ int main(int argc, char *argv[])
 {
   ros::init(argc, argv, "Task2_Vision_node");
 
-  ros::NodeHandle nh("~"); 
+  ros::NodeHandle nh; 
 
   message_filters::Subscriber<sensor_msgs::Image> subleft(nh,"/zed/zed_node/left/image_rect_color",1);
   message_filters::Subscriber<sensor_msgs::Image> subRight(nh,"/zed/zed_node/right/image_rect_color",1);
@@ -546,7 +552,8 @@ int main(int argc, char *argv[])
 
   ROS_INFO_STREAM("Ready to process vision data");
 
-  ros::spin();
+  ros::MultiThreadedSpinner spinner(4); // Use 4 threads
+  spinner.spin();
 
   return 0;
 }
