@@ -15,7 +15,7 @@
     <!--看图-->
     <node pkg="rqt_image_view" type="rqt_image_view" name="rqt_image_view" />
 
-    <!--视觉-->
+    <!--视觉
     <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" />
-
+    -->
  </launch>

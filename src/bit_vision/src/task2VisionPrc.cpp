@@ -60,12 +60,12 @@ using namespace cv;
 # define GetPutAngle        4
 # define GetLPose           5
 # define NotRun             0
-int algorithm = NotRun;     // 当前算法
+int algorithm = GetBrickPos;     // 当前算法
 bool data_flag = false;     // 数据置信度
 
 //取砖和放砖用同一个变量表示角度
-static HTuple brick_angle;
-static string brick_color = "blue";
+static HTuple brick_angle(0);
+static string brick_color = "green";
 static HTuple brick_pose;
 HTuple Brick_X,Brick_Y,Brick_Z;
 
@@ -295,99 +295,96 @@ void circle_location(HObject ho_Image,HTuple *hv_x_circle, HTuple *hv_y_circle)
   HTuple  hv_height_m, hv_Number, hv_NumberContours, hv_i;
   HTuple  hv_Attrib, hv_Row, hv_Column, hv_Radius, hv_StartPhi;
   HTuple  hv_EndPhi, hv_PointOrder;
-
-  //鲁棒的定位图像中的圆心,并能根据距离排序,选择距离最近的圆心
-  //read_image (Image, '/home/srt/Link to wx_project/put_bricks/test_image/image1.png')
-  ReadImage(&ho_Image, "/home/srt/Link to wx_project/put_bricks/test_image/image13.png");
-  //
-  //Init window
-  if (HDevWindowStack::IsOpen())
-    CloseWindow(HDevWindowStack::Pop());
-  GetImageSize(ho_Image, &hv_Width, &hv_Height);
-  SetWindowAttr("background_color","black");
-  OpenWindow(0,0,hv_Width*0.5,hv_Height*0.5,0,"visible","",&hv_WindowHandle);
-  HDevWindowStack::Push(hv_WindowHandle);
-  //
-  //step1:根据颜色提取指定颜色的砖块区域
-  hv_pathFile = "box_segment_mlp_retrain.mlp";
-  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  //分类砖块颜色
-  ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-  //比如接收指令拾取green砖块
-  hv_color = "green";
-  if (0 != (hv_color==HTuple("red")))
+  try
   {
-    hv_index = 1;
-    hv_width_m = 0.3;
-    hv_height_m = 0.2;
-  }
-  else if (0 != (hv_color==HTuple("green")))
-  {
-    hv_index = 2;
-    hv_width_m = 0.6;
-    hv_height_m = 0.2;
-  }
-  else if (0 != (hv_color==HTuple("blue")))
-  {
-    hv_index = 3;
-    hv_width_m = 1.2;
-    hv_height_m = 0.2;
-  }
-  SelectObj(ho_ClassRegions, &ho_ClassRegion, hv_index);
-  // stop(...); only in hdevelop
-  //
-  //
-  //step2: 提取ROI区域用于轮廓提取 此处用特定颜色的分割以及矩形拟合来提取区域
-  //
-  OpeningCircle(ho_ClassRegion, &ho_ClassRegion, 5.5);
-  ReduceDomain(ho_Image, ho_ClassRegion, &ho_ImageReduced);
-  //
-  MeanImage(ho_ImageReduced, &ho_ImageMean, 20, 20);
-  DynThreshold(ho_Image, ho_ImageMean, &ho_Region, 0, "light");
-  FillUp(ho_Region, &ho_RegionFillUp);
-  Connection(ho_RegionFillUp, &ho_ConnectedRegions);
-  ErosionCircle(ho_ConnectedRegions, &ho_RegionErosion, 3.5);
-  DilationCircle(ho_RegionErosion, &ho_RegionDilation, 3.5);
-  SelectShape(ho_RegionDilation, &ho_Objects, (HTuple("area").Append("convexity")), 
-      "and", (HTuple(2000).Append(0.9)), (HTuple(4000000).Append(1)));
-  CountObj(ho_Objects, &hv_Number);
-  // stop(...); only in hdevelop
-  //
-  //
-  //step 3:提取轮廓 拟合圆形
-  ReduceDomain(ho_Image, ho_Objects, &ho_ImageReduced2);
-  TransFromRgb(ho_ImageReduced2, ho_ImageReduced2, ho_ImageReduced2, &ho_ImageResult1, 
-      &ho_ImageResult2, &ho_ImageResult3, "hsv");
-  //
-  //方法一: 亚像素提取轮廓 选用圆形来拟合轮廓
-  EdgesSubPix(ho_ImageResult3, &ho_Edges, "canny", 1.5, 10, 40);
-  SegmentContoursXld(ho_Edges, &ho_ContoursSplit, "lines_circles", 0, 4, 2);
-  CountObj(ho_ContoursSplit, &hv_NumberContours);
-  GenEmptyObj(&ho_Circles);
-  GenEmptyObj(&ho_Lines);
-  {
-  HTuple end_val59 = hv_NumberContours;
-  HTuple step_val59 = 1;
-  for (hv_i=1; hv_i.Continue(end_val59, step_val59); hv_i += step_val59)
-  {
-    SelectObj(ho_ContoursSplit, &ho_ObjectSelected, hv_i);
-    GetContourGlobalAttribXld(ho_ObjectSelected, "cont_approx", &hv_Attrib);
-    if (0 != (hv_Attrib==-1))
+    //鲁棒的定位图像中的圆心,并能根据距离排序,选择距离最近的圆心
+    //GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    //
+    //step1:根据颜色提取指定颜色的砖块区域
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+    ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+    //分类砖块颜色
+    ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+    //比如接收指令拾取砖块
+        if (brick_color=="red")
+        {
+        hv_index = 1;
+        }
+        else if (brick_color=="green")
+        {
+        hv_index = 2;
+        }
+        else if (brick_color=="blue")
+        {
+        hv_index = 3;
+        }
+        else if (brick_color=="orange")
+        {
+        hv_index = 4;
+        }
+    SelectObj(ho_ClassRegions, &ho_ClassRegion, hv_index);
+    
+    //step2: 提取ROI区域用于轮廓提取 此处用特定颜色的分割以及矩形拟合来提取区域
+    //
+    OpeningCircle(ho_ClassRegion, &ho_ClassRegion, 5.5);
+    ReduceDomain(ho_Image, ho_ClassRegion, &ho_ImageReduced);
+    //
+    MeanImage(ho_ImageReduced, &ho_ImageMean, 20, 20);
+    DynThreshold(ho_Image, ho_ImageMean, &ho_Region, 0, "light");
+    FillUp(ho_Region, &ho_RegionFillUp);
+    Connection(ho_RegionFillUp, &ho_ConnectedRegions);
+    ErosionCircle(ho_ConnectedRegions, &ho_RegionErosion, 3.5);
+    DilationCircle(ho_RegionErosion, &ho_RegionDilation, 3.5);
+    SelectShape(ho_RegionDilation, &ho_Objects, (HTuple("area").Append("convexity")), 
+        "and", (HTuple(2000).Append(0.9)), (HTuple(4000000).Append(1)));
+    CountObj(ho_Objects, &hv_Number);
+    
+    //step 3:提取轮廓 拟合圆形
+    ReduceDomain(ho_Image, ho_Objects, &ho_ImageReduced2);
+    TransFromRgb(ho_ImageReduced2, ho_ImageReduced2, ho_ImageReduced2, &ho_ImageResult1, 
+        &ho_ImageResult2, &ho_ImageResult3, "hsv");
+    //
+    //方法一: 亚像素提取轮廓 选用圆形来拟合轮廓
+    EdgesSubPix(ho_ImageResult3, &ho_Edges, "canny", 1.5, 10, 40);
+    SegmentContoursXld(ho_Edges, &ho_ContoursSplit, "lines_circles", 0, 4, 2);
+    CountObj(ho_ContoursSplit, &hv_NumberContours);
+    GenEmptyObj(&ho_Circles);
+    GenEmptyObj(&ho_Lines);
     {
-      ConcatObj(ho_Lines, ho_ObjectSelected, &ho_Lines);
-    }
-    else
+    HTuple end_val59 = hv_NumberContours;
+    HTuple step_val59 = 1;
+    for (hv_i=1; hv_i.Continue(end_val59, step_val59); hv_i += step_val59)
     {
-      ConcatObj(ho_Circles, ho_ObjectSelected, &ho_Circles);
+        SelectObj(ho_ContoursSplit, &ho_ObjectSelected, hv_i);
+        GetContourGlobalAttribXld(ho_ObjectSelected, "cont_approx", &hv_Attrib);
+        if (0 != (hv_Attrib==-1))
+        {
+        ConcatObj(ho_Lines, ho_ObjectSelected, &ho_Lines);
+        }
+        else
+        {
+        ConcatObj(ho_Circles, ho_ObjectSelected, &ho_Circles);
+        }
     }
-  }
-  }
-  SelectShapeXld(ho_Circles, &ho_SelectedCircles, "circularity", "and", 0.4, 1);
-  FitCircleContourXld(ho_SelectedCircles, "algebraic", -1, 0, 0, 3, 2, &hv_Row, &hv_Column, 
-      &hv_Radius, &hv_StartPhi, &hv_EndPhi, &hv_PointOrder);
+    }
+    SelectShapeXld(ho_Circles, &ho_SelectedCircles, "circularity", "and", 0.4, 1);
+    FitCircleContourXld(ho_SelectedCircles, "algebraic", -1, 0, 0, 3, 2, &hv_Row, &hv_Column, 
+        &hv_Radius, &hv_StartPhi, &hv_EndPhi, &hv_PointOrder);
 
-  (*hv_x_circle) = hv_Column;
-  (*hv_y_circle) = hv_Row;
+    (*hv_x_circle) = hv_Column;
+    (*hv_y_circle) = hv_Row;
+   
+    data_flag = true;
+  }
+  catch (HException &exception)
+  {
+    ROS_ERROR("  Error #%u in %s: %s\n", exception.ErrorCode(),
+            (const char *)exception.ProcName(),
+            (const char *)exception.ErrorMessage());
+    data_flag = false;
+
+    return;
+  }
  
 }
 
@@ -411,9 +408,9 @@ void pick_brick(HObject ho_Image)
   try
   {
     //step1 :读入相机标定参数
-    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1.dat", &hv_CamParam);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", &hv_CamParam);
     //step2:读入训练好的分割模型
-    hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
     //step3:读图 并 分割图像
     GetImageSize(ho_Image, &hv_Width, &hv_Height);
@@ -518,9 +515,9 @@ void put_brick(HObject ho_Image1)
     CloseWindow(HDevWindowStack::Pop());
 
   //读入训练好的分割模型
-  hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+  hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
   ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-  ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1.dat", 
+  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", 
       &hv_CameraParam);
   //读入第一张图像 用于识别砖块的轮廓
   GetImageSize(ho_Image1, &hv_Width, &hv_Height);
@@ -653,31 +650,47 @@ HTuple *hv_X, HTuple *hv_Y, HTuple *hv_Z)
   HTuple  hv_Dist;
   
   //三维定位
-
-    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
-    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
-    ReadPose("/home/srt/test_ws/src/bit_vision/model/relpose.dat", &hv_RealPose);
+    
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", &hv_CameraParameters1);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2.dat", &hv_CameraParameters2);
+    ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose.dat", &hv_RealPose);
 
     IntersectLinesOfSight(hv_CameraParameters2, hv_CameraParameters2, hv_RealPose, 
     row_L, column_L, row_R, column_R, hv_X, hv_Y, hv_Z, &hv_Dist);
     return 0;
  }
 
+//初始化halcon对象
+HObject  ho_ImageL, ho_ImageR;
+
 //回调函数
 void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::Image::ConstPtr& RightImage) 
 {
-    //初始化halcon对象
-    HObject  ho_ImageL, ho_ImageR;
+    
     //获取halcon-bridge图像指针
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointerL = halcon_bridge::toHalconCopy(LeftImage);
     ho_ImageL = *halcon_bridge_imagePointerL->image;
     halcon_bridge::HalconImagePtr halcon_bridge_imagePointerR = halcon_bridge::toHalconCopy(RightImage);
     ho_ImageR = *halcon_bridge_imagePointerR->image;
-    HTuple circle_x_L,circle_y_L,circle_x_R,circle_y_R;
-
+    
+    
     /*****************************************************
     *                   开始图像处理程序
     *****************************************************/
+    
+     
+}
+
+bool GetVisionData(bit_vision::VisionProc::Request&  req,
+                   bit_vision::VisionProc::Response& res)
+{
+    ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], "<<"VisionAlgorithm:["<<dec<<req.ProcAlgorithm);
+    // 设置视觉处理颜色与算法
+    brick_color = req.BrickType;
+    algorithm = req.ProcAlgorithm;
+    data_flag = false;
+
+    HTuple circle_x_L,circle_y_L,circle_x_R,circle_y_R;
     switch (algorithm)
     {
         case GetBrickPos:
@@ -703,52 +716,42 @@ void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::
         default:
             break;
     }
-     
-}
 
-bool GetVisionData(bit_vision::VisionProc::Request&  req,
-                   bit_vision::VisionProc::Response& res)
-{
-    ROS_INFO_STREAM("BrickType:["<<req.BrickType<<"], "<<"VisionAlgorithm:["<<dec<<req.ProcAlgorithm);
-    // 设置视觉处理颜色与算法
-    brick_color = req.BrickType;
-    algorithm = req.ProcAlgorithm;
-    data_flag = false;
-    ros::Duration(1).sleep();
+    ros::Duration(0.5).sleep();
     if (data_flag)
     {
         // 发布TF   zed_link——>target_link
-        static tf::TransformBroadcaster br;
         tf::Transform transform1;
         transform1.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
         tf::Quaternion q;
         q.setRPY(0, 0, brick_angle.D());
         transform1.setRotation(q);
-        br.sendTransform(tf::StampedTransform(transform1, ros::Time::now(), "/zed_link", "/target_link"));
-
+ 
         // 获取 zed_link 在 magnet_link下的坐标
         tf::TransformListener listener;
         tf::StampedTransform transform2;
 
         try{
-        listener.lookupTransform("/base_link", "/zed_link", ros::Time(0), transform2);
+        listener.lookupTransform("base_link", "zed_link", ros::Time(0), transform2);
         }
         catch (tf::TransformException ex){
         ROS_ERROR("%s",ex.what());
         ros::Duration(1.0).sleep();
         }
 
+        tf::Transform transform3 = transform1*transform2;
+
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
-        res.VisionData.header.frame_id = "zed_link";
+        res.VisionData.header.frame_id = "base_link";
 
         res.VisionData.Flag = true;
-        res.VisionData.Pose.position.x = transform2.getOrigin().x();
-        res.VisionData.Pose.position.y = transform2.getOrigin().x();
-        res.VisionData.Pose.position.z = transform2.getOrigin().x();
+        res.VisionData.Pose.position.x = transform3.getOrigin().x();
+        res.VisionData.Pose.position.y = transform3.getOrigin().x();
+        res.VisionData.Pose.position.z = transform3.getOrigin().x();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
-        res.VisionData.Pose.orientation.z = transform2.getRotation().getZ();
+        res.VisionData.Pose.orientation.z = transform3.getRotation().getZ();
 
     }
     else    // 如果没有识别结果
@@ -785,8 +788,9 @@ int main(int argc, char *argv[])
 
   ROS_INFO_STREAM("Ready to process vision data");
 
-  ros::MultiThreadedSpinner spinner(4); // Use 4 threads
-  spinner.spin();
+  //ros::MultiThreadedSpinner spinner(3); // Use 4 threads
+  //spinner.spin();
+  ros::spin();
   
   return 0;
 }
