@@ -99,9 +99,9 @@ void circle_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTuple &h
   //CropRectangle1(ho_Image1, &ho_ImageL, 0, 0, 1242, 2208);
   //CropRectangle1(ho_Image1, &ho_ImageR, 0, 2208, 1242, 4416);
 
-  ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose.dat", &hv_RelPose);
-  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", &hv_CamParam1);
-  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2.dat", &hv_CamParam2);
+  ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
+  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
+  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
 
   GetImageSize(ho_ImageL, &hv_Width, &hv_Height);
 
@@ -232,7 +232,7 @@ void pick_brick(HObject ho_Image)
   try
   {
     //step1 :读入相机标定参数
-    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", &hv_CamParam);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam);
     //step2:读入训练好的分割模型
     hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
@@ -337,7 +337,7 @@ void put_brick(HObject ho_Image1)
     //读入训练好的分割模型
     hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
-    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1.dat", 
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", 
         &hv_CameraParam);
     //读入第一张图像 用于识别砖块的轮廓
     GetImageSize(ho_Image1, &hv_Width, &hv_Height);
@@ -558,8 +558,8 @@ int main(int argc, char *argv[])
 
   ros::NodeHandle nh; 
 
-  message_filters::Subscriber<sensor_msgs::Image> subleft(nh,"/zed/zed_node/left_raw/image_raw_color",1);
-  message_filters::Subscriber<sensor_msgs::Image> subRight(nh,"/zed/zed_node/right_raw/image_raw_color",1);
+  message_filters::Subscriber<sensor_msgs::Image> subleft(nh,"/zed/zed_node/left/image_rect_color",1);
+  message_filters::Subscriber<sensor_msgs::Image> subRight(nh,"/zed/zed_node/right/image_rect_color",1);
 
   message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subleft, subRight, 5);
   sync.registerCallback(boost::bind(&callback, _1, _2));
