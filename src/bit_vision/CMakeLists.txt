@@ -238,24 +238,6 @@ link_directories(
   /opt/halcon/lib/x64-linux
 )
 
-add_executable(brick_locate
-  src/brick_locate.cpp
-)
-add_dependencies(brick_locate ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(brick_locate
-  ${catkin_LIBRARIES}
-  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
-)
-
-add_executable(brick_position
-  src/brick_position.cpp
-)
-add_dependencies(brick_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(brick_position
-  ${catkin_LIBRARIES}
-  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
-)
-
 add_executable(building_status
   src/building_status.cpp
 )
@@ -270,15 +252,6 @@ add_executable(fire_position
 )
 add_dependencies(fire_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(fire_position
-  ${catkin_LIBRARIES}
-  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
-)
-
-add_executable(put_position
-  src/put_position.cpp
-)
-add_dependencies(put_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(put_position
   ${catkin_LIBRARIES}
   /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
 )
