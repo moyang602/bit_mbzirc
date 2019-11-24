@@ -277,10 +277,6 @@ class BuildingActionServer  // UGV建筑action服务器
             {
                 // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
                 
-                // 查找砖堆位置信息
-                srv_find.request.AddressToFind = goal->goal_task.bricks[count].type;
-                client_find.call(srv_find);
-
                 // 移动至砖堆处
                 move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                 move_base_goal.target_pose.header.stamp = ros::Time::now();
@@ -315,9 +311,6 @@ class BuildingActionServer  // UGV建筑action服务器
             *****************************************************/
             ROS_INFO("the building state is well");
 
-            // 查找砖堆位置信息
-            srv_find.request.AddressToFind = "ObservePlace";
-            client_find.call(srv_find);
 
             // 移动至建筑物观察处
             move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
@@ -342,7 +335,7 @@ class BuildingActionServer  // UGV建筑action服务器
             Task2Client.sendGoal(pick_goal, 100);   // 发送目标 timeout 100s
 
             ROS_INFO("Looking at building");
-
+            
             // To do   获取建筑物状态 service
 
             /*****************************************************

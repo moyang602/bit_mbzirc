@@ -76,7 +76,6 @@ def execute_cb():
 
         task = TASK_GET
         if task == TASK_GET:
-            '''
             # 机械臂移动至取砖准备位姿
             rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
      
@@ -95,7 +94,7 @@ def execute_cb():
             x = VisionData.Pose.position.x
             y = VisionData.Pose.position.y
             dist = (x**2 + y**2)**0.5
-            #if dist>0.668 or x>0.200 or x<-0.200 and y <-0.250
+            #if dist>0.668 or x>0.200 or x<-0.200 and y <-0.250:
             #    break
 
             # 得到识别结果，移动到砖块上方，平移
@@ -107,7 +106,6 @@ def execute_cb():
             pose[4] = -pi 
             pose[5] = 0 
             rob.movel(pose, acc=a, vel=v, wait=True)
-            rospy.sleep(2.0)
             
             
             # 视觉搜索目标砖块角度
@@ -123,13 +121,13 @@ def execute_cb():
             # 得到识别结果，移动到砖块上方0.1m，旋转角度
             pose[0] = VisionData.Pose.position.x
             pose[1] = VisionData.Pose.position.y
-            pose[2] = floorHeight_base + 0.25     # 0.3是在地上的30cm      Todo   偏移值待确定
+            pose[2] = CarHeight_base + 0.25    # 0.25是离车表面25cm 
             pose[3] = 0.0
             # 下两个坐标使其垂直于地面Brick remembered
             pose[4] = -pi 
             pose[5] = 0.0 
-            rob.movel(pose, acc=a, vel=v, wait=True)     # 相对运动
-            rospy.sleep(1.0)
+            rob.movel(pose, acc=a, vel=v, wait=True)  
+            rospy.sleep(0.5)
 
             rob.movej([0,0,0,0,0,-theta],acc=a, vel=1*v,wait=True, relative=True)
 
@@ -170,7 +168,7 @@ def execute_cb():
             rob.movej(prePutPos,acc=a, vel=v*3,wait=True)
             
             #delta = (0.1, goal.goal_brick.Sequence * 0.2 , 0, 0, 0, 0)
-            delta = (0.1, 0 * 0.2 , 0, 0, 0, 0)
+            delta = (0.0, 0 * 0.2 , -0.05, 0, 0, 0)
             rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
             # 需要加入砖块信息来确定定位
             # 使用砖块的序列信息来计算自己需要放在那个位置，待完成
@@ -178,7 +176,7 @@ def execute_cb():
             posSequence.append(delta)
 
             # 伪力控放置
-            rob.translate((0, 0, -0.2), acc=a, vel=v*0.1, wait=False)
+            rob.translate((0, 0, -0.3), acc=a, vel=v*0.2, wait=False)
             _force_prenvent_wrongdata_ = 0
             while force < 15:
                 _force_prenvent_wrongdata_ += 1
@@ -199,11 +197,12 @@ def execute_cb():
             rospy.sleep(1.0)
             
             # 移动回来
-            rob.translate((0, 0, 0.1), acc=a, vel=v*0.3, wait=False)
+            rob.translate((0, 0, 0.05), acc=a, vel=v*0.3, wait=False)
             
-            '''
+            
             rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
-            
+            '''
+            '''
         elif task == TASK_BUILD:
             # 移动至车上取砖位姿
             rob.movej(prePutPos,acc=a, vel=1*v,wait=True)
@@ -234,10 +233,10 @@ def execute_cb():
             pose[4] = - pi 
             pose[5] = 0 
             rob.movel(pose, acc=a, vel=v, wait=True)
-            rospy.sleep(2.0)
-
+            
+            rospy.sleep(0.5)
             # 伪力控下落
-            rob.translate((0,0,-0.2), acc=a, vel=v*0.1, wait=False)
+            rob.translate((0,0,-0.1), acc=a, vel=v*0.1, wait=False)
             _force_prenvent_wrongdata_ = 0
             while force < 15:
                 _force_prenvent_wrongdata_ += 1
@@ -248,10 +247,8 @@ def execute_cb():
                 if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
                     rospy.loginfo("did not contact")
                     break
-   
             rob.stopl()
 
-            wait()
             # 操作末端
             rospy.sleep(1.0)
             ee.MagState = 100
@@ -266,12 +263,20 @@ def execute_cb():
                 
             # 配合手眼移动到摆放的位置
             # Todo 有问题，需要移动到砖xy，解算出的位置
+            pose[0] = 0.0
+            pose[1] = -400.0
 
+            pose[2] = -goal.goal_brick.Sequence*0.2 + floorHeight_base + 0.45     # 0.25是离车表面25cm
+            pose[3] = 0
+            # 下两个坐标使其垂直于地面Brick remembered
+            pose[4] = -pi 
+            pose[5] = 0
+            rob.movel(pose, acc=a, vel=v, wait=True)
 
             # 伪力控放置
-            rob.translate((0, 0, -0.3), acc=a, vel=v*0.3, wait=False)
+            rob.translate((0, 0, -0.1), acc=a, vel=v*0.1, wait=False)
             _force_prenvent_wrongdata_ = 0
-            while force < 20:
+            while force < 15:
                 _force_prenvent_wrongdata_ += 1
                 if _force_prenvent_wrongdata_ >150: 
                     _force_prenvent_wrongdata_ = 150 
@@ -295,8 +300,6 @@ def execute_cb():
         elif task == TASK_LOOK:
             rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
             self.show_tell("arrived look forward position")
-
-        
 
     except Exception as e:
         print("error", e)

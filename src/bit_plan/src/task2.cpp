@@ -79,16 +79,27 @@ private:
     }
 };
 
-int ParseBluePrint(bit_task::BrickInfo &brick)
+int ParseBluePrint(bit_task::BrickInfo &brick,size_t num)
 {
     //
     ros::Duration(0.5).sleep();       // 临时占位
     
-    // 砖块信息赋值
-    brick.Sequence = 0;
-    brick.type = "red";
-    brick.x = 1;
-    brick.y = 1;
+    if(num==0)
+    {
+        // 砖块信息赋值
+        brick.Sequence = 0;
+        brick.type = "red";
+        brick.x = 1;
+        brick.y = 1;
+    }
+    else if(num==1) 
+    {
+        // 砖块信息赋值
+        brick.Sequence = 1;
+        brick.type = "green";
+        brick.x = 1;
+        brick.y = 1;
+    }
 
     return 0;
 }
@@ -110,10 +121,10 @@ int main(int argc, char *argv[])
     /* 读取建筑蓝图 下发指令*/
  //   while (condition)     // 当蓝图未读取完成时继续
     {
-        for (size_t i = 0; i < 1; i++) // 读取特定数量的砖块
+        for (size_t i = 0; i < 2; i++) // 读取特定数量的砖块
         {
             // 从建筑蓝图中读取建筑信息
-            ParseBluePrint(brick);
+            ParseBluePrint(brick, i);
             
             // 将砖块压入UGV搬运任务堆栈
             ugv_brick.insert(ugv_brick.begin(),brick);
