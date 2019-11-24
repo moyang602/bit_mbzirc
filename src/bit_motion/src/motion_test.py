@@ -32,9 +32,10 @@ GetLPose = 5
 #=============特征点与运动参数==========
 prePickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]取砖准备位姿
 upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
-prePutPos = (-1.57,-1.29, 1.4, 1.4, 1.57, 0)
+prePutPos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
 lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
-floorHeight_base = -0.71  # 初始状态机械臂基座离地710mm
+floorHeight_base = -0.710  # 初始状态机械臂基座离地710mm
+CarHeight_base = -0.140  # 初始状态机械臂基座离车表面140mm
 
 posSequence = [] # 随着摆放的过程不断填充这个list来把位置记录下来
 l = 0.05
@@ -75,6 +76,7 @@ def execute_cb():
 
         task = TASK_GET
         if task == TASK_GET:
+            '''
             # 机械臂移动至取砖准备位姿
             rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
      
@@ -198,9 +200,10 @@ def execute_cb():
             
             # 移动回来
             rob.translate((0, 0, 0.1), acc=a, vel=v*0.3, wait=False)
+            
+            '''
             rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
-            '''
-            '''
+            
         elif task == TASK_BUILD:
             # 移动至车上取砖位姿
             rob.movej(prePutPos,acc=a, vel=1*v,wait=True)
@@ -334,7 +337,7 @@ if __name__ == '__main__':
             pub_ee.publish(ee)
             rospy.sleep(1.0)
             wait()
-               
+            
             # 释放末端
             rospy.sleep(1.0)
             ee.MagState = 0
@@ -342,8 +345,8 @@ if __name__ == '__main__':
             rospy.sleep(1.0)
 
             wait()
-            '''
-
+            
+            '''  
             global rob
             rob = urx.Robot("192.168.50.60",use_rt = True) 
             normal = 1
