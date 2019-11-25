@@ -149,7 +149,7 @@ class pick_put_act(object):
                 dist = (x**2 + y**2)**0.5
                 if dist>0.668 or x>0.200 or x<-0.200 and y <-0.250: # 待矫正
                     self.show_tell("Brick position is out of workspace")
-                    break
+                    return
                 
                 # 得到识别结果，平移到相机正对砖块上方，
                 pose[0] = VisionData.Pose.position.x-0.023      #使ZED正对砖块中心  0.023为zed与magnet偏移
@@ -175,7 +175,7 @@ class pick_put_act(object):
                 # 得到识别结果，移动到砖块上方0.1m，旋转角度
                 pose[0] = VisionData.Pose.position.x
                 pose[1] = VisionData.Pose.position.y
-                pose[2] = CarHeight_base + 0.25     # 0.25是离车表面25cm 
+                pose[2] = floorHeight_base + 0.25     # 0.25是离车表面25cm 
                 pose[3] = 0.0
                 # 下两个坐标使其垂直于地面Brick remembered
                 pose[4] = -pi 
@@ -221,7 +221,7 @@ class pick_put_act(object):
                 rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
                 
                 self.show_tell("arrived pre-Put position %d" % goal.goal_brick.Sequence)
-                delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.25, -0.05, 0, 0, 0)
+                delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.25, -0.15, 0, 0, 0)
                 rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
                 # 需要加入砖块信息来确定定位
                 # 使用砖块的序列信息来计算自己需要放在那个位置，待完成
@@ -229,7 +229,7 @@ class pick_put_act(object):
                 posSequence.append(delta)
 
                 # 伪力控放置
-                rob.translate((0, 0, -0.3), acc=a, vel=v*0.2, wait=False)
+                rob.translate((0, 0, -0.2), acc=a, vel=v*0.15, wait=False)
                 _force_prenvent_wrongdata_ = 0
                 while force < 15:
                     _force_prenvent_wrongdata_ += 1
@@ -260,16 +260,18 @@ class pick_put_act(object):
 
                 # 移动至对应砖块处
                 print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
-                rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=1*v,wait=True, relative=True )
+                delta = (0.0, goal.goal_brick.Sequence * 0.2 +0.1, 0, 0, 0, 0)
+                rob.movel(delta, acc=a, vel=1*v,wait=True, relative=True )
+                #rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=1*v,wait=True, relative=True )
                 self.show_tell("arrived Brick remembered position")
 
                 # 进行识别
                 ## server ask vision! wait and try some times
                 # 视觉搜索目标砖块位置    待修改
-                '''
+                
                 rospy.sleep(0.5)
                 while True:         # Todo 避免进入死循环
-                    VisionData = GetVisionData_client(GetBrickPos, goal.goal_brick.type)
+                    VisionData = GetVisionData_client(GetBrickPos_only, goal.goal_brick.type)
                     if VisionData.Flag:
                         break
 
@@ -283,8 +285,7 @@ class pick_put_act(object):
                 pose[4] = -pi 
                 pose[5] = 0
                 rob.movel(pose, acc=a, vel=v, wait=True)
-                '''
-
+                
                 rospy.sleep(0.5)
                 # 伪力控下落
                 rob.translate((0,0,-0.1), acc=a, vel=v*0.1, wait=False)
@@ -309,14 +310,14 @@ class pick_put_act(object):
                 # 提起
                 rob.translate((0,0,0.25), acc=a, vel=v, wait=True)
 
-                rob.movej(prePickPos,acc=a, vel=v,wait=True)     
+                rob.movej(prePickPos,acc=a, vel=3*v,wait=True)     
                 self.show_tell("arrived pre-Build position")
                     
                 # 配合手眼移动到摆放的位置
                 # Todo 有问题，需要移动到砖xy，解算出的位置
 
                 pose[0] = 0.0
-                pose[1] = -400.0
+                pose[1] = -0.5
 
                 pose[2] = -goal.goal_brick.Sequence*0.2 + floorHeight_base + 0.45     # 0.25是离车表面25cm
                 pose[3] = 0
@@ -346,6 +347,8 @@ class pick_put_act(object):
                 ee.MagState = 0
                 pub_ee.publish(ee)
                 rospy.sleep(1.0)
+
+                rob.translate((0, 0, 0.05), acc=a, vel=v*0.3, wait=true)
 
                 rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-Build position, finished")

@@ -53,6 +53,7 @@ using namespace cv;
 # define GetPutPos          3
 # define GetPutAngle        4
 # define GetLPose           5
+# define GetBrickPos_only   6
 # define NotRun             0
 int algorithm = GetBrickPos;     // 当前算法
 bool data_flag = false;     // 数据置信度
@@ -456,6 +457,85 @@ void put_brick(HObject ho_Image1)
 
 }
 
+// 4.定位圆形标志的位置(二维)
+void circle_location_only(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z)
+{
+ // Local iconic variables
+  HObject  ho_Image, ho_ClassRegions;
+  HObject  ho_ClassRegion, ho_ImageReduced, ho_ImageMean, ho_Region;
+  HObject  ho_RegionFillUp, ho_ConnectedRegions, ho_RegionErosion;
+  HObject  ho_RegionDilation, ho_Objects, ho_ImageReduced1;
+  HObject  ho_GrayImage, ho_ImageGauss, ho_ImageRoberts, ho_Regions;
+  HObject  ho_ConnectedRegions2, ho_SelectedRegions, ho_RegionTrans;
+  HObject  ho_Cross1, ho_ClassRegionsR, ho_ClassRegionR, ho_ImageReducedR;
+  HObject  ho_ImageMeanR, ho_RegionR, ho_RegionFillUpR, ho_ConnectedRegionsR;
+  HObject  ho_RegionErosionR, ho_RegionDilationR, ho_ObjectsR;
+  HObject  ho_ImageReduced1R, ho_GrayImageR, ho_ImageGaussR;
+  HObject  ho_ImageRobertsR, ho_RegionsR, ho_SelectedRegionsR;
+  HObject  ho_RegionTransR, ho_Cross1R;
+
+  // Local control variables
+  HTuple  hv_RelPose, hv_CamParam1, hv_CamParam2;
+  HTuple  hv_AcqHandle, hv_Width, hv_Height, hv_WindowHandle1;
+  HTuple  hv_WindowHandle2, hv_pathFile, hv_MLPHandle, hv_color;
+  HTuple  hv_index, hv_Number, hv_NumberCircle, hv_Area, hv_Row;
+  HTuple  hv_Column, hv_Exception, hv_NumberR, hv_NumberCircleR;
+  HTuple  hv_AreaR, hv_RowR, hv_ColumnR;
+  HTuple  hv_Dist;
+
+  ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
+  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
+  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
+
+  GetImageSize(ho_ImageL, &hv_Width, &hv_Height);
+
+
+  //step3: 提取ROI区域用于轮廓提取
+  Rgb1ToGray(ho_ImageL, &ho_GrayImage);
+  GaussFilter(ho_GrayImage, &ho_ImageGauss, 7);
+  Roberts(ho_ImageGauss, &ho_ImageRoberts, "gradient_sum");
+  Threshold(ho_ImageRoberts, &ho_Regions, 0, 20);
+  Connection(ho_Regions, &ho_ConnectedRegions2);
+  SelectShape(ho_ConnectedRegions2, &ho_SelectedRegions, (HTuple("area").Append("circularity")), 
+      "and", (HTuple(50000).Append(0.7)), (HTuple(1000000).Append(1)));
+  CountObj(ho_SelectedRegions, &hv_NumberCircle);
+  ShapeTrans(ho_SelectedRegions, &ho_RegionTrans, "outer_circle");
+  AreaCenter(ho_RegionTrans, &hv_Area, &hv_Row, &hv_Column);
+  GenCrossContourXld(&ho_Cross1, hv_Row, hv_Column, 60, 0.785398);
+
+  //step3: 提取ROI区域用于轮廓提取
+  Rgb1ToGray(ho_ImageR, &ho_GrayImageR);
+  GaussFilter(ho_GrayImageR, &ho_ImageGaussR, 7);
+  Roberts(ho_ImageGaussR, &ho_ImageRobertsR, "gradient_sum");
+  Threshold(ho_ImageRobertsR, &ho_RegionsR, 0, 20);
+  Connection(ho_RegionsR, &ho_ConnectedRegionsR);
+  SelectShape(ho_ConnectedRegionsR, &ho_SelectedRegionsR, (HTuple("area").Append("circularity")), 
+      "and", (HTuple(50000).Append(0.7)), (HTuple(1000000).Append(1)));
+  CountObj(ho_SelectedRegionsR, &hv_NumberCircleR);
+  ShapeTrans(ho_SelectedRegionsR, &ho_RegionTransR, "outer_circle");
+  AreaCenter(ho_RegionTransR, &hv_AreaR, &hv_RowR, &hv_ColumnR);
+  GenCrossContourXld(&ho_Cross1R, hv_RowR, hv_ColumnR, 60, 0.785398);
+
+  if (0 != (HTuple(hv_NumberCircle==1).TupleAnd(hv_NumberCircleR==1)))
+  {
+    try
+    {
+      IntersectLinesOfSight(hv_CamParam1, hv_CamParam2, hv_RelPose, hv_Row, hv_Column, 
+          hv_RowR, hv_ColumnR, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
+      data_flag = true;
+    }
+    catch (HException &exception)
+    {
+      ROS_ERROR("44  Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
+      data_flag = false;
+      return ;
+    }
+  }
+}
+
+
 //初始化halcon对象
 HObject  ho_ImageL, ho_ImageR;
 
@@ -505,6 +585,9 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         case GetLPose:
             put_brick(ho_ImageL);
             break;
+        case GetBrickPos_only:
+            circle_location_only(ho_ImageL,ho_ImageR,Brick_X,Brick_Y,Brick_Z);
+            break;
         default:
             break;
     }
@@ -527,7 +610,18 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
 
         res.VisionData.Flag = true;
         res.VisionData.Pose.position.x = transform3.getOrigin().x();
-        res.VisionData.Pose.position.y = transform3.getOrigin().y();
+        if (algorithm == GetBrickPos||algorithm == GetBrickAngle)
+        {
+          res.VisionData.Pose.position.y = transform3.getOrigin().y()+0.035;
+        }
+        else if(algorithm == GetBrickPos_only)
+        {
+          res.VisionData.Pose.position.y = transform3.getOrigin().y()+0.015;
+        }
+        else
+        {
+          res.VisionData.Pose.position.y = transform3.getOrigin().y();
+        }
         res.VisionData.Pose.position.z = transform3.getOrigin().z();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
