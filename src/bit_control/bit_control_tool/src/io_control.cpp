@@ -148,7 +148,7 @@ int main (int argc, char** argv)
         // 发布TF   car_link -> base_link
         static tf::TransformBroadcaster br;
         tf::Transform transform;
-        transform.setOrigin(tf::Vector3(0.45, 0, hn.x/1000.0));
+        transform.setOrigin(tf::Vector3(0.45, 0, hn.x/1000.0+0.3737 ));
         tf::Quaternion q;
         q.setRPY(0, 0, 1.57079);
         transform.setRotation(q);

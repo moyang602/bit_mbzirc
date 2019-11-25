@@ -831,6 +831,7 @@ double err_last[8] = {0};
                 if ( motor[i].watchdog > 8 ){
                     motor[i].watchdog --;
                     clrError( &motor[i] );
+                    stop(i);
                 }
                 else{
                     ctlMotor( &motor[i] , M_spd , now , true );  //PID有可能需要限幅

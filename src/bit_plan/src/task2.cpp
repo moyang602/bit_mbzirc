@@ -127,14 +127,15 @@ int main(int argc, char *argv[])
             ParseBluePrint(brick, i);
             
             // 将砖块压入UGV搬运任务堆栈
-            ugv_brick.insert(ugv_brick.begin(),brick);
+            // ugv_brick.insert(ugv_brick.begin(),);
+            ugv_brick.push_back(brick);
         }
 
         /* 调用UAV 与 UGV action 服务器 */
         // UGV action 部分 设置目标值
         ugv_building_goal.goal_task.header.stamp = ros::Time::now();
         ugv_building_goal.goal_task.header.frame_id = "map";
-        ugv_building_goal.goal_task.Num = 1;    // 从蓝图中获取
+        ugv_building_goal.goal_task.Num = 2;    // 从蓝图中获取
         ugv_building_goal.goal_task.bricks = ugv_brick;
         // 发送 UGV任务指令   等待100s
         if (UGVClient.SendGoal(ugv_building_goal, 100)) // 如果指令搬砖正常

@@ -28,8 +28,13 @@ prePickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.
 upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
 prePutPos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
 lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
-floorHeight_base = -0.53  # 初始状态机械臂基座离地530mm
-CarHeight_base = -0.140  # 初始状态机械臂基座离车表面140mm
+# floorHeight_base = -0.710  # 初始状态机械臂基座离地710mm
+# CarHeight_base = -0.140  # 初始状态机械臂基座离车表面140mm
+# floorHeight_base = -0.375 - 0.330
+# CarHeight_base = 0.180 - 0.330 
+
+global floorHeight_base
+global CarHeight_base
 
 posSequence = [] # 随着摆放的过程不断填充这个list来把位置记录下来
 l = 0.05
@@ -43,6 +48,7 @@ GetBrickAngle = 2
 GetPutPos = 3
 GetPutAngle = 4
 GetLPose = 5
+GetBrickPos_only = 6
 
 SUCCESS = 1
 FAIL_VISION = 2
@@ -61,6 +67,14 @@ def forcecallback(data):
     global force
     force = data.wrench.force.x**2 + data.wrench.force.y**2 + data.wrench.force.z**2
     force = force ** 0.5
+
+def heightcallback(data):
+    '''ur_force Callback Function'''
+    height = data.x 
+    global floorHeight_base
+    global CarHeight_base
+    floorHeight_base = -0.3737 - height/1000
+    CarHeight_base = 0.185 - height /1000
 
 def wait():
     ''' used to debug move one by one step '''
@@ -124,8 +138,8 @@ class pick_put_act(object):
         try: 
             # 开始臂车运动
             rospy.loginfo("begining")
-            initpose = rob.getl()
-            print("Initial end pose is ", initpose)
+            pose = rob.getl()
+            print("Initial end pose is ", pose)
             initj = rob.getj()
             print("Initial joint angle is ", initj)
 
@@ -147,10 +161,12 @@ class pick_put_act(object):
                 x = VisionData.Pose.position.x
                 y = VisionData.Pose.position.y
                 dist = (x**2 + y**2)**0.5
+                '''
                 if dist>0.668 or x>0.200 or x<-0.200 and y <-0.250: # 待矫正
                     self.show_tell("Brick position is out of workspace")
                     return
-                
+                '''
+
                 # 得到识别结果，平移到相机正对砖块上方，
                 pose[0] = VisionData.Pose.position.x-0.023      #使ZED正对砖块中心  0.023为zed与magnet偏移
                 pose[1] = VisionData.Pose.position.y+0.142      #使ZED正对砖块中心  0.142为zed与magnet偏移
@@ -218,18 +234,22 @@ class pick_put_act(object):
                 rob.translate((0,0,0.3), acc=a, vel=v, wait=True)
 
                 # 移动到预放置位置
-                rob.movej(prePutPos,acc=a, vel=3*v,wait=True)
+                rob.movej(prePutPos,acc=a, vel=2*v,wait=True)
                 
                 self.show_tell("arrived pre-Put position %d" % goal.goal_brick.Sequence)
-                delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.25, -0.15, 0, 0, 0)
+                delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
                 rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
+
+                pose = rob.getl()
+                pose[2] = CarHeight_base + 0.32
+                rob.movel(pose, acc=a, vel=v,wait=True)
                 # 需要加入砖块信息来确定定位
                 # 使用砖块的序列信息来计算自己需要放在那个位置，待完成
                 # 移动到位，并记录posSequence = f(goal.goal_brick.Sequence)
-                posSequence.append(delta)
+                # posSequence.append(delta)
 
                 # 伪力控放置
-                rob.translate((0, 0, -0.2), acc=a, vel=v*0.15, wait=False)
+                rob.translate((0, 0, -0.32), acc=a, vel=v*0.15, wait=False)
                 _force_prenvent_wrongdata_ = 0
                 while force < 15:
                     _force_prenvent_wrongdata_ += 1
@@ -259,9 +279,9 @@ class pick_put_act(object):
                 self.show_tell("arrived pre-put position")
 
                 # 移动至对应砖块处
-                print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
+                # print(posSequence[goal.goal_brick.Sequence],goal.goal_brick.Sequence)
                 delta = (0.0, goal.goal_brick.Sequence * 0.2 +0.1, 0, 0, 0, 0)
-                rob.movel(delta, acc=a, vel=1*v,wait=True, relative=True )
+                rob.movel(delta, acc=a, vel=0.5*v,wait=True, relative=True )
                 #rob.movel(posSequence[goal.goal_brick.Sequence], acc=a, vel=1*v,wait=True, relative=True )
                 self.show_tell("arrived Brick remembered position")
 
@@ -319,7 +339,7 @@ class pick_put_act(object):
                 pose[0] = 0.0
                 pose[1] = -0.5
 
-                pose[2] = -goal.goal_brick.Sequence*0.2 + floorHeight_base + 0.45     # 0.25是离车表面25cm
+                pose[2] = goal.goal_brick.Sequence*0.2 + floorHeight_base + 0.25     # 0.25是离车表面25cm
                 pose[3] = 0
                 # 下两个坐标使其垂直于地面Brick remembered
                 pose[4] = -pi 
@@ -380,6 +400,7 @@ if __name__ == '__main__':
     rospy.init_node('pickputAction', anonymous = False)
     pub_ee = rospy.Publisher('endeffCmd',EndEffector,queue_size=1)
     rospy.Subscriber("/wrench", WrenchStamped, forcecallback)
+    rospy.Subscriber("/heightNow", heightNow, heightcallback)
 
     ee = EndEffector()
     normal = 0
@@ -393,10 +414,10 @@ if __name__ == '__main__':
             normal = 1
             rospy.loginfo('robot ok')
             # Todo 根据实际末端负载与工具中心设置
-            rob.set_tcp((0, 0, 0, 0, 0, 0))
-            rob.set_payload(0.0, (0, 0, 0))
+            rob.set_tcp((0, 0, 0.074, 0, 0, 0))     #TASK2 参数 m,rad
+            rob.set_payload(0.96, (0.004, -0.042, 0.011))
 
-            pick_put_act("pickputAction")     # rospy.get_name())  #
+            pick_put_act("pickputAction")     # rospy.get_name())
             rospy.loginfo('action server ok')
             rospy.spin() 
         except:
