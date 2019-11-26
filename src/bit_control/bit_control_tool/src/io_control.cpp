@@ -6,6 +6,7 @@
 #include<geometry_msgs/Twist.h>
 #include<bit_control_tool/heightNow.h>
 #include<bit_control_tool/EndEffector.h>
+#include<bit_control_tool/SetHeight.h>
 #include "tf/transform_broadcaster.h"
 
 serial::Serial ser; //声明串口对象
@@ -60,6 +61,13 @@ void write_callback_ee(const bit_control_tool::EndEffector & endeffCmd)
     //ser.write(msg->data);   //发送串口数据 
 } 
 
+bool setHeight(bit_control_tool::SetHeight::Request&  req,
+                   bit_control_tool::SetHeight::Response& res)
+{
+    if (hn.x - )
+}
+
+
 int main (int argc, char** argv) 
 { 
     //初始化节点 
@@ -78,6 +86,8 @@ int main (int argc, char** argv)
     ros::Subscriber endeff_sub = nh.subscribe("endeffCmd", 1000, write_callback_ee); 
     //发布主题 
     ros::Publisher endeff_pub = nh.advertise<bit_control_tool::EndEffector>("endeffState", 1000); 
+
+    ros::ServiceServer service = nh.advertiseService("Setheight",setHeight);
 
     //nh.param<bool>("debug_imu", param_use_debug, false);
 	nh.param<std::string>("io_control/port", param_port_path_, "/dev/ttyUSB1");
