@@ -345,7 +345,7 @@ if __name__ == '__main__':
             pub_ee.publish(ee)
             rospy.sleep(1.0)
 
-            wait()
+            wait()posSequence
             '''
                 
             global rob

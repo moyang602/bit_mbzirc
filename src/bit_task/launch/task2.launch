@@ -8,19 +8,19 @@
   <!--bringup zed-->  
   <include file="$(find zed_wrapper)/launch/zedm.launch" />
 
-  <!--运行协同规划节点-->
-  <node pkg="bit_plan" type="task2" name="task2" output="screen" respawn="false" />
+  <!--运行协同规划节点
+  <node pkg="bit_plan" type="task2" name="task2" respawn="false" />-->
 
-  <!--运行任务节点-->
-  <node pkg="bit_task" type="task2_action_test_know" name="task2_action" output="screen" respawn="false" />
+  <!--运行任务节点
+  <node pkg="bit_task" type="task2_action_test_know" name="task2_action" respawn="false" />-->
 
-  <!--运行取放砖运动节点-->
-  <node pkg="bit_motion" type="t2_pick_put_server.py" name="pickputAction" output="screen" respawn="false" />
-
-  <!--运行找砖位置节点-->
-  <node pkg="bit_motion" type="t2_locate_server.py" name="locate_server_node" output="screen" respawn="false" />
+  <!--运行取放砖运动节点
+  <node pkg="bit_motion" type="t2_pick_put_server.py" name="pickputAction" respawn="false" />-->
 
   <!--运行找砖位置节点-->
-  <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" output="screen" respawn="false" />
-  
+  <node pkg="bit_motion" type="t2_locate_server.py" name="locate_server_node" respawn="false" />
+
+  <!--运行找砖位置节点
+  <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" respawn="false" />-->
+
 </launch>

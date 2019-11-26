@@ -7,7 +7,7 @@
   <include file="$(find bit_control_tool)/launch/io_control.launch" />
 
   <!--运行底盘节点-->
-  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False" />
+  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False" required="true"/>
 
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
@@ -17,8 +17,8 @@
 
   <!--发布两个静态的tf-->
   <!--node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 -0.047 0 0 3.1416  /car_link /velodyne 0" /-->
-  <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 -0.047  0 0 3.1416 /car_link /velodyne 0" />
-<!--node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.362 0 0 0  /car_link /velodyne 0" /-->
+  <!--node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 -0.047  0 0 3.1416 /car_link /velodyne 0" /-->
+` <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
 
   <!--运行模型显示节点-->
   <include file="$(find robotcar_moveit_config)/launch/display.launch" />
@@ -27,7 +27,7 @@
   <!--node name="rviz" pkg="rviz" type="rviz"/-->
 
  <!--运行控制台的节点，当遥控器不可用时可以切换为键盘-->
-  <!--node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen"/-->
+  <node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen" launch-prefix="gnome-terminal -e"/>
 
   <!--bringup velodyne laser raddar-->
   <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch" />
@@ -37,5 +37,8 @@
 
   <!--bringup move_base to navigate -->
   <include file="$(find my_robot_name_2dnav)/launch/nav.launch" />
+
+  
+
 
 </launch>

@@ -269,15 +269,7 @@ class BuildingActionServer  // UGV建筑action服务器
             //     feedback.task_feedback = "The position of brick and building has been found";
             //     server.publishFeedback(feedback);
             // }
-
-            /*****************************************************
-            *       循环搬运每个预设砖块
-            *****************************************************/
-            for (size_t count = 0; count < goal->goal_task.Num; count++)
-            {
-                // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
-                
-                // 移动至砖堆处
+// 移动至砖堆处
                 move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                 move_base_goal.target_pose.header.stamp = ros::Time::now();
                 move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;
@@ -294,8 +286,16 @@ class BuildingActionServer  // UGV建筑action服务器
                 /* =============================== 删除分割线 =============================== */
 
                 MoveBaseClient.sendGoal(move_base_goal, 100);
-                ROS_INFO_STREAM("Move to the brick type: "<< goal->goal_task.bricks[count].type);
+                // ROS_INFO_STREAM("Move to the brick type: "<< goal->goal_task.bricks[count].type);
 
+            /*****************************************************
+            *       循环搬运每个预设砖块
+            *****************************************************/
+            for (size_t count = 0; count < goal->goal_task.Num; count++)
+            {
+                // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
+                
+                
 
                 // 将砖块搬运至车上
                 pick_goal.goal_brick = goal->goal_task.bricks[count];  // 将队列砖块取出发送给取砖程序
