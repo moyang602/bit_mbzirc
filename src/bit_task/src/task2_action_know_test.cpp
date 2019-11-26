@@ -17,6 +17,7 @@
 #include "bit_task/isAddressExist.h"
 #include "bit_task/FindMapAddress.h"
 #include "bit_task/WriteAddress.h"
+#include "bit_control_tool/SetHeight.h"
 
 
 #define TASK_GET 0
@@ -247,6 +248,9 @@ class BuildingActionServer  // UGV建筑action服务器
             ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("isAddrWriteAddressessExist");
             bit_task::WriteAddress srv_write;
 
+            ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("SetHeight");
+            bit_control_tool::SetHeight srv_height;
+
             /*****************************************************
             *       判断是否有砖堆信息与放置处信息
             *****************************************************/
@@ -270,6 +274,10 @@ class BuildingActionServer  // UGV建筑action服务器
             //     server.publishFeedback(feedback);
             // }
 // 移动至砖堆处
+ 
+                srv_height.request.req_height.x = 320;
+                client_height.call(srv_height);
+
                 move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                 move_base_goal.target_pose.header.stamp = ros::Time::now();
                 move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;

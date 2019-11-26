@@ -19,6 +19,7 @@ from bit_control_tool.msg import heightNow
 import bit_motion.msg
 
 from bit_vision.srv import *
+from bit_control_tool.srv import SetHeight
 
 if sys.version_info[0] < 3:  # support python v2
     input = raw_input
@@ -288,7 +289,13 @@ class pick_put_act(object):
                 # 进行识别
                 ## server ask vision! wait and try some times
                 # 视觉搜索目标砖块位置    待修改
-                
+
+                # 改变升降台到高度
+                # rospy.wait_for_service('Setheight')
+                # set_height = rospy.ServiceProxy('Setheight',SetHeight)
+                # set_height(400)
+
+
                 rospy.sleep(0.5)
                 while True:         # Todo 避免进入死循环
                     VisionData = GetVisionData_client(GetBrickPos_only, goal.goal_brick.type)
