@@ -1,0 +1,21 @@
+<launch>
+
+    <!--bringup zed-->  
+    <include file="$(find zed_wrapper)/launch/zedm.launch" />
+
+    <!--bringup ur5 robot arm-->
+    <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
+
+    <!--运行模型显示节点-->
+    <include file="$(find robotcar_moveit_config)/launch/display.launch" />
+
+    <!--bringup remoter-->  
+    <include file="$(find bit_control_tool)/launch/io_control.launch" />
+
+    <!--看图-->
+    <node pkg="rqt_image_view" type="rqt_image_view" name="rqt_image_view" />
+
+    <!--视觉
+    <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" />
+    -->
+ </launch>

@@ -79,16 +79,27 @@ private:
     }
 };
 
-int ParseBluePrint(bit_task::BrickInfo &brick)
+int ParseBluePrint(bit_task::BrickInfo &brick,size_t num)
 {
     //
     ros::Duration(0.5).sleep();       // 临时占位
     
-    // 砖块信息赋值
-    brick.Sequence = 0;
-    brick.type = "red";
-    brick.x = 1;
-    brick.y = 1;
+    if(num==0)
+    {
+        // 砖块信息赋值
+        brick.Sequence = 0;
+        brick.type = "green";
+        brick.x = 1;
+        brick.y = 1;
+    }
+    else if(num==1) 
+    {
+        // 砖块信息赋值
+        brick.Sequence = 1;
+        brick.type = "green";
+        brick.x = 1;
+        brick.y = 1;
+    }
 
     return 0;
 }
@@ -110,20 +121,21 @@ int main(int argc, char *argv[])
     /* 读取建筑蓝图 下发指令*/
  //   while (condition)     // 当蓝图未读取完成时继续
     {
-        for (size_t i = 0; i < 1; i++) // 读取特定数量的砖块
+        for (size_t i = 0; i < 2; i++) // 读取特定数量的砖块
         {
             // 从建筑蓝图中读取建筑信息
-            ParseBluePrint(brick);
+            ParseBluePrint(brick, i);
             
             // 将砖块压入UGV搬运任务堆栈
-            ugv_brick.insert(ugv_brick.begin(),brick);
+            // ugv_brick.insert(ugv_brick.begin(),);
+            ugv_brick.push_back(brick);
         }
 
         /* 调用UAV 与 UGV action 服务器 */
         // UGV action 部分 设置目标值
         ugv_building_goal.goal_task.header.stamp = ros::Time::now();
         ugv_building_goal.goal_task.header.frame_id = "map";
-        ugv_building_goal.goal_task.Num = 1;    // 从蓝图中获取
+        ugv_building_goal.goal_task.Num = 2;    // 从蓝图中获取
         ugv_building_goal.goal_task.bricks = ugv_brick;
         // 发送 UGV任务指令   等待100s
         if (UGVClient.SendGoal(ugv_building_goal, 100)) // 如果指令搬砖正常

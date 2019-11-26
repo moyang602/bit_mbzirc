@@ -3,6 +3,8 @@
   
   <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
 
+<include file="$(find bit_control_tool)/launch/io_control.launch" />
+
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
   

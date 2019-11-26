@@ -4,7 +4,7 @@
 
   <param
     name="robot_description"
-    textfile="$(find bit_robotcar)/robots/ur5.urdf" />
+    textfile="$(find bit_robotcar)/robots/ur5e.urdf" />
   
   <!--node    name="joint_state_publisher"    pkg="joint_state_publisher"    type="joint_state_publisher">
     <param name="use_gui" value="false"/>

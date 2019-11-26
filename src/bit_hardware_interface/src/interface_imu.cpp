@@ -8,6 +8,7 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_datatypes.h>
 
+
 #define g 9.81
 bool zero_orientation_set = false;
 
@@ -17,6 +18,24 @@ bool set_zero_orientation(std_srvs::Empty::Request&,
   ROS_INFO("Zero Orientation Set.");
   zero_orientation_set = false;
   return true;
+}
+
+/**
+ * #purpose	: 字符串转十六进制字符串
+ * #note	: 可用于汉字字符串
+ * #param str		: 要转换成十六进制的字符串
+ * #param separator	: 十六进制字符串间的分隔符
+ * #return	: 接收转换后的字符串
+ */
+std::string strToHex(std::string str, std::string separator = " 0x")
+{
+	const std::string hex = "0123456789ABCDEF";
+	std::stringstream ss;
+ 
+	for (std::string::size_type i = 0; i < str.size(); ++i)
+		ss << separator << hex[(unsigned char)str[i] >> 4] << hex[(unsigned char)str[i] & 0xf];
+	
+	return ss.str();
 }
 
 int main(int argc, char** argv)
@@ -46,9 +65,9 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "interface_imu");
     // 声明节点私有句柄
     ros::NodeHandle private_node_handle("~");
-    private_node_handle.param<std::string>("port", param_port_path_, "/dev/ttyUSB1");
-    private_node_handle.param<int>("baudrate", param_baudrate_, 115200);
-	private_node_handle.param<int>("loop_rate", param_loop_rate_, 50);
+    private_node_handle.param<std::string>("port", param_port_path_, "/dev/ttyUSB0");
+    private_node_handle.param<int>("baudrate", param_baudrate_, 9600);
+	private_node_handle.param<int>("loop_rate", param_loop_rate_, 20);
     
     private_node_handle.param<std::string>("tf_parent_frame_id", tf_parent_frame_id, "imu_base");
     private_node_handle.param<std::string>("tf_frame_id", tf_frame_id, "imu_link");
@@ -99,121 +118,137 @@ int main(int argc, char** argv)
                 if(ser.available())
                 {
                     read = ser.read(ser.available());
-                    ROS_DEBUG("read %i new characters from serial port, adding to %i characters of old input.", (int)read.size(), (int)input.size());
+                    //ROS_INFO("read %i new characters, adding to %i characters of old input.", (int)read.size(), (int)input.size());
                     input += read;
 
-                    while (input.length() >= 11) // 包最少有11个字节
+                    while (input.length() >= 33) // 包最少有33个字节
                     {
+                        //ROS_INFO_STREAM("receive data:"<<strToHex(input));
                         //parse for data packets
-                        data_packet_start = input.find("$\x55");    // 寻找包头 0x55  ？？？ 待确定 可能没有$
+                        data_packet_start = input.find("\x55\x51");    // 寻找包头 0x55 0x51
                         if (data_packet_start != std::string::npos) // 如果找到进行处理
                         {
-                            ROS_DEBUG("found possible start of data packet at position %d", data_packet_start);
-                            if ((input.length() >= data_packet_start + 10))  //如果存在完整的一帧
+                            input.erase(0, data_packet_start); // 去掉前面无用的数据
+                            if ((input.length() >= 33))  //如果存在完整的一帧
                             {
-                                // 计算校验
-                                int sum = 0;
-                                for (size_t i = data_packet_start; i < data_packet_start+10; i++)
+                                for (size_t count = 0; count < 3; count++)
                                 {
-                                    sum += input[i];
-                                }
-                                if (sum == input[data_packet_start + 10])
-                                {
-                                    ROS_DEBUG("seems to be a real data package: long enough and found end characters");
-                                    switch (input[data_packet_start+1])
+                                    // 计算校验
+                                    char sum = 0;
+                                    for (size_t i = 0; i < 10; i++)
                                     {
-                                        case 0x51: // 线加速度
+                                        sum += input[i];
+                                    }
+                                    if (sum == input[10])   // 如果校验正确
+                                    {
+                                        uint8_t DataH = 0;
+                                        uint8_t DataL = 0;
+                                        switch (input[1])
                                         {
-                                            // get linear_acceleration values
-                                            int16_t ax = ((short)input[data_packet_start + 2]<<8) | input[data_packet_start + 3];
-                                            int16_t ay = ((short)input[data_packet_start + 4]<<8) | input[data_packet_start + 5];
-                                            int16_t az = ((short)input[data_packet_start + 6]<<8) | input[data_packet_start + 7];
-                                            // calculate accelerations in m/s²
-                                            imu.linear_acceleration.x = ax * (16.0 / 32768.0) * g;
-                                            imu.linear_acceleration.y = ay * (16.0 / 32768.0) * g;
-                                            imu.linear_acceleration.z = az * (16.0 / 32768.0) * g;
-                                        }
-                                            break;
-                                        case 0x52:  // 角速度
-                                        {
-                                            // get angular_velocity values
-                                            int16_t gx = ((short)input[data_packet_start + 2]<<8) | input[data_packet_start + 3];
-                                            int16_t gy = ((short)input[data_packet_start + 4]<<8) | input[data_packet_start + 5];
-                                            int16_t gz = ((short)input[data_packet_start + 6]<<8) | input[data_packet_start + 7];
-                                            // calculate rotational velocities in rad/s
-                                            //TODO: check / test if rotational velocities are correct
-                                            imu.angular_velocity.x = gx * (2000.0/32768.0) * (M_PI/180.0);
-                                            imu.angular_velocity.y = gy * (2000.0/32768.0) * (M_PI/180.0);
-                                            imu.angular_velocity.z = gz * (2000.0/32768.0) * (M_PI/180.0);
-                                        }
-                                            break;
-                                        case 0x59:  // 四元数
-                                        {
-                                            // get quaternion values
-                                            int16_t w = ((short)input[data_packet_start + 2]<<8) | input[data_packet_start + 3];
-                                            int16_t x = ((short)input[data_packet_start + 4]<<8) | input[data_packet_start + 5];
-                                            int16_t y = ((short)input[data_packet_start + 6]<<8) | input[data_packet_start + 7];
-                                            int16_t z = ((short)input[data_packet_start + 8]<<8) | input[data_packet_start + 9];
-
-                                            double wf = w/32768.0;
-                                            double xf = x/32768.0;
-                                            double yf = y/32768.0;
-                                            double zf = z/32768.0;
-
-                                            // 初始化四元数
-                                            tf::Quaternion orientation(xf, yf, zf, wf);
-
-                                            if (!zero_orientation_set)
+                                            case 0x51: // 线加速度
                                             {
-                                                zero_orientation = orientation;
-                                                zero_orientation_set = true;
+                                                // get linear_acceleration values
+                                                DataH = input[3];
+                                                DataL = input[2];
+                                                int16_t ax = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[5];
+                                                DataL = input[4];
+                                                int16_t ay = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[7];
+                                                DataL = input[6];
+                                                int16_t az = ((int16_t)DataH<<8) | DataL;
+                                                // calculate accelerations in m/s²
+                                                imu.linear_acceleration.x = ax * (16.0 / 32768.0)* g;
+                                                imu.linear_acceleration.y = ay * (16.0 / 32768.0)* g;
+                                                imu.linear_acceleration.z = az * (16.0 / 32768.0)* g;
+                                                //ROS_INFO("linear_acceleration is: %8.3f, %8.3f, %8.3f",imu.linear_acceleration.x,imu.linear_acceleration.y,imu.linear_acceleration.z);
                                             }
+                                                break;
+                                            case 0x52:  // 角速度
+                                            {
+                                                // get angular_velocity values
+                                                DataH = input[3];
+                                                DataL = input[2];
+                                                int16_t gx = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[5];
+                                                DataL = input[4];
+                                                int16_t gy = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[7];
+                                                DataL = input[6];
+                                                int16_t gz = ((int16_t)DataH<<8) | DataL;
+                                                // calculate rotational velocities in rad/s
+                                                //TODO: check / test if rotational velocities are correct
+                                                imu.angular_velocity.x = gx * (2000.0/32768.0) * (M_PI/180.0);
+                                                imu.angular_velocity.y = gy * (2000.0/32768.0) * (M_PI/180.0);
+                                                imu.angular_velocity.z = gz * (2000.0/32768.0) * (M_PI/180.0);
+                                                //ROS_INFO("angular_velocity is: %8.3f, %8.3f, %8.3f",imu.angular_velocity.x,imu.angular_velocity.y,imu.angular_velocity.z);
+                                            }
+                                                break;
+                                            case 0x59:  // 四元数
+                                            {
+                                                // get quaternion values
+                                                DataH = input[3];
+                                                DataL = input[2];
+                                                int16_t w = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[5];
+                                                DataL = input[4];
+                                                int16_t x = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[7];
+                                                DataL = input[6];
+                                                int16_t y = ((int16_t)DataH<<8) | DataL;
+                                                DataH = input[9];
+                                                DataL = input[8];
+                                                int16_t z = ((int16_t)DataH<<8) | DataL;
 
-                                            //http://answers.ros.org/question/10124/relative-rotation-between-two-quaternions/
-                                           
-                                            differential_rotation = zero_orientation.inverse() * orientation;
+                                                double wf = w/32768.0;
+                                                double xf = x/32768.0;
+                                                double yf = y/32768.0;
+                                                double zf = z/32768.0;
 
-                                            quaternionTFToMsg(differential_rotation, imu.orientation);
-                                        }
-                                            break;
-                                        default:
-                                            break;
-                                    }         
-                                    input.erase(0, data_packet_start + 11); // delete everything up to and including the processed packet
+                                                //ROS_INFO("quaternion is: %8.3f, %8.3f, %8.3f %8.3f",wf,xf,yf,zf);
+
+                                                // 初始化四元数
+                                                tf::Quaternion orientation(xf, yf, zf, wf);
+
+                                                if (!zero_orientation_set)
+                                                {
+                                                    zero_orientation = orientation;
+                                                    zero_orientation_set = true;
+                                                }
+
+                                                //http://answers.ros.org/question/10124/relative-rotation-between-two-quaternions/
+                                            
+                                                differential_rotation = zero_orientation.inverse() * orientation;
+
+                                                quaternionTFToMsg(differential_rotation, imu.orientation);
+                                            }
+                                                break;
+                                            default:
+                                                break;
+                                        }         
+                                        input.erase(0, 11); // delete everything up to and including the processed packet
+                                    }
+                                    else
+                                    {
+                                        ROS_INFO("seems to be wrong data package");
+                                        input.erase(0, 11); // delete everything up to and including the processed packet
+                                    }
                                 }
-                                else
+                                // calculate measurement time
+                                ros::Time measurement_time = ros::Time::now() + ros::Duration(time_offset_in_seconds);
+
+                                // publish imu message
+                                imu.header.stamp = measurement_time;
+                                imu.header.frame_id = frame_id;
+
+                                imu_pub.publish(imu);
+
+                                // publish tf transform
+                                if (broadcast_tf)
                                 {
-                                    ROS_DEBUG("seems to be wrong data package");
-                                    input.erase(0, data_packet_start + 11); // delete everything up to and including the processed packet
+                                    transform.setRotation(differential_rotation);
+                                    tf_br.sendTransform(tf::StampedTransform(transform, measurement_time, tf_parent_frame_id, tf_frame_id));
                                 }
-                         
-                            }
-                            else
-                            {
-                                if (input.length() >= data_packet_start + 11)
-                                {
-                                    input.erase(0, data_packet_start + 1); // delete up to false data_packet_start character so it is not found again
-                                }
-                                else
-                                {
-                                    // do not delete start character, maybe complete package has not arrived yet
-                                    input.erase(0, data_packet_start);
-                                }
-                            }
-                            // calculate measurement time
-                            ros::Time measurement_time = ros::Time::now() + ros::Duration(time_offset_in_seconds);
-
-                            // publish imu message
-                            imu.header.stamp = measurement_time;
-                            imu.header.frame_id = frame_id;
-
-                            imu_pub.publish(imu);
-
-                            // publish tf transform
-                            if (broadcast_tf)
-                            {
-                                transform.setRotation(differential_rotation);
-                                tf_br.sendTransform(tf::StampedTransform(transform, measurement_time, tf_parent_frame_id, tf_frame_id));
                             }
                         }
                         else       // 如果没有找到清空缓存区
@@ -228,21 +263,21 @@ int main(int argc, char** argv)
                 // try and open the serial port
                 try
                 {
-                ser.setPort(param_port_path_);
-                ser.setBaudrate(param_baudrate_);
-                serial::Timeout to = serial::Timeout::simpleTimeout(1000);
-                ser.setTimeout(to);
-                ser.open();
+                    ser.setPort(param_port_path_);
+                    ser.setBaudrate(param_baudrate_);
+                    serial::Timeout to = serial::Timeout::simpleTimeout(1000);
+                    ser.setTimeout(to);
+                    ser.open();
                 }
                 catch (serial::IOException& e)
                 {
-                ROS_ERROR_STREAM("Unable to open serial port " << ser.getPort() << ". Trying again in 5 seconds.");
-                ros::Duration(5).sleep();
+                    ROS_ERROR_STREAM("Unable to open serial port " << ser.getPort() << ". Trying again in 5 seconds.");
+                    ros::Duration(5).sleep();
                 }
 
                 if(ser.isOpen())
                 {
-                ROS_DEBUG_STREAM("Serial port " << ser.getPort() << " initialized and opened.");
+                    ROS_INFO_STREAM("Serial port " << ser.getPort() << " initialized and opened.");
                 }
             }
         }
