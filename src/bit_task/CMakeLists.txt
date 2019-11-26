@@ -248,3 +248,12 @@ target_link_libraries(task2_action_test_know
   ${catkin_LIBRARIES}
 )
 
+
+
+add_executable(msg_manage_task2
+  src/msg_manage_task2.cpp
+)
+add_dependencies(msg_manage_task2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(msg_manage_task2
+  ${catkin_LIBRARIES}
+)

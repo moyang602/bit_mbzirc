@@ -469,8 +469,6 @@ int main(int argc, char *argv[])
 
     ros::Subscriber subUAV = nh.subscribe("UAVmsg", 10, UAVmsgCallback);
     ros::Subscriber subGround = nh.subscribe("Groundmsg", 10, GroundmsgCallback);
-    
-    ros::Publisher UGVpub = nh.advertise<bit_task::UGV_msg>("UGVmsg", 10);
 
     BuildingActionServer UGVServer(nh, "ugv_building", false);
     UGVServer.Start();
@@ -479,22 +477,6 @@ int main(int argc, char *argv[])
 
     while (ros::ok())
     {
-        bit_task::UGV_msg msg;
-
-        msg.flag_detect_blueprint = 1;          // 识别建筑图案完成标志位
-        msg.blueprint.push_back(1);
-        msg.flag_update_blueprint = 1;		// 监督更新标志位
-        msg.blueprint_update.push_back(11);	// 实时建筑图矩阵
-        msg.flag_finished = 1;				// 任务结束标志位
-        msg.x = 0;						// 当前本机位置x坐标
-        msg.y = 0;						// 当前本机位置y坐标
-        msg.z = 0;						// 当前本机位置z坐标
-        msg.vx = 0;						// 当前本机速度x方向的大小
-        msg.vy = 0;						// 当前本机速度y方向的大小
-        msg.vz = 0;						// 当前本机速度z方向的大小
-
-        UGVpub.publish(msg);
-
         ros::spinOnce();
         loop_rate.sleep();
     }  
