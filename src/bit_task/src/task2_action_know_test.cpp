@@ -294,7 +294,7 @@ class BuildingActionServer  // UGV建筑action服务器
                 /* =============================== 删除分割线 =============================== */
 
                 MoveBaseClient.sendGoal(move_base_goal, 100);
-                // seteight(0);//0-300
+
                 // ROS_INFO_STREAM("Move to the brick type: "<< goal->goal_task.bricks[count].type);
 
             /*****************************************************

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.2">
+<Document>
+      <name>实时监控</name>
+      <visibility>1</visibility>
+      <open>1</open>
+      <NetworkLink>
+              <visibility>1</visibility>
+              <refreshVisibility>1</refreshVisibility>
+              <flyToView>0</flyToView>
+              <LookAt>
+                      <longitude>116.133546</longitude>
+                      <latitude>40.020534</latitude>
+                      <altitude>2000</altitude>
+                      <range>1000</range>
+                      <tilt>0</tilt>
+                      <heading>0</heading>
+                      <altitudeMode>relativeToGround</altitudeMode>
+              </LookAt>
+              <Link>
+                      <href>\gps_kml.kml</href>
+                      <refreshMode>onInterval</refreshMode>
+                      <refreshInterval>2</refreshInterval>
+                      <viewRefreshMode>onStart</viewRefreshMode>
+                      <viewRefreshTime>1</viewRefreshTime>
+              </Link>
+      </NetworkLink>
+</Document>
+</kml>
