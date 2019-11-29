@@ -19,9 +19,29 @@ flags = [
 '-isystem',
 '/opt/ros/' + os.getenv('ROS_DISTRO') + '/include',
 '-isystem',
-'/home/moyang/mbzirc_ws/devel/include',
+'/home/moyang/bit_mbzirc/devel/include',
 '-isystem',
-'/home/moyang/mbzirc_ws/src/CMakeLists.txt/include'
+'/home/moyang/bit_mbzirc/src/asr_halcon_bridge/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/basler_tof/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_control/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_description/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_hardware_interface/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_motion/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_plan/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_task/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/bit_vision/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/ur_modern_driver/include',
+'-isystem',
+'/home/moyang/bit_mbzirc/src/zed_wrapper/include'
 ]
 
 compilation_database_folder = ''

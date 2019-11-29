@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(bit_plan)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -215,6 +215,7 @@ include_directories(
 
 
 add_executable(task2
+  src/blueprint_read.cpp
   src/task2.cpp
 )
 add_dependencies(task2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
