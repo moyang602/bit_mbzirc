@@ -175,12 +175,11 @@ int main (int argc, char** argv)
                 cmd[2] =   int(height *10 ) & 0xff;
                 cmd[3] = 0x55;
                 ser.write(cmd,4);
-                ROS_INFO("SetHeight: %3.2f mm",height); 
+                ROS_INFO("Service SetHeight: %3.2f mm",height); 
             }
-            else{
-                service_ava = 0;
-            }
-            
+           
+            service_ava = 0;
+
         }
        
 

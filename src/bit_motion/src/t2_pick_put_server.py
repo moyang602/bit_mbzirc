@@ -57,7 +57,7 @@ FAIL_ERROR = 3
 
 TASK_GET = 0
 TASK_BUILD = 1
-TASK_LOOK = 2
+TASK_LOOK_FORWARD = 2
 
 global rob
 global force 
@@ -290,12 +290,6 @@ class pick_put_act(object):
                 ## server ask vision! wait and try some times
                 # 视觉搜索目标砖块位置    待修改
 
-                # 改变升降台到高度
-                # rospy.wait_for_service('Setheight')
-                # set_height = rospy.ServiceProxy('Setheight',SetHeight)
-                # set_height(400)
-
-
                 rospy.sleep(0.5)
                 while True:         # Todo 避免进入死循环
                     VisionData = GetVisionData_client(GetBrickPos_only, goal.goal_brick.type)
@@ -336,6 +330,11 @@ class pick_put_act(object):
 
                 # 提起
                 rob.translate((0,0,0.25), acc=a, vel=v, wait=True)
+
+                # 根据建筑物位置改变升降台到高度
+                # rospy.wait_for_service('Setheight')
+                # set_height = rospy.ServiceProxy('Setheight',SetHeight)
+                # set_height(400)
 
                 rob.movej(prePickPos,acc=a, vel=3*v,wait=True)     
                 self.show_tell("arrived pre-Build position")
@@ -380,7 +379,7 @@ class pick_put_act(object):
                 rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
                 self.show_tell("arrived pre-Build position, finished")
 
-            elif goal.task == TASK_LOOK:
+            elif goal.task == TASK_LOOK_FORWARD:
                 rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
                 rospy.sleep(2.0)
                 self.show_tell("arrived look forward position")

@@ -22,12 +22,24 @@
 
 #define TASK_GET 0
 #define TASK_BUILD 1
-#define TASK_LOOK 2
+#define TASK_LOOK_FORWARD 2
+#define TASK_LOOK_DIRECT_DOWN 3
+
+# define GetBrickPos        1   
+# define GetBrickAngle      2
+# define GetPutPos          3
+# define GetPutAngle        4
+# define GetLPose           5
+# define GetBrickPos_only   6
+# define NotRun             0
+
 
 typedef actionlib::SimpleActionClient<bit_motion::locateAction> Client_locate;
 typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client_pickput;
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> Client_movebase;
 typedef actionlib::SimpleActionServer<bit_plan::buildingAction> Server;
+
+actionlib_msgs::GoalID cancel_id;
 
 class PickPutActionClient   // 取放砖action客户端
 {
@@ -155,7 +167,7 @@ class LocateActionClient    // 找砖action客户端
         }
 };
 
-class MoveBaseActionClient    // 找砖action客户端
+class MoveBaseActionClient    // 移动action客户端
 {
     public:
         MoveBaseActionClient(const std::string client_name, bool flag = true):client(client_name, flag) // 使用初始化列表来初始化client
@@ -178,8 +190,8 @@ class MoveBaseActionClient    // 找砖action客户端
         void sendGoal(move_base_msgs::MoveBaseGoal goal, double Timeout = 10.0)
         {
             // 发送目标至服务器
-            client.sendGoal(goal);
-            
+            client.sendGoal(goal);        
+
             // 等待完成，超时时间为10s
             if(client.waitForResult(ros::Duration(Timeout)))    // 如果目标完成
             {
@@ -229,8 +241,8 @@ class BuildingActionServer  // UGV建筑action服务器
             static PickPutActionClient Task2Client("pickputAction", true);   // 连接取砖动作服务器
             Task2Client.Start();
 
-            static LocateActionClient LocateClient("locateAction", true); // 连接找砖动作服务器
-            LocateClient.Start();
+            // static LocateActionClient LocateClient("locateAction", true); // 连接找砖动作服务器
+            // LocateClient.Start();
 
             static MoveBaseActionClient MoveBaseClient("move_base", true);      // 连接movebase动作服务器
             MoveBaseClient.Start();
@@ -245,18 +257,31 @@ class BuildingActionServer  // UGV建筑action服务器
             ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("FindMapAddress");
             bit_task::FindMapAddress srv_find;
 
-            ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("isAddrWriteAddressessExist");
-            bit_task::WriteAddress srv_write;
+            // // 查询砖块地址是否存在的服务客户端
+            // ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("isAddrWriteAddressessExist");
+            // bit_task::WriteAddress srv_write;
 
+            // 视觉处理的客户端
+            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("GetVisionData");
+            bit_vision::VisionProc srv_vision;
+
+            // 设定高度的客户端
             ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("SetHeight");
             bit_control_tool::SetHeight srv_height;
+
+            // simple_goal 话题发布
+            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PointStamped>("move_base_simple/goal", 100);
+            geometry_msgs::PoseStamped this_target;
+
+            //cancel
+            ros::Publisher simp_cancel = n.advertise<actionlib_msgs::GoalID>("move_base/cancel",100);
+            
 
             /*****************************************************
             *       判断是否有砖堆信息与放置处信息
             *****************************************************/
             // srv_is.request.AddressToFind = "red";
             // client_is.call(srv_is);
-
             // if (srv_is.response.flag)   // 如果有砖堆信息
             // {
             //     feedback.task_feedback = "The brick and building position exist";
@@ -273,29 +298,23 @@ class BuildingActionServer  // UGV建筑action服务器
             //     feedback.task_feedback = "The position of brick and building has been found";
             //     server.publishFeedback(feedback);
             // }
-// 移动至砖堆处
- 
-                srv_height.request.req_height.x = 320;
-                client_height.call(srv_height);
 
-                move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
-                move_base_goal.target_pose.header.stamp = ros::Time::now();
-                move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;
-                move_base_goal.target_pose.pose.position.y = srv_find.response.AddressPose.pose.position.y;
-                move_base_goal.target_pose.pose.orientation = srv_find.response.AddressPose.pose.orientation;
+                    /* ======================= 固定砖堆位置为 车前2.0M =========================== */
+                    move_base_goal.target_pose.header.frame_id = "car_link";
+                    move_base_goal.target_pose.header.stamp = ros::Time::now();
+                    move_base_goal.target_pose.pose.position.x = 2.0;
+                    move_base_goal.target_pose.pose.position.y = 0;
+                    target_quat = tf::createQuaternionMsgFromYaw(0);
+                    move_base_goal.target_pose.pose.orientation = target_quat;
 
-                /* ======================= 固定砖堆位置为 车前2.0M =========================== */
-                move_base_goal.target_pose.header.frame_id = "car_link";
-                move_base_goal.target_pose.header.stamp = ros::Time::now();
-                move_base_goal.target_pose.pose.position.x = 2.0;
-                move_base_goal.target_pose.pose.position.y = 0;
-                target_quat = tf::createQuaternionMsgFromYaw(0);
-                move_base_goal.target_pose.pose.orientation = target_quat;
-                /* =============================== 删除分割线 =============================== */
-
-                MoveBaseClient.sendGoal(move_base_goal, 100);
+                    MoveBaseClient.sendGoal(move_base_goal, 100);
+                    /* =============================== 删除分割线 =============================== */
 
                 // ROS_INFO_STREAM("Move to the brick type: "<< goal->goal_task.bricks[count].type);
+
+            // 摄像机冲地
+            pick_goal.task = TASK_LOOK_DIRECT_DOWN;
+            Task2Client.sendGoal(pick_goal, 100);
 
             /*****************************************************
             *       循环搬运每个预设砖块
@@ -303,8 +322,46 @@ class BuildingActionServer  // UGV建筑action服务器
             for (size_t count = 0; count < goal->goal_task.Num; count++)
             {
                 // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
+
+                // ******************* 询问砖堆位置 *******************//
+                srv_find.request.AddressToFind = goal->goal_task.bricks[count].type;
+                client_find.call(srv_find);
+
+                // ******************* 移动至砖堆处 *******************//
+                float radius = srv_find.response.radius + 0.75; //得到的砖块半径加上车体外接圆半径 sqrt(0.45^2 + 0.6^2)
                 
-                
+                srv_height.request.req_height.x = 320; //最低高度，捡砖位置
+                client_height.call(srv_height); // 非阻塞运行，同时
+
+                // move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
+                // move_base_goal.target_pose.header.stamp = ros::Time::now();
+                // move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;
+                // move_base_goal.target_pose.pose.position.y = srv_find.response.AddressPose.pose.position.y;
+                // move_base_goal.target_pose.pose.orientation = srv_find.response.AddressPose.pose.orientation;
+                // MoveBaseClient.sendGoal(move_base_goal, 100); // 阻塞运行，直到成功之后才继续
+
+                ros::Time start_time = ros::Time::now();
+            
+                while((ros::Time::now().toSec()-start_time.toSec()) < 100){ // 检测到砖块退出，超时100s
+
+                    this_target.header.frame_id = srv_find.response.AddressPose.header.frame_id;
+                    this_target.header.stamp = ros::Time::now();
+                    this_target.pose.position.x = srv_find.response.AddressPose.pose.position.x + radius/2.0 * cos(count*3.1416/5);
+                    this_target.pose.position.y = srv_find.response.AddressPose.pose.position.y - radius/2.0 * sin(count*3.1416/5);
+                    this_target.pose.orientation = srv_find.response.AddressPose.pose.orientation;
+
+                    simp_goal_pub.publish(this_target);
+
+                    srv_vision.request.ProcAlgorithm = GetBrickPos_only;
+                    srv_vision.request.BrickType = goal->goal_task.bricks[count].type;
+                    
+                    client_vision.call(srv_vision);
+
+                    if(srv_vision.response.VisionData.Flag){
+                        simp_cancel.publish(cancel_id);
+                        break;
+                    }   
+                }
 
                 // 将砖块搬运至车上
                 pick_goal.goal_brick = goal->goal_task.bricks[count];  // 将队列砖块取出发送给取砖程序
@@ -340,7 +397,7 @@ class BuildingActionServer  // UGV建筑action服务器
             MoveBaseClient.sendGoal(move_base_goal, 100);
             ROS_INFO_STREAM("Move to the observe place");
             
-            pick_goal.task = TASK_LOOK;
+            pick_goal.task = TASK_LOOK_FORWARD;
             Task2Client.sendGoal(pick_goal, 100);   // 发送目标 timeout 100s
 
             ROS_INFO("Looking at building");
@@ -413,9 +470,13 @@ class BuildingActionServer  // UGV建筑action服务器
             {
                 server.setPreempted(); // 强制中断
             }
-        }
+        }        
 };
 
+void feedback_cb(move_base_msgs::MoveBaseActionFeedback a)
+{
+    cancel_id = a.status.goal_id;
+}
 
 int main(int argc, char *argv[])
 {
@@ -424,6 +485,10 @@ int main(int argc, char *argv[])
 
     BuildingActionServer UGVServer(nh, "ugv_building", false);
     UGVServer.Start();
+
+
+    ros::Subscriber simp_goal_sub = nh.subscribe("move_base/feedback", 1000, feedback_cb);
+
 
     ros::spin();
 
