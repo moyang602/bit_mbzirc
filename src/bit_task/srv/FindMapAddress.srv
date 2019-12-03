@@ -1,3 +1,4 @@
 string AddressToFind    # red/yellow/blue/orange/BuildingPlace/ObservePlace
 ---
 geometry_msgs/PoseStamped AddressPose
+float64 radius
