@@ -29,6 +29,7 @@ prePickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.
 upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
 prePutPos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
 lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
+lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与prePickPos相同
 # floorHeight_base = -0.710  # 初始状态机械臂基座离地710mm
 # CarHeight_base = -0.140  # 初始状态机械臂基座离车表面140mm
 # floorHeight_base = -0.375 - 0.330
@@ -58,6 +59,7 @@ FAIL_ERROR = 3
 TASK_GET = 0
 TASK_BUILD = 1
 TASK_LOOK_FORWARD = 2
+TASK_LOOK_DIRECT_DOWN = 3
 
 global rob
 global force 
@@ -381,6 +383,10 @@ class pick_put_act(object):
 
             elif goal.task == TASK_LOOK_FORWARD:
                 rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
+                rospy.sleep(2.0)
+                self.show_tell("arrived look forward position")
+            elif goal.task == TASK_LOOK_DIRECT_DOWN:
+                rob.movej(lookDownPos, acc=a, vel=3*v,wait=True)
                 rospy.sleep(2.0)
                 self.show_tell("arrived look forward position")
 

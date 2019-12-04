@@ -146,7 +146,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   /opt/halcon/include/halconcpp
   /opt/halcon/include
-  include/halcon_image.h
+  include #/halcon_image.h
 )
 
 ## Declare a C++ library
