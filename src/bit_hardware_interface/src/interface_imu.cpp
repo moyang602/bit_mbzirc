@@ -73,13 +73,13 @@ int main(int argc, char** argv)
     private_node_handle.param<std::string>("tf_frame_id", tf_frame_id, "imu_link");
     private_node_handle.param<std::string>("frame_id", frame_id, "imu_link"); 
     private_node_handle.param<double>("time_offset_in_seconds", time_offset_in_seconds, 0.0);
-    private_node_handle.param<bool>("broadcast_tf", broadcast_tf, true);
-    private_node_handle.param<double>("linear_acceleration_stddev", linear_acceleration_stddev, 0.0);
+    private_node_handle.param<bool>("broadcast_tf", broadcast_tf, false);
+    private_node_handle.param<double>("linear_acceleration_stddev", linear_acceleration_stddev, 1e-3);
     private_node_handle.param<double>("angular_velocity_stddev", angular_velocity_stddev, 0.0);
     private_node_handle.param<double>("orientation_stddev", orientation_stddev, 0.0);
     // 声明节点共有句柄
     ros::NodeHandle nh;
-    ros::Publisher imu_pub = nh.advertise<sensor_msgs::Imu>("IMU_data", 50);
+    ros::Publisher imu_pub = nh.advertise<sensor_msgs::Imu>("imu_data", 50);
     ros::ServiceServer service = nh.advertiseService("set_zero_orientation", set_zero_orientation);
 
     ros::Rate loop_rate(param_loop_rate_); // 默认 50 hz
@@ -87,17 +87,30 @@ int main(int argc, char** argv)
     // imu消息初始化
     sensor_msgs::Imu imu;
 
+    // imu.linear_acceleration_covariance[0] = linear_acceleration_stddev;
+    // imu.linear_acceleration_covariance[4] = linear_acceleration_stddev;
+    // imu.linear_acceleration_covariance[8] = linear_acceleration_stddev;
+
+    // imu.angular_velocity_covariance[0] = angular_velocity_stddev;
+    // imu.angular_velocity_covariance[4] = angular_velocity_stddev;
+    // imu.angular_velocity_covariance[8] = angular_velocity_stddev;
+
+    // imu.orientation_covariance[0] = orientation_stddev;
+    // imu.orientation_covariance[4] = orientation_stddev;
+    // imu.orientation_covariance[8] = orientation_stddev;
+
     imu.linear_acceleration_covariance[0] = linear_acceleration_stddev;
     imu.linear_acceleration_covariance[4] = linear_acceleration_stddev;
     imu.linear_acceleration_covariance[8] = linear_acceleration_stddev;
 
-    imu.angular_velocity_covariance[0] = angular_velocity_stddev;
-    imu.angular_velocity_covariance[4] = angular_velocity_stddev;
-    imu.angular_velocity_covariance[8] = angular_velocity_stddev;
+    imu.angular_velocity_covariance[0] = 1e-6;
+    imu.angular_velocity_covariance[4] = 1e-6;
+    imu.angular_velocity_covariance[8] = 1e-6;
 
-    imu.orientation_covariance[0] = orientation_stddev;
-    imu.orientation_covariance[4] = orientation_stddev;
-    imu.orientation_covariance[8] = orientation_stddev;
+    imu.orientation_covariance[0] = 1e-6;
+    imu.orientation_covariance[4] = 1e-6;
+    imu.orientation_covariance[8] = 1e-6;
+
 
     // TF初始化
     static tf::TransformBroadcaster tf_br;

@@ -278,7 +278,7 @@ class BuildingActionServer  // UGV建筑action服务器
             bit_control_tool::SetHeight srv_height;
 
             // simple_goal 话题发布
-            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PointStamped>("move_base_simple/goal", 100);
+            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 100);
             geometry_msgs::PoseStamped this_target;
 
             //cancel
@@ -289,20 +289,20 @@ class BuildingActionServer  // UGV建筑action服务器
         /*****************************************************
         *       第一步！判断是否有砖堆信息与放置处信息
         *****************************************************/
-            // srv_is.request.AddressToFind = "red";
-            // client_is.call(srv_is);
-            // if (srv_is.response.flag)   // 如果有砖堆信息
-            // {
-            //     feedback.task_feedback = "The brick and building position exist";
-            //     server.publishFeedback(feedback);
-            // }
+            srv_is.request.AddressToFind = "red";
+            client_is.call(srv_is);
+            if (srv_is.response.flag)   // 如果有砖堆信息
+            {
+                feedback.task_feedback = "The brick and building position exist";
+                server.publishFeedback(feedback);
+            }
             // else        // 如果没有砖堆信息
             // {
             //     feedback.task_feedback = "Looking for the position of brick and building";
             //     server.publishFeedback(feedback);
             //     // 找砖和墙位置，
             //     // 然后在建筑位置进行global costmap的设置，放置车辆开过砖墙区域  
-            //     LocateClient.sendGoal(locate_goal, 100);     // 找砖程序客户端
+            //     //LocateClient.sendGoal(locate_goal, 100);     // 找砖程序客户端
 
             //     feedback.task_feedback = "The position of brick and building has been found";
             //     server.publishFeedback(feedback);
@@ -319,8 +319,8 @@ class BuildingActionServer  // UGV建筑action服务器
         //2.1 摄像机冲地
             fail_cnt = 0;
             pick_goal.task = TASK_LOOK_DIRECT_DOWN;
-            while( Task2Client.sendGoal(pick_goal, 100) && fail_cnt ++ < 5);   // 发送目标 timeout 100s
-
+            while(Task2Client.sendGoal(pick_goal, 100)  && fail_cnt ++ < 5);   // 发送目标 timeout 100s
+            ROS_INFO("Camera OK!");
         //2.2 循环取砖的过程，重要过程，细节很多！根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
             fail_cnt = 0;
             for (size_t count = 0; count < goal->goal_task.Num + fail_cnt; count++)
@@ -334,6 +334,7 @@ class BuildingActionServer  // UGV建筑action服务器
                 srv_height.request.req_height.x = 320; //最低高度，捡砖位置
                 client_height.call(srv_height); // 非阻塞运行，同时
 
+                ROS_INFO("height OK!");
             // 移动直到检测到达砖块上方
                 ros::Time start_time = ros::Time::now();  // 超时检测，记录初始时刻
                 while((ros::Time::now().toSec()-start_time.toSec()) < 100){ // 检测到砖块退出，超时100s
@@ -349,11 +350,11 @@ class BuildingActionServer  // UGV建筑action服务器
                     // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
 
                             /* ======================= 固定砖堆位置为 map坐标系前2.0M ===================== */
-                            this_target.header.frame_id = "map";
-                            this_target.header.stamp = ros::Time::now();
-                            this_target.pose.position.x = 2.0;
-                            this_target.pose.position.y = 0;
-                            this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
+                            // this_target.header.frame_id = "map";
+                            // this_target.header.stamp = ros::Time::now();
+                            // this_target.pose.position.x = 2.0;
+                            // this_target.pose.position.y = 0;
+                            // this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
                             /* =============================== 删除分割线 =============================== */
                 // 发布位置
                     simp_goal_pub.publish(this_target);

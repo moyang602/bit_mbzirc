@@ -89,7 +89,7 @@ int main (int argc, char** argv)
     ros::NodeHandle nh; 
 
     //发布主题 
-    ros::Publisher GPS_pub = nh.advertise<sensor_msgs::NavSatFix>("GPS_data", 1);
+    ros::Publisher GPS_pub = nh.advertise<sensor_msgs::NavSatFix>("gps", 1);
 
 	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB0");
 	nh.param<int>("baudrate", param_baudrate_, 9600);

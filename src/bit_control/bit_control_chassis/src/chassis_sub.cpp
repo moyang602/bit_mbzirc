@@ -856,15 +856,15 @@ double err_last[8] = {0};
          if (first == 1){//去除上电之后未运行里程计的误差，去掉初始值
              first7 = motor[7].odom;
              first6 = motor[6].odom;
-             first3 = motor[3].odom;
-             first2 = motor[2].odom;
+            //  first3 = motor[3].odom;
+            //  first2 = motor[2].odom;
              first = 0;
          }
             en.header.stamp = ros::Time().now();
             en.twist.linear.x = motor[7].odom - first7;
             en.twist.linear.y = motor[6].odom - first6;
-            en.twist.angular.x = motor[3].odom - first3;
-            en.twist.angular.y = motor[2].odom - first2;
+            en.twist.angular.x = motor[3].odom; // - first3;
+            en.twist.angular.y = motor[2].odom; // - first2;
             pub.publish(en);
 
             ros::spinOnce();
