@@ -278,7 +278,7 @@ class BuildingActionServer  // UGV建筑action服务器
             bit_control_tool::SetHeight srv_height;
 
             // simple_goal 话题发布
-            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PointStamped>("move_base_simple/goal", 100);
+            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 100);
             geometry_msgs::PoseStamped this_target;
 
             //cancel

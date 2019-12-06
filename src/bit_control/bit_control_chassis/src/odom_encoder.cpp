@@ -112,6 +112,20 @@ void encoder_Callback(const geometry_msgs::TwistStamped& msg)
 	od.twist.twist.linear.y = -delta_x;
 	od.twist.twist.angular.z = delta_z;
 
+	od.pose.covariance[0] = 1e-3;
+	od.pose.covariance[7] = 1e-3;
+	od.pose.covariance[14] = 1e6;
+	od.pose.covariance[21] = 1e6;
+	od.pose.covariance[28] = 1e6;
+	od.pose.covariance[35] = 1e3;
+
+	od.twist.covariance[0] =1e-3;
+	od.twist.covariance[7] = 1e-3;
+	od.twist.covariance[14] = 1e6;
+	od.twist.covariance[21] = 1e6;
+	od.twist.covariance[28] = 1e6;
+	od.twist.covariance[35] = 1e-9;
+
 	pub.publish(od);
 
 	last_time = current_time;
