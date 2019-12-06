@@ -41,6 +41,9 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> Client_mov
 typedef actionlib::SimpleActionServer<bit_plan::buildingAction> Server;
 
 actionlib_msgs::GoalID cancel_id;
+tf::StampedTransform T_ZedOnMap;
+tf::Transform T_BrickOnLBase;
+tf::Transform T_CarOnBrick;
 
 class PickPutActionClient   // 取放砖action客户端
 {
@@ -281,6 +284,7 @@ class BuildingActionServer  // UGV建筑action服务器
             //cancel
             ros::Publisher simp_cancel = n.advertise<actionlib_msgs::GoalID>("move_base/cancel",100);
             
+            int fail_cnt = 0;
 
         /*****************************************************
         *       第一步！判断是否有砖堆信息与放置处信息
@@ -310,26 +314,49 @@ class BuildingActionServer  // UGV建筑action服务器
         /*****************************************************
         *       第二步！抵达每种砖堆，循环拾取每个预设砖块
         *****************************************************/
-            int fail_cnt = 0;
+            ROS_INFO("Move to the first brick\n");
+
         //2.1 摄像机冲地
-                pick_goal.task = TASK_LOOK_DIRECT_DOWN;
-                while( Task2Client.sendGoal(pick_goal, 100) && fail_cnt ++ < 5);   // 发送目标 timeout 100s
+            fail_cnt = 0;
+            pick_goal.task = TASK_LOOK_DIRECT_DOWN;
+            while( Task2Client.sendGoal(pick_goal, 100) && fail_cnt ++ < 5);   // 发送目标 timeout 100s
 
-        //2.2 循环取砖的过程，比较重要，细节很多！
-                fail_cnt = 0;
-                for (size_t count = 0; count < goal->goal_task.Num; count++)
-                {
-                    // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
-
+        //2.2 循环取砖的过程，重要过程，细节很多！根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
+            fail_cnt = 0;
+            for (size_t count = 0; count < goal->goal_task.Num + fail_cnt; count++)
+            {
             //2.2.1 询问砖堆位置
-                    srv_find.request.AddressToFind = goal->goal_task.bricks[count-fail_cnt].type;
-                    client_find.call(srv_find);
+                srv_find.request.AddressToFind = goal->goal_task.bricks[count-fail_cnt].type;
+                client_find.call(srv_find);
 
             //2.2.2 移动至砖堆处
-                        
-                // 降低升降台
-                    srv_height.request.req_height.x = 320; //最低高度，捡砖位置
-                    client_height.call(srv_height); // 非阻塞运行，同时
+            // 降低升降台
+                srv_height.request.req_height.x = 320; //最低高度，捡砖位置
+                client_height.call(srv_height); // 非阻塞运行，同时
+
+            // 移动直到检测到达砖块上方
+                ros::Time start_time = ros::Time::now();  // 超时检测，记录初始时刻
+                while((ros::Time::now().toSec()-start_time.toSec()) < 100){ // 检测到砖块退出，超时100s
+                // 计算位置
+                    float radius = srv_find.response.radius + 0.75; //得到的砖块半径加上车体外接圆半径 sqrt(0.45^2 + 0.6^2)
+
+                    this_target.header.frame_id = srv_find.response.AddressPose.header.frame_id;
+                    this_target.header.stamp = ros::Time::now();
+                    this_target.pose.position.x = srv_find.response.AddressPose.pose.position.x + radius/2.0 * cos(count*3.1416/5); // 目标附近R/2处的圆
+                    this_target.pose.position.y = srv_find.response.AddressPose.pose.position.y - radius/2.0 * sin(count*3.1416/5);
+                    target_quat = tf::createQuaternionMsgFromYaw(3.1416/2 - count*3.1416/5);
+                    this_target.pose.orientation = target_quat;  //srv_find.response.AddressPose.pose.orientation;//注释掉的为得到转角，但就是固定的，现在为设置转角朝向圆心
+                    // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
+
+                            /* ======================= 固定砖堆位置为 map坐标系前2.0M ===================== */
+                            this_target.header.frame_id = "map";
+                            this_target.header.stamp = ros::Time::now();
+                            this_target.pose.position.x = 2.0;
+                            this_target.pose.position.y = 0;
+                            this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
+                            /* =============================== 删除分割线 =============================== */
+                // 发布位置
+                    simp_goal_pub.publish(this_target);
 
                     // move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                     // move_base_goal.target_pose.header.stamp = ros::Time::now();
@@ -337,150 +364,122 @@ class BuildingActionServer  // UGV建筑action服务器
                     // move_base_goal.target_pose.pose.position.y = srv_find.response.AddressPose.pose.position.y;
                     // move_base_goal.target_pose.pose.orientation = srv_find.response.AddressPose.pose.orientation;
                     // MoveBaseClient.sendGoal(move_base_goal, 100); // 阻塞运行，直到成功之后才继续
+
+                // 调用视觉检测是否到达砖上
+                    srv_vision.request.ProcAlgorithm = GetBrickPos_only;
+                    srv_vision.request.BrickType = goal->goal_task.bricks[count - fail_cnt].type;
                     
-                    float radius = srv_find.response.radius + 0.75; //得到的砖块半径加上车体外接圆半径 sqrt(0.45^2 + 0.6^2)
-                    ros::Time start_time = ros::Time::now();
+                    client_vision.call(srv_vision);
 
-                // 检测并移动
+                    if(srv_vision.response.VisionData.Flag){
+                        simp_cancel.publish(cancel_id);
+                        break;
+                    }   
+                }
+                // 循环结束，到达了第一块砖的位置
 
-                    while((ros::Time::now().toSec()-start_time.toSec()) < 100){ // 检测到砖块退出，超时100s
-                
-                    // 计算位置
-                        this_target.header.frame_id = srv_find.response.AddressPose.header.frame_id;
-                        this_target.header.stamp = ros::Time::now();
-                        this_target.pose.position.x = srv_find.response.AddressPose.pose.position.x + radius/2.0 * cos(count*3.1416/5); // 目标附近R/2处的圆
-                        this_target.pose.position.y = srv_find.response.AddressPose.pose.position.y - radius/2.0 * sin(count*3.1416/5);
-                        target_quat = tf::createQuaternionMsgFromYaw(3.1416/2 - count*3.1416/5);
-                        this_target.pose.orientation = target_quat;  //srv_find.response.AddressPose.pose.orientation;//注释掉的为得到转角，但就是固定的，现在为设置转角朝向圆心
-                        // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
-
-                                /* ======================= 固定砖堆位置为 map坐标系前2.0M ===================== */
-                                this_target.header.frame_id = "map";
-                                this_target.header.stamp = ros::Time::now();
-                                this_target.pose.position.x = 2.0;
-                                this_target.pose.position.y = 0;
-                                this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
-                                /* =============================== 删除分割线 =============================== */
-                    // 发布位置
-                        simp_goal_pub.publish(this_target);
-
-                    // 调用视觉检测是否有砖
-                        srv_vision.request.ProcAlgorithm = GetBrickPos_only;
-                        srv_vision.request.BrickType = goal->goal_task.bricks[count - fail_cnt].type;
-                        
-                        client_vision.call(srv_vision);
-
-                        if(srv_vision.response.VisionData.Flag){
-                            simp_cancel.publish(cancel_id);
-                            break;
-                        }   
-                    }
-            // 循环结束，到达了第一种砖的位置
-
-            // 将砖块搬运至车上
+                // 将砖块搬运至车上
                     pick_goal.goal_brick = goal->goal_task.bricks[count - fail_cnt];  // 将队列砖块取出发送给取砖程序
                     pick_goal.task = TASK_GET;
 
                     if (Task2Client.sendGoal(pick_goal, 100)){    // 发送目标 timeout 100s
                         fail_cnt += 1;      //失败通过失败计数加一来保证砖还是同一块砖，但是位置移动了
+                        ROS_INFO("Failed this time");
+                    }
+                    else{
+                        ROS_INFO("Picked %ld brick of %d", count + 1 - fail_cnt, goal->goal_task.Num);
                     } 
 
-            // 成功将第一块砖上车
-                    ROS_INFO("Picked %ld brick of %d", count + 1 - fail_cnt, goal->goal_task.Num);
+                //第一块砖处理结束，有可能失败
 
-                }   
+            }   
         // 循环每一块砖结束，所有的砖上车
+            ROS_INFO("All bricks are on the car!\n");
 
         /*****************************************************
-        *       第三步！移动到观察建筑处，调用检测砖堆状态
+        *       第三步！转换到看地姿态，准备识别L型架端点， 原先为识别建筑物状态
         *****************************************************/
-            ROS_INFO("the building state is well");
+            ROS_INFO("To look at ground");
 
-        //3.1 转换到看墙姿态
-                fail_cnt = 0;
-                pick_goal.task = TASK_LOOK_FORWARD;
-                while( Task2Client.sendGoal(pick_goal, 100) && fail_cnt ++ < 5);   // 发送目标 timeout 100s
+        //3.1 转换到看地姿态，准备识别L型架端点
+            fail_cnt = 0;
+            pick_goal.task = TASK_LOOK_DIRECT_DOWN;
+            while( Task2Client.sendGoal(pick_goal, 100) && fail_cnt ++ < 5);   // 发送目标 timeout 100s
+            
+        /*****************************************************
+        *       第四步！移动到建筑物处，循环放置各个砖块
+        *****************************************************/
+        //4.1 移动至砖块建筑处
+            ROS_INFO("moving to the building place");
 
-        //3.2 移动至建筑物观察处，需要根据具体墙体的位置偏差一段距离计算出来
-                // 查找砖堆位置信息
-                    srv_find.request.AddressToFind = "BuildingPlace";
-                    client_find.call(srv_find);
+            //4.1.1 查找砖堆位置信息
+                srv_find.request.AddressToFind = "BuildingPlace";
+                client_find.call(srv_find);
 
-                // TODO: 计算观察点
-
-
-                // 移动
+            //4.1.2 移动至砖墙端点处
                 move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                 move_base_goal.target_pose.header.stamp = ros::Time::now();
                 move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;
                 move_base_goal.target_pose.pose.position.y = srv_find.response.AddressPose.pose.position.y;
                 move_base_goal.target_pose.pose.orientation = srv_find.response.AddressPose.pose.orientation;
 
-                        /* ==================== 固定建筑观察点位置为 砖堆后1.0M ======================= */
+                        /* ======================= 临时固定建筑位置为 map原点 ========================= */
                         move_base_goal.target_pose.header.frame_id = "map";
                         move_base_goal.target_pose.header.stamp = ros::Time::now();
-                        move_base_goal.target_pose.pose.position.x = 1.0;
+                        move_base_goal.target_pose.pose.position.x = 0.0;
                         move_base_goal.target_pose.pose.position.y = 0;
                         move_base_goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
                         /* =============================== 删除分割线 =============================== */
 
                 MoveBaseClient.sendGoal(move_base_goal, 100);
-                ROS_INFO_STREAM("Arrived the observe place");
+                ROS_INFO_STREAM("Move to the building start point");
+
+            //4.1.3 获取墙基的一端相对于Zed的变换
+                srv_vision.request.ProcAlgorithm = GetLPose;
+                client_vision.call(srv_vision);
+                tf::Stamped<tf::Transform> T_LBaseOnZed;
+                geometry_msgs::PoseStamped poset;
+                poset.header = srv_vision.response.VisionData.header;
+                poset.pose = srv_vision.response.VisionData.Pose;
+                tf::poseStampedMsgToTF(poset,T_LBaseOnZed);
             
 
-        //3.3 TODO: 获取建筑物状态 service
-            // 看砖墙需要得到墙面的位置信息，比如在前方什么方位，什么角度，需要搭建的位置，来指导移动
+        //4.2 循环到砖堆处，并放砖搭墙，重要过程，细节很多!
+            fail_cnt = 0;
+            for (size_t count = 0; count < goal->goal_task.Num + fail_cnt; count++)
+            {
+            //4.2.1 移动局部位置，需要使得车辆前进线基本对准目标位置
+                // 开环位置控制OK吗？直接平移一段距离
+                // 通过激光雷达的平面（直线）来生成预定轨迹
 
-            ROS_INFO("Looking at building");
-            
-        /*****************************************************
-        *       第四步！移动到建筑物处，循环放置各个砖块
-        *****************************************************/
-            //4.1 移动至砖块建筑处
-                ROS_INFO("moving to the building place");
+                this_target.header.frame_id = "map";
+                this_target.header.stamp = ros::Time::now();
+                T_BrickOnLBase.setRotation(tf::createIdentityQuaternion());
+                T_BrickOnLBase.setOrigin(tf::Vector3(goal->goal_task.bricks[count - fail_cnt].x, goal->goal_task.bricks[count - fail_cnt].y, 0));
+                tf::Transform temp_trans = T_ZedOnMap*T_LBaseOnZed*T_BrickOnLBase*T_CarOnBrick;
+                
+                this_target.pose.position.x = temp_trans.getOrigin().x();
+                this_target.pose.position.y = temp_trans.getOrigin().y();
+                tf::quaternionTFToMsg(temp_trans.getRotation(),this_target.pose.orientation);
+                move_base_goal.target_pose = this_target;
+                MoveBaseClient.sendGoal(move_base_goal, 100);
+                ROS_INFO_STREAM("Move to this building position");
 
-                //4.1.1 查找砖堆位置信息
-                    srv_find.request.AddressToFind = "BuildingPlace";
-                    client_find.call(srv_find);
+            //4.2.2 将砖块放置在建筑物处
+                pick_goal.goal_brick = goal->goal_task.bricks[count - fail_cnt];  // 将队列砖块取出发送给取砖程序
+                pick_goal.task = TASK_BUILD;
 
-                //4.1.2 移动至砖堆处
-                    move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
-                    move_base_goal.target_pose.header.stamp = ros::Time::now();
-                    move_base_goal.target_pose.pose.position.x = srv_find.response.AddressPose.pose.position.x;
-                    move_base_goal.target_pose.pose.position.y = srv_find.response.AddressPose.pose.position.y;
-                    move_base_goal.target_pose.pose.orientation = srv_find.response.AddressPose.pose.orientation;
-
-                            /* ======================= 临时固定建筑位置为 map原点 ========================= */
-                            move_base_goal.target_pose.header.frame_id = "map";
-                            move_base_goal.target_pose.header.stamp = ros::Time::now();
-                            move_base_goal.target_pose.pose.position.x = 0.0;
-                            move_base_goal.target_pose.pose.position.y = 0;
-                            move_base_goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
-                            /* =============================== 删除分割线 =============================== */
-
-                    MoveBaseClient.sendGoal(move_base_goal, 100);
-                    ROS_INFO_STREAM("Move to the building place");
-
-
-            //4.2 循环放砖搭墙，重要过程，细节很多!
-                for (size_t count = 0; count < goal->goal_task.Num; count++)
-                {
-
-                    //4.2.1 将砖块放置在建筑物处
-                        pick_goal.goal_brick = goal->goal_task.bricks[count];  // 将队列砖块取出发送给取砖程序
-                        pick_goal.task = TASK_BUILD;
-
-                        Task2Client.sendGoal(pick_goal, 100);   // 发送目标 timeout 100s
-
-                        ROS_INFO("Put %ld brick of %d", count+1, goal->goal_task.Num);
-
-                    //4.2.2 移动局部位置，需要使得车辆前进线对准目标位置
-                        // 开环位置控制OK吗？直接平移一段距离 （Todo!）
-                        // 通过激光雷达的平面（直线）来生成预定轨迹（Todo！）
-
+                if (Task2Client.sendGoal(pick_goal, 100)){      // 发送目标 timeout 100s 返回是否失败
+                    fail_cnt += 1;      //失败通过失败计数加一来保证砖还是同一块砖，但是位置移动了
+                    ROS_INFO("Failed this time");
                 }
-
-            ROS_INFO("COUNT DONE");
+                else{
+                    ROS_INFO("Put %ld brick of %d", count + 1- fail_cnt, goal->goal_task.Num);
+                }      
+            // 第一块砖处理结束，有可能失败
+            }
+        //结束搭建
+        ROS_INFO("COUNT DONE");
 
 
         /*****************************************************
@@ -524,8 +523,25 @@ int main(int argc, char *argv[])
 
     ros::Subscriber simp_goal_sub = nh.subscribe("move_base/feedback", 1000, feedback_cb);
 
+    tf::TransformListener listener;
 
-    ros::spin();
+    T_CarOnBrick.setRotation(tf::createQuaternionFromRPY(0.0, 0.0, 0.0));
+    T_CarOnBrick.setOrigin(tf::Vector3(0.0, -1.0, 0.0));
+    
+    while(ros::ok()) 
+    { 
+        // 获取 zed_link 在 base_link下的坐标
+        try{
+        listener.lookupTransform("map", "zed_link", ros::Time(0), T_ZedOnMap);
+        }
+        catch (tf::TransformException ex){
+        //ROS_ERROR("%s",ex.what());
+        ros::Duration(1.0).sleep();
+        }
+        
+        //处理ROS的信息，比如订阅消息,并调用回调函数 
+        ros::spinOnce(); 
+    } 
 
     return 0;
 }
