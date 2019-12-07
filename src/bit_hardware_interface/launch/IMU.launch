@@ -1,10 +1,13 @@
 <launch>
 
   <node name="IMU" pkg="bit_hardware_interface" type="interface_imu" respawn="false">
-    <param name="port"       value="/dev/ttyUSB0"/>  
+    <param name="port"       value="/dev/imu_dev"/>  
     <param name="baudrate"   value="9600"/>
-    <param name="loop_rate"   value="20"/>
+    <param name="loop_rate"   value="50"/>
+    <param name="tf_parent_frame_id"   value="car_link"/>
   </node>
+
+ <node pkg="tf" type="static_transform_publisher" name="imu_link_to_car" args="0.515 -0.300 0.275 0 0 0  /car_link /imu_link 0" />
 
 </launch>
 

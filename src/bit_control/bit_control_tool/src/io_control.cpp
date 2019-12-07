@@ -6,7 +6,9 @@
 #include<geometry_msgs/Twist.h>
 #include<bit_control_tool/heightNow.h>
 #include<bit_control_tool/EndEffector.h>
+#include<bit_control_tool/SetHeight.h>
 #include "tf/transform_broadcaster.h"
+
 
 serial::Serial ser; //声明串口对象
 
@@ -17,6 +19,8 @@ bool param_use_debug;
 /* serial */
 std::string param_port_path_;
 int param_baudrate_;
+float height;
+bool service_ava = 0;
 
 //回调函数 
 void write_callback_h(const geometry_msgs::Twist& cmd_vel) 
@@ -32,8 +36,10 @@ void write_callback_h(const geometry_msgs::Twist& cmd_vel)
     cmd[2] =   int(send *10 ) & 0xff;
     cmd[3] = 0x55;
     //ROS_INFO("1:%d,2:%d\n",cmd[1],cmd[2]);
-    ser.write(cmd,4);
-    ROS_INFO("SetHeight: %3.2f mm",send); 
+    if (service_ava == 0){  
+        ser.write(cmd,4);
+        ROS_INFO("SetHeight: %3.2f mm",send); 
+    }
     //ser.write(msg->data);   //发送串口数据 
 } 
 
@@ -60,6 +66,19 @@ void write_callback_ee(const bit_control_tool::EndEffector & endeffCmd)
     //ser.write(msg->data);   //发送串口数据 
 } 
 
+bool setHeight(bit_control_tool::SetHeight::Request&  req,
+                   bit_control_tool::SetHeight::Response& res)
+{
+    service_ava = 1;
+    height = req.req_height.x;
+    if (height > 670 ) height = 670;
+    if (height < 320 ) height = 320;
+
+    res.finished = 1;
+    return 1;
+}
+
+
 int main (int argc, char** argv) 
 { 
     //初始化节点 
@@ -68,6 +87,7 @@ int main (int argc, char** argv)
     ros::NodeHandle nh; 
 
     uint8_t rec[4] = {'\0'}; 
+    height = 320;
 
     //订阅主题，并配置回调函数 
     ros::Subscriber height_sub = nh.subscribe("cmd_vel", 1000, write_callback_h); 
@@ -78,6 +98,8 @@ int main (int argc, char** argv)
     ros::Subscriber endeff_sub = nh.subscribe("endeffCmd", 1000, write_callback_ee); 
     //发布主题 
     ros::Publisher endeff_pub = nh.advertise<bit_control_tool::EndEffector>("endeffState", 1000); 
+
+    ros::ServiceServer service = nh.advertiseService("Setheight",setHeight);
 
     //nh.param<bool>("debug_imu", param_use_debug, false);
 	nh.param<std::string>("io_control/port", param_port_path_, "/dev/ttyUSB1");
@@ -144,6 +166,22 @@ int main (int argc, char** argv)
         if (hn.x >320 && hn.x <670){
             height_pub.publish(hn);
         }  
+        
+        if (service_ava == 1){
+            if (abs(hn.x - height)>10){
+                uint8_t cmd[4] = {'\0'};
+                cmd[0] = 0xaa;
+                cmd[1] = ( int(height *10) >> 8 ) &0xff;
+                cmd[2] =   int(height *10 ) & 0xff;
+                cmd[3] = 0x55;
+                ser.write(cmd,4);
+                ROS_INFO("Service SetHeight: %3.2f mm",height); 
+            }
+           
+            service_ava = 0;
+
+        }
+       
 
         // 发布TF   car_link -> base_link
         static tf::TransformBroadcaster br;

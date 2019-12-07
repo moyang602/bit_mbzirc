@@ -83,6 +83,7 @@ add_service_files(FILES
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
+  bit_motion
   std_msgs
   geometry_msgs
 )
