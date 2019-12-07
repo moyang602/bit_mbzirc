@@ -286,7 +286,7 @@ class BuildingActionServer  // UGV建筑action服务器
                 result.finish_state = 1;
                 server.setAborted(result);
             }
-            else
+            else 
             {
                 feedback.task_feedback = "The brick and building position exist";
                 server.publishFeedback(feedback);

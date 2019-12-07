@@ -91,6 +91,7 @@ int ParseBluePrint(bit_task::BrickInfo &brick,size_t num)
         brick.type = "green";
         brick.x = 1;
         brick.y = 1;
+        brick.z = 1;
     }
     else if(num==1) 
     {
@@ -99,6 +100,7 @@ int ParseBluePrint(bit_task::BrickInfo &brick,size_t num)
         brick.type = "green";
         brick.x = 1;
         brick.y = 1;
+        brick.z = 1;
     }
 
     return 0;
@@ -127,7 +129,6 @@ int main(int argc, char *argv[])
             ParseBluePrint(brick, i);
             
             // 将砖块压入UGV搬运任务堆栈
-            // ugv_brick.insert(ugv_brick.begin(),);
             ugv_brick.push_back(brick);
         }
 
