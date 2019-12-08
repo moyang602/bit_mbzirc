@@ -115,9 +115,10 @@ void encoder_Callback(const geometry_msgs::TwistStamped& msg)
 	od.pose.covariance[0] = 1e-3;
 	od.pose.covariance[7] = 1e-3;
 	od.pose.covariance[14] = 1e6;
-	od.pose.covariance[21] = 1e6;
-	od.pose.covariance[28] = 1e6;
-	od.pose.covariance[35] = 1e3;
+
+	od.pose.covariance[21] = 0.03;
+	od.pose.covariance[28] = 0.03;
+	od.pose.covariance[35] = 0.03;
 
 	// od.twist.covariance[0] =1e6;
 	// od.twist.covariance[7] = 1e6;

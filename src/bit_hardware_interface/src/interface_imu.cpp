@@ -107,9 +107,9 @@ int main(int argc, char** argv)
     imu.angular_velocity_covariance[4] = 1e-6;
     imu.angular_velocity_covariance[8] = 1e-6;
 
-    imu.orientation_covariance[0] = 1e-6;
-    imu.orientation_covariance[4] = 1e-6;
-    imu.orientation_covariance[8] = 1e-6;
+    imu.orientation_covariance[0] =(1e-17)*7.43243; 
+    imu.orientation_covariance[4] = (1e-9)*1.86259;
+    imu.orientation_covariance[8] = (1e-15)*6.22595;
 
 
     // TF初始化
@@ -234,6 +234,14 @@ int main(int argc, char** argv)
                                                 differential_rotation = zero_orientation.inverse() * orientation;
 
                                                 quaternionTFToMsg(differential_rotation, imu.orientation);
+                                                
+                                                
+                                                double roll, pitch, yaw;//定义存储r\p\y的容器
+                                                tf::Matrix3x3(differential_rotation).getRPY(roll, pitch, yaw);//进行转换
+                                                imu.angular_velocity.x = roll;
+                                                imu.angular_velocity.y = pitch;
+                                                imu.angular_velocity.z = yaw;
+                                            
                                             }
                                                 break;
                                             default:
