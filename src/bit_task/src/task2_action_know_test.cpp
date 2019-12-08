@@ -34,6 +34,8 @@
 # define GetBrickPos_only   6
 # define NotRun             0
 
+# define InitAngleToPick (0 *3.1416/180.0)
+
 
 typedef actionlib::SimpleActionClient<bit_motion::locateAction> Client_locate;
 typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client_pickput;
@@ -262,7 +264,7 @@ class BuildingActionServer  // UGV建筑action服务器
             ros::ServiceClient client_is = n.serviceClient<bit_task::isAddressExist>("isAddressExist");
             bit_task::isAddressExist srv_is;
 
-            ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("FindMapAddress");
+            ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("/address_manage_node/FindMapAddress");
             bit_task::FindMapAddress srv_find;
 
             // // 查询砖块地址是否存在的服务客户端
@@ -278,24 +280,24 @@ class BuildingActionServer  // UGV建筑action服务器
             bit_control_tool::SetHeight srv_height;
 
             // simple_goal 话题发布
-            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 100);
+            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 1);
             geometry_msgs::PoseStamped this_target;
 
             //cancel
-            ros::Publisher simp_cancel = n.advertise<actionlib_msgs::GoalID>("move_base/cancel",100);
+            ros::Publisher simp_cancel = n.advertise<actionlib_msgs::GoalID>("/move_base/cancel",1);
             
             int fail_cnt = 0;
 
         /*****************************************************
         *       第一步！判断是否有砖堆信息与放置处信息
         *****************************************************/
-            srv_is.request.AddressToFind = "red";
-            client_is.call(srv_is);
-            if (srv_is.response.flag)   // 如果有砖堆信息
-            {
-                feedback.task_feedback = "The brick and building position exist";
-                server.publishFeedback(feedback);
-            }
+            // srv_is.request.AddressToFind = "red";
+            // client_is.call(srv_is);
+            // if (srv_is.response.flag)   // 如果有砖堆信息
+            // {
+            //     feedback.task_feedback = "The brick and building position exist";
+            //     server.publishFeedback(feedback);
+            // }
             // else        // 如果没有砖堆信息
             // {
             //     feedback.task_feedback = "Looking for the position of brick and building";
@@ -343,9 +345,9 @@ class BuildingActionServer  // UGV建筑action服务器
 
                     this_target.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                     this_target.header.stamp = ros::Time::now();
-                    this_target.pose.position.x = srv_find.response.AddressPose.pose.position.x + radius/2.0 * cos(count*3.1416/5); // 目标附近R/2处的圆
-                    this_target.pose.position.y = srv_find.response.AddressPose.pose.position.y - radius/2.0 * sin(count*3.1416/5);
-                    target_quat = tf::createQuaternionMsgFromYaw(3.1416/2 - count*3.1416/5);
+                    this_target.pose.position.x = srv_find.response.AddressPose.pose.position.x - radius/2.0 * cos(InitAngleToPick + count*3.1416/5); // 目标附近R/2处的圆
+                    this_target.pose.position.y = srv_find.response.AddressPose.pose.position.y - radius/2.0 * sin(InitAngleToPick + count*3.1416/5);
+                    target_quat = tf::createQuaternionMsgFromYaw(InitAngleToPick - count*3.1416/5);
                     this_target.pose.orientation = target_quat;  //srv_find.response.AddressPose.pose.orientation;//注释掉的为得到转角，但就是固定的，现在为设置转角朝向圆心
                     // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
 
@@ -358,6 +360,7 @@ class BuildingActionServer  // UGV建筑action服务器
                             /* =============================== 删除分割线 =============================== */
                 // 发布位置
                     simp_goal_pub.publish(this_target);
+                    ROS_INFO("published!");
 
                     // move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                     // move_base_goal.target_pose.header.stamp = ros::Time::now();

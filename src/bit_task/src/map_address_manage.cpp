@@ -18,7 +18,8 @@ bool FindMapAddress(bit_task::FindMapAddress::Request  &req,
     res.AddressPose.pose.orientation.x = 0;
     res.AddressPose.pose.orientation.y = 0;
     res.AddressPose.pose.orientation.z = 0;
-    res.AddressPose.pose.orientation.w = 0;
+    res.AddressPose.pose.orientation.w = 1;
+    res.radius = 1.0;
 
     ROS_INFO_STREAM("The pose of ["<<Name<<"] has been send back");
 }
