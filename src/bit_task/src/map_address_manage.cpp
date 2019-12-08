@@ -12,7 +12,7 @@ bool FindMapAddress(bit_task::FindMapAddress::Request  &req,
     // To do 添加匹配找点的程序
     res.AddressPose.header.frame_id = "map";
     res.AddressPose.header.stamp = ros::Time().now();
-    res.AddressPose.pose.position.x = 0;
+    res.AddressPose.pose.position.x = 2.0;
     res.AddressPose.pose.position.y = 0;
     res.AddressPose.pose.position.z = 0;
     res.AddressPose.pose.orientation.x = 0;
