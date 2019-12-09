@@ -47,7 +47,7 @@ datawriteto = '''
 '''
 def callback(data):
 	global datawriteto
-	f_out = open(r'/home/ifan/bit_mbzirc/src/bit_hardware_interface/src/gps_kml.kml','w')
+	f_out = open(r'/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/gps_kml.kml','w')
 	lon = data.longitude
 	lat = data.latitude
 	alt = data.altitude
