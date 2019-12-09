@@ -222,3 +222,11 @@ add_dependencies(task2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TAR
 target_link_libraries(task2
   ${catkin_LIBRARIES}
 )
+
+add_executable(uav_sim
+  src/uav_sim.cpp
+)
+add_dependencies(uav_sim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(uav_sim
+  ${catkin_LIBRARIES}
+)

@@ -82,7 +82,7 @@ vector<double> BrickPlan::get_sec_wall_nextbrick_xyz()
 	return res;
 }
 
-bool BrickPlan::fir_wall_isFinished()
+bool BrickPlan::fir_wall_isFinished()	
 {
 	//z方向高度大于墙体高度，则这面墙处理完毕
 	if (fir_wall_j >= fir_wall.size()) {

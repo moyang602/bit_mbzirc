@@ -245,9 +245,9 @@ class BuildingActionServer  // UGV建筑action服务器
 
             ROS_INFO("The goal brick num is: %d", goal->goal_task.Num);
 
-        /*****************************************************
-        *       准备步骤！连接各个动作服务器，等待后续指令
-        *****************************************************/
+            /*****************************************************
+            *       准备步骤！连接各个动作服务器，等待后续指令
+            *****************************************************/
             static PickPutActionClient Task2Client("pickputAction", true);   // 连接取砖动作服务器
             Task2Client.Start();
 
@@ -257,9 +257,9 @@ class BuildingActionServer  // UGV建筑action服务器
             static MoveBaseActionClient MoveBaseClient("move_base", true);      // 连接movebase动作服务器
             MoveBaseClient.Start();
 
-        /*****************************************************
-        *       准备步骤！创建各个服务访问客户端，等待后续指令
-        *****************************************************/
+            /*****************************************************
+            *       准备步骤！创建各个服务访问客户端，等待后续指令
+            *****************************************************/
             ros::NodeHandle n("~");
             ros::ServiceClient client_is = n.serviceClient<bit_task::isAddressExist>("isAddressExist");
             bit_task::isAddressExist srv_is;
@@ -267,9 +267,6 @@ class BuildingActionServer  // UGV建筑action服务器
             ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("/address_manage_node/FindMapAddress");
             bit_task::FindMapAddress srv_find;
 
-            // // 查询砖块地址是否存在的服务客户端
-            // ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("isAddrWriteAddressessExist");
-            // bit_task::WriteAddress srv_write;
 
             // 视觉处理的客户端
             ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("GetVisionData");
@@ -288,9 +285,9 @@ class BuildingActionServer  // UGV建筑action服务器
             
             int fail_cnt = 0;
 
-        /*****************************************************
-        *       第一步！判断是否有砖堆信息与放置处信息
-        *****************************************************/
+            /*****************************************************
+            *       第一步！判断是否有砖堆信息与放置处信息
+            *****************************************************/
             // srv_is.request.AddressToFind = "red";
             // client_is.call(srv_is);
             // if (srv_is.response.flag)   // 如果有砖堆信息
@@ -351,13 +348,13 @@ class BuildingActionServer  // UGV建筑action服务器
                     this_target.pose.orientation = target_quat;  //srv_find.response.AddressPose.pose.orientation;//注释掉的为得到转角，但就是固定的，现在为设置转角朝向圆心
                     // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
 
-                            /* ======================= 固定砖堆位置为 map坐标系前2.0M ===================== */
-                            // this_target.header.frame_id = "map";
-                            // this_target.header.stamp = ros::Time::now();
-                            // this_target.pose.position.x = 2.0;
-                            // this_target.pose.position.y = 0;
-                            // this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
-                            /* =============================== 删除分割线 =============================== */
+                    /* ======================= 固定砖堆位置为 map坐标系前2.0M ===================== */
+                    // this_target.header.frame_id = "map";
+                    // this_target.header.stamp = ros::Time::now();
+                    // this_target.pose.position.x = 2.0;
+                    // this_target.pose.position.y = 0;
+                    // this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
+                    /* =============================== 删除分割线 =============================== */
                 // 发布位置
                     simp_goal_pub.publish(this_target);
                     ROS_INFO("published!");

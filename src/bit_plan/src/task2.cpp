@@ -5,8 +5,11 @@
 #include "bit_plan/buildingAction.h"
 #include "bit_task/BrickInfo.h"
 #include <vector>
+#include "blueprint_read.h"
 
 typedef actionlib::SimpleActionClient<bit_plan::buildingAction> Client;
+
+BrickPlan brickplan;    // 建筑蓝图对象定义
 
 class BuildingActionClient
 {
@@ -48,7 +51,6 @@ public:
         //ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
     }
 
-
 private:
     Client client;
     std::string ClientName;      // action名称
@@ -79,33 +81,6 @@ private:
     }
 };
 
-int ParseBluePrint(bit_task::BrickInfo &brick,size_t num)
-{
-    //
-    ros::Duration(0.5).sleep();       // 临时占位
-    
-    if(num==0)
-    {
-        // 砖块信息赋值
-        brick.Sequence = 0;
-        brick.type = "green";
-        brick.x = 1;
-        brick.y = 1;
-        brick.z = 1;
-    }
-    else if(num==1) 
-    {
-        // 砖块信息赋值
-        brick.Sequence = 1;
-        brick.type = "green";
-        brick.x = 1;
-        brick.y = 1;
-        brick.z = 1;
-    }
-
-    return 0;
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -121,13 +96,51 @@ int main(int argc, char *argv[])
     UGVClient.Start();
 
     /* 读取建筑蓝图 下发指令*/
- //   while (condition)     // 当蓝图未读取完成时继续
+    while (!brickplan.fir_wall_isFinished() || !brickplan.sec_wall_isFinished() )     // 当两个channel有一个没建筑完时，则继续
     {
-        for (size_t i = 0; i < 2; i++) // 读取特定数量的砖块
+        int count = 0;
+        if (!brickplan.fir_wall_isFinished())
         {
-            // 从建筑蓝图中读取建筑信息
-            ParseBluePrint(brick, i);
+            vector<double> cor = brickplan.get_fir_wall_nextbrick_xyz();
+            // 砖块信息赋值
+            brick.Sequence = count;
+            brick.type = "orange";
+            brick.x = cor[0];
+            brick.y = cor[1];
+            brick.z = cor[2];
             
+            count ++;
+
+            // 将砖块压入UGV搬运任务堆栈
+            ugv_brick.push_back(brick);
+        }
+       
+        for (; count < 4; count++) // 读取特定数量的砖块
+        {
+            if (!brickplan.fir_wall_isFinished())
+            {
+                break;
+            }
+            
+            vector<double> cor = brickplan.get_sec_wall_nextbrick_xyz();
+            // 砖块信息赋值
+            brick.Sequence = count;
+            if (cor[3] == 0)
+            {
+                brick.type = "red";
+            }
+            else if (cor[3] == 1)
+            {
+                brick.type = "green";
+            }
+            else if (cor[3] == 2)
+            {
+                brick.type = "blue";
+            }
+            brick.x = cor[0];
+            brick.y = cor[1];
+            brick.z = cor[2];
+
             // 将砖块压入UGV搬运任务堆栈
             ugv_brick.push_back(brick);
         }
@@ -136,21 +149,19 @@ int main(int argc, char *argv[])
         // UGV action 部分 设置目标值
         ugv_building_goal.goal_task.header.stamp = ros::Time::now();
         ugv_building_goal.goal_task.header.frame_id = "map";
-        ugv_building_goal.goal_task.Num = 2;    // 从蓝图中获取
+        ugv_building_goal.goal_task.Num = count;    // 从蓝图中获取
         ugv_building_goal.goal_task.bricks = ugv_brick;
         // 发送 UGV任务指令   等待100s
-        if (UGVClient.SendGoal(ugv_building_goal, 100)) // 如果指令搬砖正常
+        if (UGVClient.SendGoal(ugv_building_goal, 1500)) // 如果指令搬砖正常
         {
             // 清空 砖块任务堆栈
             ugv_brick.clear();
-            // 更新 蓝图检索位置
-            // To do
         }
         else
         {
             // To do  失败的解决程序
         }
- 
+
     }
      ros::spin();
 
