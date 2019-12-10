@@ -1,0 +1,8 @@
+#part1: the goal message, to be sent by the client
+
+---
+#part2: the result message, to be sent by the server upon completion
+uint8 finish_state
+---
+#part3: the feedback message, to be sent by server during execution
+string feedback_state
