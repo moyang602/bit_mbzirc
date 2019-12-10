@@ -39,6 +39,8 @@ flags = [
 '-isystem',
 '/home/moyang/bit_mbzirc/src/bit_vision/include',
 '-isystem',
+'/home/moyang/bit_mbzirc/src/ros_opencv/include',
+'-isystem',
 '/home/moyang/bit_mbzirc/src/ur_modern_driver/include',
 '-isystem',
 '/home/moyang/bit_mbzirc/src/zed_wrapper/include'

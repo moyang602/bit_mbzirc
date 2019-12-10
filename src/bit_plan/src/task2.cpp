@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
         {
             vector<double> cor = brickplan.get_fir_wall_nextbrick_xyz();
             // 砖块信息赋值
-            brick.Sequence = count;
+            brick.Sequence = count; 
             brick.type = "orange";
             brick.x = cor[0];
             brick.y = cor[1];
@@ -125,15 +125,15 @@ int main(int argc, char *argv[])
             vector<double> cor = brickplan.get_sec_wall_nextbrick_xyz();
             // 砖块信息赋值
             brick.Sequence = count;
-            if (cor[3] == 0)
+            if (fabs(cor[3] -0.3)<1e-5)
             {
                 brick.type = "red";
             }
-            else if (cor[3] == 1)
+            else if (fabs(cor[3] -0.6)<1e-5)
             {
                 brick.type = "green";
             }
-            else if (cor[3] == 2)
+            else if (fabs(cor[3] -1.2)<1e-5)
             {
                 brick.type = "blue";
             }

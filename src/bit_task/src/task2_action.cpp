@@ -2,7 +2,9 @@
 #include "std_msgs/String.h"
 
 #include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
 #include <sstream>
+#include <math.h>
 
 #include <actionlib/client/simple_action_client.h>
 #include "bit_motion/pickputAction.h"    
@@ -18,10 +20,24 @@
 
 #include "bit_task/UAV_msg.h"
 #include "bit_task/UGV_msg.h"
-#include "bit_task/Ground_msg.h"
+#include "bit_control_tool/SetHeight.h"
+#include "bit_vision/VisionProc.h"
 
 #define TASK_GET 0
 #define TASK_BUILD 1
+#define TASK_LOOK_FORWARD 2
+#define TASK_LOOK_DIRECT_DOWN 3
+
+# define GetBrickPos        1   
+# define GetBrickAngle      2
+# define GetPutPos          3
+# define GetPutAngle        4
+# define GetLPose           5
+# define GetBrickPos_only   6
+# define NotRun             0
+
+# define InitAngleToPick (0 *3.1416/180.0)
+
 
 typedef actionlib::SimpleActionClient<bit_motion::locateAction> Client_locate;
 typedef actionlib::SimpleActionClient<bit_motion::pickputAction> Client_pickput;
@@ -34,12 +50,16 @@ struct UAV_data_struct
     uint8_t flag_detect_bricks;		// 发现砖堆标志位（++至4，搜索砖堆任务完成）
     double x_r	;			// 红色位置x坐标
     double y_r	;			// 红色位置y坐标
+    double radius_r	;		    // 红色区域半径
     double x_g	;			// 绿色位置x坐标
     double y_g	;			// 绿色位置y坐标
+    double radius_g	;		    // 绿色区域半径
     double x_b	;			// 蓝色位置x坐标
     double y_b	;			// 蓝色位置y坐标
+    double radius_b	;		    // 蓝色区域半径
     double x_o	;			// 橙色位置x坐标
     double y_o	;			// 橙色位置y坐标
+    double radius_o	;		    // 橙色区域半径
     uint8_t flag_detect_L;			// 获取建筑位置标志位
     double x_L_cross;			// L型交点位置x坐标
     double y_L_cross;			// L型交点位置y坐标
@@ -58,6 +78,11 @@ struct UAV_data_struct
 };
 
 UAV_data_struct UAV_data;
+
+actionlib_msgs::GoalID cancel_id;
+tf::StampedTransform T_ZedOnMap;
+tf::Transform T_BrickOnLBase;
+tf::Transform T_CarOnBrick;
 
 class PickPutActionClient   // 取放砖action客户端
 {
@@ -79,8 +104,9 @@ class PickPutActionClient   // 取放砖action客户端
             }        
         }
 
-        void sendGoal(bit_motion::pickputGoal goal, double Timeout = 10.0)
+        int sendGoal(bit_motion::pickputGoal goal, double Timeout = 10.0)
         {
+            int fail = 0;
             // 发送目标至服务器
             client.sendGoal(goal,
                             boost::bind(&PickPutActionClient::done_cb, this, _1, _2),
@@ -91,13 +117,16 @@ class PickPutActionClient   // 取放砖action客户端
             if(client.waitForResult(ros::Duration(Timeout)))    // 如果目标完成
             {
                 ROS_INFO_STREAM("Task: ["<<ClientName<<"] finished within the time");
+                fail = 0;
             }
             else
             {
                 ROS_INFO_STREAM("Task: ["<<ClientName<<"] failed, cancel Goal");
                 client.cancelGoal();
+                fail = 1;
             }
             ROS_INFO("Current State: %s\n", client.getState().toString().c_str());
+            return fail;
         }
 
     private:
@@ -259,8 +288,8 @@ class BuildingActionServer  // UGV建筑action服务器
             static PickPutActionClient Task2Client("pickputAction", true);   // 连接取砖动作服务器
             Task2Client.Start();
 
-            static LocateActionClient LocateClient("locateAction", true); // 连接找砖动作服务器
-            LocateClient.Start();
+            //static LocateActionClient LocateClient("locateAction", true); // 连接找砖动作服务器
+            //LocateClient.Start();
 
             static MoveBaseActionClient MoveBaseClient("move_base", true);      // 连接movebase动作服务器
             MoveBaseClient.Start();
@@ -275,76 +304,133 @@ class BuildingActionServer  // UGV建筑action服务器
             ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("FindMapAddress");
             bit_task::FindMapAddress srv_find;
 
-            ros::ServiceClient client_write = n.serviceClient<bit_task::WriteAddress>("WriteAddress");
-            bit_task::WriteAddress srv_write;
+            // 视觉处理的客户端
+            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("GetVisionData");
+            bit_vision::VisionProc srv_vision;
+
+            // 设定高度的客户端
+            ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("SetHeight");
+            bit_control_tool::SetHeight srv_height;
+
+            // simple_goal 话题发布
+            ros::Publisher simp_goal_pub = n.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 1);
+            geometry_msgs::PoseStamped this_target;
+
+            //cancel
+            ros::Publisher simp_cancel = n.advertise<actionlib_msgs::GoalID>("/move_base/cancel",1);
+
+            int fail_cnt = 0;   // 保证失败后还是同一块砖
 
             /*****************************************************
             *       判断是否有砖堆信息与放置处信息
             *****************************************************/
-            if(UAV_data.flag_detect_bricks!=4)      // 如果没有搜索完砖堆，返回失败
+            while(UAV_data.flag_detect_bricks!=4)      // 等待UAV找到砖块位置
             {
-                result.finish_state = 1;
-                server.setAborted(result);
-            }
-            else 
-            {
-                feedback.task_feedback = "The brick and building position exist";
+                ros::Duration(1.0).sleep();     
+                feedback.task_feedback = "Waiting for UAV find brick position";
                 server.publishFeedback(feedback);
             }
+
+            feedback.task_feedback = "The brick position exist";
+            server.publishFeedback(feedback);
 
             /*****************************************************
             *       循环搬运每个预设砖块
             *****************************************************/
-            for (size_t count = 0; count < goal->goal_task.Num; count++)
+            for (size_t count = 0; count < goal->goal_task.Num + fail_cnt; count++)
             {
+                //2.1 机械臂移动至取砖准备位姿  todo 修改机械臂位姿
+                pick_goal.task = TASK_LOOK_DIRECT_DOWN;
+                Task2Client.sendGoal(pick_goal, 100);   // 发送目标 timeout 100s
+                ROS_INFO("Camera OK!");
+
+                //2.2.1 询问砖堆位置
                 // 根据 goal->goal_task.bricks[count].type 移动至相应颜色砖块处
-                double moveX,moveY;
-                switch (goal->goal_task.bricks[count].type[0])     // 判断需搬运砖块颜色位置
+                double moveX,moveY,radius;
+                switch (goal->goal_task.bricks[count-fail_cnt].type[0])     // 判断需搬运砖块颜色位置
                 {
                     case 'r':
                         moveX = UAV_data.x_r;
                         moveY = UAV_data.y_r;
+                        radius = UAV_data.radius_r;
                         break;
 
                     case 'g':
                         moveX = UAV_data.x_g;
                         moveY = UAV_data.y_g;
+                        radius = UAV_data.radius_g;
                         break;
                         
                     case 'b':
                         moveX = UAV_data.x_b;
                         moveY = UAV_data.y_b;
+                        radius = UAV_data.radius_b;
                         break;
 
                     case 'o':
                         moveX = UAV_data.x_o;
                         moveY = UAV_data.y_o;
+                        radius = UAV_data.radius_o;
                         break;
                     default:
                         break;
                 }
 
-                // 移动至砖堆处
-                move_base_goal.target_pose.header.frame_id = "car_link";
-                move_base_goal.target_pose.header.stamp = ros::Time::now();
-                move_base_goal.target_pose.pose.position.x = moveX;             // Todo 设置为运动到以XY为圆心的圈上就行
-                move_base_goal.target_pose.pose.position.y = moveY;
-                target_quat = tf::createQuaternionMsgFromYaw(0);                // Todo 小车运动角度如何设置
-                move_base_goal.target_pose.pose.orientation = target_quat;
+                //2.2.2 移动至砖堆处
+                // 降低升降台
+                srv_height.request.req_height.x = 320; //最低高度，捡砖位置
+                client_height.call(srv_height); // 非阻塞运行，同时
 
-                MoveBaseClient.sendGoal(move_base_goal, 100);
-                ROS_INFO_STREAM("Move to the brick type: "<<goal->goal_task.bricks[count].type);
+                ROS_INFO("height OK!");
 
+                // 移动直到检测到达砖块上方
+                ros::Time start_time = ros::Time::now();  // 超时检测，记录初始时刻
+                while((ros::Time::now().toSec()-start_time.toSec()) < 100)// 检测到砖块退出，超时100s
+                { 
+                    // 计算位置
+                    radius = radius + 0.75; //得到的砖块半径加上车体外接圆半径 sqrt(0.45^2 + 0.6^2)
+
+                    this_target.header.frame_id = "map";
+                    this_target.header.stamp = ros::Time::now();
+                    this_target.pose.position.x = moveX - radius/2.0 * cos(InitAngleToPick + count*3.1416/5); // 目标附近R/2处的圆
+                    this_target.pose.position.y = moveY - radius/2.0 * sin(InitAngleToPick + count*3.1416/5);
+                    target_quat = tf::createQuaternionMsgFromYaw(InitAngleToPick + count*3.1416/5);
+                    this_target.pose.orientation = target_quat;  //srv_find.response.AddressPose.pose.orientation;//注释掉的为得到转角，但就是固定的，现在为设置转角朝向圆心
+                    // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
+
+                    // 发布位置
+                    simp_goal_pub.publish(this_target);
+                    ROS_INFO("published!");
+
+
+                // 调用视觉检测是否到达砖上
+                    srv_vision.request.ProcAlgorithm = GetBrickPos_only;
+                    srv_vision.request.BrickType = goal->goal_task.bricks[count - fail_cnt].type;
+                    
+                    client_vision.call(srv_vision);
+
+                    if(srv_vision.response.VisionData.Flag){
+                        simp_cancel.publish(cancel_id);
+                        break;
+                    }   
+                }
+                // 循环结束，到达了第一块砖的位置
 
                 // 将砖块搬运至车上
-                pick_goal.goal_brick = goal->goal_task.bricks[count];  // 将队列砖块取出发送给取砖程序
+                pick_goal.goal_brick = goal->goal_task.bricks[count - fail_cnt];  // 将队列砖块取出发送给取砖程序
                 pick_goal.task = TASK_GET;
 
-                Task2Client.sendGoal(pick_goal, 100);   // 发送目标 timeout 100s
-
-                ROS_INFO("Picked %ld brick of %d", count+1, goal->goal_task.Num);
+                 if (Task2Client.sendGoal(pick_goal, 100)){    // 发送目标 timeout 100s
+                    fail_cnt += 1;      //失败通过失败计数加一来保证砖还是同一块砖，但是位置移动了
+                    ROS_INFO("Failed this time");
+                }
+                else{
+                    ROS_INFO("Picked %ld brick of %d", count + 1 - fail_cnt, goal->goal_task.Num);
+                } 
             }
-            
+            // 循环每一块砖结束，所有的砖上车
+            ROS_INFO("All bricks are on the car!\n");
+
             /*****************************************************
             *       移动到观察建筑处，调用检测砖堆状态
             *****************************************************/
@@ -433,12 +519,16 @@ void UAVmsgCallback(const bit_task::UAV_msg::ConstPtr& msg)
     UAV_data.flag_detect_bricks	= msg->flag_detect_bricks;	// 发现砖堆标志位（++至4，搜索砖堆任务完成）
     UAV_data.x_r			= msg->x_r;	// 红色位置x坐标
     UAV_data.y_r			= msg->y_r;	// 红色位置y坐标
+    UAV_data.radius_r		= msg->radius_r;	// 红色区域半径
     UAV_data.x_g			= msg->x_g;	// 绿色位置x坐标
     UAV_data.y_g			= msg->y_g;	// 绿色位置y坐标
+    UAV_data.radius_g		= msg->radius_g;	// 绿色区域半径
     UAV_data.x_b			= msg->x_b;	// 蓝色位置x坐标
     UAV_data.y_b			= msg->y_b;	// 蓝色位置y坐标
+    UAV_data.radius_b		= msg->radius_b;	// 蓝色区域半径
     UAV_data.x_o			= msg->x_o;	// 橙色位置x坐标
     UAV_data.y_o			= msg->y_o;	// 橙色位置y坐标
+    UAV_data.radius_o		= msg->radius_o;	// 橙色区域半径
     UAV_data.flag_detect_L	= msg->flag_detect_L;		// 获取建筑位置标志位
     UAV_data.x_L_cross		= msg->x_L_cross;	// L型交点位置x坐标
     UAV_data.y_L_cross		= msg->y_L_cross;	// L型交点位置y坐标
@@ -457,10 +547,11 @@ void UAVmsgCallback(const bit_task::UAV_msg::ConstPtr& msg)
 }
 
 
-void GroundmsgCallback(const bit_task::Ground_msg::ConstPtr& msg)
+void move_base_feedback(move_base_msgs::MoveBaseActionFeedback a)
 {
-  
+    cancel_id = a.status.goal_id;
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -468,15 +559,28 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
 
     ros::Subscriber subUAV = nh.subscribe("UAVmsg", 10, UAVmsgCallback);
-    ros::Subscriber subGround = nh.subscribe("Groundmsg", 10, GroundmsgCallback);
 
     BuildingActionServer UGVServer(nh, "ugv_building", false);
     UGVServer.Start();
+
+    ros::Subscriber simp_goal_sub = nh.subscribe("move_base/feedback", 1000, move_base_feedback);
+
+    tf::TransformListener listener;
+
+    T_CarOnBrick.setRotation(tf::createQuaternionFromRPY(0.0, 0.0, 0.0));
+    T_CarOnBrick.setOrigin(tf::Vector3(0.0, -1.0, 0.0));
 
     ros::Rate loop_rate(50);
 
     while (ros::ok())
     {
+        // 获取 zed_link 在 map 下的坐标
+        try{
+        listener.lookupTransform("map", "zed_link", ros::Time(0), T_ZedOnMap);
+        }
+        catch (tf::TransformException ex){
+        }
+
         ros::spinOnce();
         loop_rate.sleep();
     }  
