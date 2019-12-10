@@ -91,7 +91,7 @@ void rectangle_pose(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,HT
     HTuple  hv_Seconds_4;
 
     //鲁棒的定位图像中的白色矩形标志,并选择最右下角的矩形轮廓进行位姿估计
-    ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1_02.dat", &hv_CamParam1);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
 
     hv_RectWidth = 0.3;
     hv_RectHeight = 0.17;
@@ -102,11 +102,8 @@ void rectangle_pose(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,HT
     //***********************************************************************************
     //选择灰度直方图两个波峰之间的波谷
     CountSeconds(&hv_Second_0);
-    GrayHisto(ho_ImageV, ho_ImageV, &hv_AbsoluteHisto, &hv_RelativeHisto);
-    GenRegionHisto(&ho_Region, hv_RelativeHisto, 255, 255, 1);
-    HistoToThresh(hv_RelativeHisto, 8, &hv_MinThresh, &hv_MaxThresh);
-    //
-    Threshold(ho_ImageV, &ho_Regions, hv_MinThresh, hv_MaxThresh);
+
+    Threshold(ho_ImageS, &ho_Regions, 0, 50);
     CountSeconds(&hv_Second_1);
     hv_time1 = hv_Second_1-hv_Second_0;
     //************************************************************************************
@@ -324,7 +321,7 @@ void put_brick(HObject ho_Image1)
 
 
 // 4.根据颜色分类定位砖块位置
-void brick_location(HObject ho_ImageL,HObject ho_ImageR)
+void brick_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z)
 {
   // Local iconic variables
   HObject  ho_ClassRegions;
@@ -348,140 +345,140 @@ void brick_location(HObject ho_ImageL,HObject ho_ImageR)
   HTuple  hv_Row3_2, hv_Column3_2, hv_Area_3_2, hv_Row_3_2;
   HTuple  hv_Column_3_2, hv_areas_2, hv_rows_2, hv_columns_2;
   HTuple  hv_index_2, hv_row_R, hv_column_R;
-  HTuple  hv_X, hv_Y, hv_Z,hv_Dist;
+  HTuple  hv_Dist;
   HTuple hv_RelPose,hv_CamParam1, hv_CamParam2;
 
+  try
+    {
+    ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
 
-  ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
-  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
-  ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+    ReadClassMlp(hv_pathFile, &hv_MLPHandle);
 
-  hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
-  ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+    ClassifyImageClassMlp(ho_ImageL, &ho_ClassRegions, hv_MLPHandle, 0.9);
 
-  ClassifyImageClassMlp(ho_ImageL, &ho_ClassRegions, hv_MLPHandle, 0.9);
+    SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
+    SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
+    SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
 
-  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
-  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
-  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
+    Connection(ho_ClassRed, &ho_ConnectedRegions1);
+    Connection(ho_ClassGreen, &ho_ConnectedRegions2);
+    Connection(ho_ClassBLue, &ho_ConnectedRegions3);
 
-  Connection(ho_ClassRed, &ho_ConnectedRegions1);
-  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
-  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
+    AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+    TupleSortIndex(hv_Area1, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
+    AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
 
-  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
-  TupleSortIndex(hv_Area1, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
+    AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
+    TupleSortIndex(hv_Area2, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
+    AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
 
-  AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
-  TupleSortIndex(hv_Area2, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
-
-  AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
-  TupleSortIndex(hv_Area3, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
-
- //比较3种region的面积 面积最大的作为分类结果
-  hv_areas.Clear();
-  hv_areas.Append(hv_Area_1);
-  hv_areas.Append(hv_Area_2);
-  hv_areas.Append(hv_Area_3);
-  //提取面积最大的区域对应的坐标
-  hv_rows.Clear();
-  hv_rows.Append(hv_Row_1);
-  hv_rows.Append(hv_Row_2);
-  hv_rows.Append(hv_Row_3);
-  hv_columns.Clear();
-  hv_columns.Append(hv_Column_1);
-  hv_columns.Append(hv_Column_2);
-  hv_columns.Append(hv_Column_3);
-
-  TupleSortIndex(hv_areas, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  hv_index = HTuple(hv_Indices[hv_num-1]);
-
-  if (0 != (hv_index==0))
-  {
-    hv_class = "red";
-  }
-  else if (0 != (hv_index==1))
-  {
-    hv_class = "green";
-  }
-  else if (0 != (hv_index==2))
-  {
-    hv_class = "blue";
-  }
-
-  //获取左图中的位置
-  hv_row_L = HTuple(hv_rows[hv_index]);
-  hv_column_L = HTuple(hv_columns[hv_index]);
-
-
-  //分割右图
-  ClassifyImageClassMlp(ho_ImageR, &ho_ClassRegions, hv_MLPHandle, 0.9);
-  
-  SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
-  SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
-  SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
-
-  Connection(ho_ClassRed, &ho_ConnectedRegions1);
-  Connection(ho_ClassGreen, &ho_ConnectedRegions2);
-  Connection(ho_ClassBLue, &ho_ConnectedRegions3);
-
-  AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
-  TupleSortIndex(hv_Area1, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
-
-  AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
-  TupleSortIndex(hv_Area2, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
-
-  AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
-  TupleSortIndex(hv_Area3, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
-  AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
+    AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
+    TupleSortIndex(hv_Area3, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
+    AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
 
   //比较3种region的面积 面积最大的作为分类结果
-  hv_areas.Clear();
-  hv_areas.Append(hv_Area_1);
-  hv_areas.Append(hv_Area_2);
-  hv_areas.Append(hv_Area_3);
-  //提取面积最大的区域对应的坐标
-  hv_rows.Clear();
-  hv_rows.Append(hv_Row_1);
-  hv_rows.Append(hv_Row_2);
-  hv_rows.Append(hv_Row_3);
-  hv_columns.Clear();
-  hv_columns.Append(hv_Column_1);
-  hv_columns.Append(hv_Column_2);
-  hv_columns.Append(hv_Column_3);
+    hv_areas.Clear();
+    hv_areas.Append(hv_Area_1);
+    hv_areas.Append(hv_Area_2);
+    hv_areas.Append(hv_Area_3);
+    //提取面积最大的区域对应的坐标
+    hv_rows.Clear();
+    hv_rows.Append(hv_Row_1);
+    hv_rows.Append(hv_Row_2);
+    hv_rows.Append(hv_Row_3);
+    hv_columns.Clear();
+    hv_columns.Append(hv_Column_1);
+    hv_columns.Append(hv_Column_2);
+    hv_columns.Append(hv_Column_3);
 
-  TupleSortIndex(hv_areas, &hv_Indices);
-  hv_num = hv_Indices.TupleLength();
-  hv_index = HTuple(hv_Indices[hv_num-1]);
+    TupleSortIndex(hv_areas, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    hv_index = HTuple(hv_Indices[hv_num-1]);
 
-  hv_row_R = HTuple(hv_rows[hv_index]);
-  hv_column_R = HTuple(hv_columns[hv_index]);
+    if (0 != (hv_index==0))
+    {
+      hv_class = "red";
+    }
+    else if (0 != (hv_index==1))
+    {
+      hv_class = "green";
+    }
+    else if (0 != (hv_index==2))
+    {
+      hv_class = "blue";
+    }
 
-  try
-  {
+    //获取左图中的位置
+    hv_row_L = HTuple(hv_rows[hv_index]);
+    hv_column_L = HTuple(hv_columns[hv_index]);
+
+    ROS_INFO_STREAM("Vision data:"<<hv_row_L.D()<<","<<hv_column_L.D());
+
+
+    //分割右图
+    ClassifyImageClassMlp(ho_ImageR, &ho_ClassRegions, hv_MLPHandle, 0.9);
+    
+    SelectObj(ho_ClassRegions, &ho_ClassRed, 1);
+    SelectObj(ho_ClassRegions, &ho_ClassGreen, 2);
+    SelectObj(ho_ClassRegions, &ho_ClassBLue, 3);
+
+    Connection(ho_ClassRed, &ho_ConnectedRegions1);
+    Connection(ho_ClassGreen, &ho_ConnectedRegions2);
+    Connection(ho_ClassBLue, &ho_ConnectedRegions3);
+
+    AreaCenter(ho_ConnectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+    TupleSortIndex(hv_Area1, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    SelectObj(ho_ConnectedRegions1, &ho_ObjectSelectedRed, HTuple(hv_Indices[hv_num-1])+1);
+    AreaCenter(ho_ObjectSelectedRed, &hv_Area_1, &hv_Row_1, &hv_Column_1);
+
+    AreaCenter(ho_ConnectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
+    TupleSortIndex(hv_Area2, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    SelectObj(ho_ConnectedRegions2, &ho_ObjectSelectedGreen, HTuple(hv_Indices[hv_num-1])+1);
+    AreaCenter(ho_ObjectSelectedGreen, &hv_Area_2, &hv_Row_2, &hv_Column_2);
+
+    AreaCenter(ho_ConnectedRegions3, &hv_Area3, &hv_Row3, &hv_Column3);
+    TupleSortIndex(hv_Area3, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    SelectObj(ho_ConnectedRegions3, &ho_ObjectSelectedBlue, HTuple(hv_Indices[hv_num-1])+1);
+    AreaCenter(ho_ObjectSelectedBlue, &hv_Area_3, &hv_Row_3, &hv_Column_3);
+
+    //比较3种region的面积 面积最大的作为分类结果
+    hv_areas.Clear();
+    hv_areas.Append(hv_Area_1);
+    hv_areas.Append(hv_Area_2);
+    hv_areas.Append(hv_Area_3);
+    //提取面积最大的区域对应的坐标
+    hv_rows.Clear();
+    hv_rows.Append(hv_Row_1);
+    hv_rows.Append(hv_Row_2);
+    hv_rows.Append(hv_Row_3);
+    hv_columns.Clear();
+    hv_columns.Append(hv_Column_1);
+    hv_columns.Append(hv_Column_2);
+    hv_columns.Append(hv_Column_3);
+
+    TupleSortIndex(hv_areas, &hv_Indices);
+    hv_num = hv_Indices.TupleLength();
+    hv_index = HTuple(hv_Indices[hv_num-1]);
+
+    hv_row_R = HTuple(hv_rows[hv_index]);
+    hv_column_R = HTuple(hv_columns[hv_index]);
+
+    ROS_INFO_STREAM("Vision data:"<<hv_row_R.D()<<","<<hv_column_R.D());
+  
     IntersectLinesOfSight(hv_CamParam1, hv_CamParam2, hv_RelPose, hv_row_L, hv_column_L, 
         hv_row_R, hv_column_R, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
-    Brick_X = hv_X.D();
-    Brick_Y = hv_Y.D();
-    Brick_Z = hv_Z.D();
     data_flag = true;
   }
   catch (HException &exception)
@@ -531,8 +528,8 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
 
     GetSystemTime(&hv_MSecond, &hv_Second, &hv_Minute, &hv_Hour, &hv_Day, &hv_YDay, &hv_Month, &hv_Year);
 
-    WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second));
-    WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second));
+    WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+    WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
 
     switch (algorithm)
     {
@@ -553,7 +550,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
             put_brick(ho_ImageL);
             break;
         case GetBrickPos_only:
-            brick_location(ho_ImageL,ho_ImageR);
+            brick_location(ho_ImageL,ho_ImageR,Brick_X,Brick_Y,Brick_Z);
             break;
         default:
             break;
@@ -564,13 +561,13 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         tf::Transform transform_TargetOnZed;
         transform_TargetOnZed.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
         tf::Quaternion q;
-        q.setRPY(0, 0, -Brick_RZ.D()/180.0*3.14159);
+        q.setRPY(0, 0, -Brick_RZ.D());
         transform_TargetOnZed.setRotation(q);
  
         tf::Transform transform3 = transform_ZedOnBase*transform_TargetOnZed;
 
         ROS_INFO_STREAM("Vision data:"<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
-        ROS_INFO_STREAM("Vision angle:"<<Brick_RZ.D());
+        ROS_INFO_STREAM("Vision angle:"<<Brick_RX.D()<<","<<Brick_RY.D()<<","<<Brick_RZ.D());
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "base_link";
@@ -579,11 +576,11 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         res.VisionData.Pose.position.x = transform3.getOrigin().x();
         if (algorithm == GetBrickPos||algorithm == GetBrickAngle)
         {
-          res.VisionData.Pose.position.y = transform3.getOrigin().y()+0.035;
+          res.VisionData.Pose.position.y = transform3.getOrigin().y();
         }
         else if(algorithm == GetBrickPos_only)
         {
-          res.VisionData.Pose.position.y = transform3.getOrigin().y()+0.015;
+          res.VisionData.Pose.position.y = transform3.getOrigin().y();
         }
         else
         {
@@ -592,7 +589,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         res.VisionData.Pose.position.z = transform3.getOrigin().z();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
-        res.VisionData.Pose.orientation.z = Brick_RZ.D()/180.0*3.14159;//transform3.getRotation().getZ();
+        res.VisionData.Pose.orientation.z = Brick_RZ.D();//transform3.getRotation().getZ();
 
     }
     else    // 如果没有识别结果

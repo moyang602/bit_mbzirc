@@ -88,3 +88,5 @@ src/bit_vision/model/campar1.dat
 src/bit_vision/model/campar2.dat
 
 *.sm3
+
+src/bit_vision/image/

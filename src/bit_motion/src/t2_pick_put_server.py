@@ -294,7 +294,7 @@ class pick_put_act(object):
 
                 rospy.sleep(0.5)
                 while True:         # Todo 避免进入死循环
-                    VisionData = GetVisionData_client(GetBrickPos_only, goal.goal_brick.type)
+                    VisionData = GetVisionData_client(GetBrickPos, goal.goal_brick.type)
                     if VisionData.Flag:
                         break
 
