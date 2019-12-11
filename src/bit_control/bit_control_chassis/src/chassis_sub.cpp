@@ -109,11 +109,22 @@ double m0p = 0;
 #define CtrlPerid 10 //ms
 
 #define deltaAng 25.0f   
-#define window 4
+#define window 20
 
 
 double sum = 0;
 double alpha[window] = {0};
+
+struct SpeedPlan
+{
+    std::queue<double> plan;
+    double plan_param[4];
+
+}Plan[3];
+
+double plan_run_time;
+double plan_run_max_time;
+
 
 
 //====================函数实现========================//
@@ -691,52 +702,11 @@ void dealCommand( double x, double y, double z )
     motor[6].plan.push( m2dir * sqrt (x2 * x2 + y2 * y2 ));
     motor[7].plan.push(-m3dir * sqrt (x3 * x3 + y3 * y3 ));
 
-    
-  
     for( int i = 0; i<8 ; i++ ){
-        std::queue<double> tmp;
-        double p1 = 0;
-        double p2 = 0;
-        double p01 = 0;
-        double pf1 = 0;
-        double p02 = 0;
-        double pf2 = 0;
-        double v1 = 0;
-        double v2 = 0;
-        double tf = 0.05f;
-        // printf("%d,\n",motor[i].plan.size());
-        if (motor[i].plan.size() > window ){  //保持window长度的队列
+        if (motor[i].plan.size() > 1 ){  //保持长度为1的队列
             motor[i].plan.pop();
-
-            for (int j = 0; j<window; j++){  //遍历列表取数
-                tmp.push(motor[i].plan.front());
-                if ( j < window - 1 ){
-                    p1 += tmp.back()*alpha[j]/sum;
-                }
-                if (j >= 1){
-                    p2 += tmp.back()*alpha[j-1]/sum;
-                }
-                if(j == 0) p01 = tmp.back();
-                if(j == 1) p02 = tmp.back();
-                if (j == window - 1) pf2 = tmp.back();
-                if (j == window - 2) pf1 = tmp.back(); 
-                motor[i].plan.pop();
-            }
-            while(!tmp.empty()){        //还原原队列
-                motor[i].plan.push(tmp.front());
-                tmp.pop();
-            }
-            v1 = ( pf1 - p01 ) / ( (window - 2) * tf);  //固定频率为20Hz
-            v2 = ( pf2 - p02 ) / ( (window - 2) * tf);  //固定频率为20Hz
-            motor[i].plan_param[0] = p1;
-            motor[i].plan_param[1] = v1;
-            motor[i].plan_param[2] = 3/(tf*tf)*(p2 - p1) -2/tf*v1 -1/tf*v2;
-            motor[i].plan_param[3] = -2/(tf*tf*tf)*(p2 - p1) +1/(tf*tf)*(v2 + v1);
-            motor[i].run_time = 0;
-            motor[i].run_max_time = tf;
-        
         }
-    }
+    }    
     
     // ctlMotor( &motor[7] , M_spd , -m3dir * sqrt (x3 * x3 + y3 * y3 ), true );   
     // ctlMotor( &motor[6] , M_spd , m2dir * sqrt (x2 * x2 + y2 * y2 ), true );
@@ -752,14 +722,65 @@ void dealCommand( double x, double y, double z )
  */
 void chatterCallback(const geometry_msgs::Twist& cmd_vel)
 {
+    Plan[0].plan.push(-cmd_vel.linear.y*100);
+    Plan[1].plan.push(cmd_vel.linear.x*100);
+    Plan[2].plan.push(1.25*cmd_vel.angular.z);
 
-	dealCommand( -cmd_vel.linear.y*100 , cmd_vel.linear.x*100 , 1.25*cmd_vel.angular.z );  // x:y: cm/s ; z: rad/s ;
+    for (int i = 0 ; i<3; i ++ ){
+        std::queue<double> tmp;
+        double p1 = 0;
+        double p2 = 0;
+        double p01 = 0;
+        double pf1 = 0;
+        double p02 = 0;
+        double pf2 = 0;
+        double v1 = 0;
+        double v2 = 0;
+        double tf = 0.05f;
+        // printf("%d,\n",motor[i].plan.size());
+        if (Plan[i].plan.size() > window ){  //保持window长度的队列
+            Plan[i].plan.pop();
+
+            for (int j = 0; j<window; j++){  //遍历列表取数
+                tmp.push(Plan[i].plan.front());
+                if ( j < window - 1 ){
+                    p1 += tmp.back()*alpha[j]/sum;
+                }
+                if (j >= 1){
+                    p2 += tmp.back()*alpha[j-1]/sum;
+                }
+                if(j == 0) p01 = tmp.back();
+                if(j == 1) p02 = tmp.back();
+                if (j == window - 1) pf2 = tmp.back();
+                if (j == window - 2) pf1 = tmp.back(); 
+                Plan[i].plan.pop();
+            }
+            while(!tmp.empty()){        //还原原队列
+                Plan[i].plan.push(tmp.front());
+                tmp.pop();
+            }
+            v1 = ( pf1 - p01 ) / ( (window - 2) * tf);  //固定频率为20Hz
+            v2 = ( pf2 - p02 ) / ( (window - 2) * tf);  //固定频率为20Hz
+            Plan[i].plan_param[0] = p1;
+            Plan[i].plan_param[1] = v1;
+            Plan[i].plan_param[2] = 3/(tf*tf)*(p2 - p1) -2/tf*v1 -1/tf*v2;
+            Plan[i].plan_param[3] = -2/(tf*tf*tf)*(p2 - p1) +1/(tf*tf)*(v2 + v1);
+
+            plan_run_time = 0;
+            plan_run_max_time = tf;                    
+        }
+    }
+        
+    
+
+	//dealCommand( -cmd_vel.linear.y*100 , cmd_vel.linear.x*100 , 1.25*cmd_vel.angular.z );  // x:y: cm/s ; z: rad/s ;
     //askPos(&motor[2]);
 
     //ROS_INFO("\nx: %1.4f \r\ny: %1.4f \r\nz: %1.4f \r\n",cmd_vel.linear.y,cmd_vel.linear.x,cmd_vel.angular.z); 
     
 	//ROS_INFO("I heard:");
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -783,9 +804,6 @@ int main(int argc, char *argv[])
         ROS_INFO("Please Recheck Devices! Config failed. \n");
         return 0;
     }
-
-	ros::Subscriber sub = n.subscribe("cmd_vel", 1000, chatterCallback);
-    ros::Publisher pub = n.advertise<geometry_msgs::TwistStamped>("encoder",20);
 	
      ros::Rate loop_rate( int(1000 / CtrlPerid) );
      
@@ -810,21 +828,35 @@ int main(int argc, char *argv[])
             }
             sum += alpha[j];
      }
-double sum = 0;
-double err_last[8] = {0};
+
+    ros::Subscriber sub = n.subscribe("cmd_vel", 1000, chatterCallback);
+    ros::Publisher pub = n.advertise<geometry_msgs::TwistStamped>("encoder",20);
+
+    double err_last[8] = {0};
      while(ros::ok())
      {
 
+        double SpeedX = Plan[0].plan_param[0] + Plan[0].plan_param[1]*plan_run_time + Plan[0].plan_param[2]*plan_run_time*plan_run_time + Plan[0].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
+        double SpeedY = Plan[1].plan_param[0] + Plan[1].plan_param[1]*plan_run_time + Plan[1].plan_param[2]*plan_run_time*plan_run_time + Plan[1].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
+        double SpeedZ = Plan[2].plan_param[0] + Plan[2].plan_param[1]*plan_run_time + Plan[2].plan_param[2]*plan_run_time*plan_run_time + Plan[2].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
+
+        dealCommand(SpeedX, SpeedY, SpeedZ);
+            
+        if ( plan_run_time >= plan_run_max_time ) {
+            plan_run_time = plan_run_max_time;
+        }else{
+            plan_run_time += double(CtrlPerid / 1000.0f );
+        }         
+
         for ( i = 0; i<8; i++){
             
-            double now = motor[i].plan_param[0] + motor[i].plan_param[1]*motor[i].run_time + motor[i].plan_param[2]*motor[i].run_time*motor[i].run_time + motor[i].plan_param[3]*motor[i].run_time*motor[i].run_time*motor[i].run_time;
+            double now = motor[i].plan.front();  // motor[i].plan_param[0] + motor[i].plan_param[1]*motor[i].run_time + motor[i].plan_param[2]*motor[i].run_time*motor[i].run_time + motor[i].plan_param[3]*motor[i].run_time*motor[i].run_time*motor[i].run_time;
             if ( i < 4 ){
                 ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
               
                 double err = now - motor[i].odom*57.29578f;
-                //if (i == 0) ROS_INFO("%f",err);
                
-                now = 30 * err  + 1.0 * (err - err_last[i]);
+                now = 20 * err  + 1.0 * (err - err_last[i]);
                 err_last[i] = err;
 
                 motor[i].watchdog ++;
@@ -840,18 +872,8 @@ double err_last[8] = {0};
             else{
                 ctlMotor( &motor[i] , M_spd , now , true );
             }
-
-            if ( motor[i].run_time >= motor[i].run_max_time ) {
-                motor[i].run_time = motor[i].run_max_time;
-            }else{
-                 motor[i].run_time += double(CtrlPerid / 1000.0f );
-
-            }
-
-        //if (i==0) ROS_INFO("%f",now);
                    
         }
-        //printf("%f\n",now);
 
          if (first == 1){//去除上电之后未运行里程计的误差，去掉初始值
              first7 = motor[7].odom;
@@ -884,6 +906,7 @@ double err_last[8] = {0};
 
     VCI_CloseDevice(gDevType, gDevIdx);
     ROS_INFO("VCI_CloseDevice\n");
+    
 
 	return 0;
 }

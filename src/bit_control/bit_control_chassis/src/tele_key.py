@@ -12,7 +12,6 @@ from bit_control_tool.msg import EndEffector
 import sys, select, termios, tty ,os
 import time
 
-
 msg_remote = '''
 ------------------------------
 请使用遥控器控制：
@@ -113,7 +112,7 @@ def callback(data):
                         eem_mode += eem
                         eep_mode = 0
                     else:
-                        eep = eem = 1
+                        eep = eem = 1 
                         eep_mode = eem_mode = 0
             else: 
                
@@ -173,7 +172,6 @@ def plancallback(data):
         pub.publish(twist)  
 
 
-
 if __name__ == '__main__':
 
     pub = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
@@ -194,7 +192,6 @@ if __name__ == '__main__':
     open_m = 0
     chassis = 0
     endeff = 0
-
 
     try:
         #print(msg)
@@ -320,7 +317,7 @@ if __name__ == '__main__':
                     planEnable = 0
                 lastState = state
 
-                while 1:
+                while not rospy.is_shutdown():
                     key = sys.stdin.read(1)
                     if key == ' ':
                         state = '1'
@@ -331,7 +328,7 @@ if __name__ == '__main__':
                 break
             
 
-    except   Exception as e:
+    except  Exception as e:
         print(e)
 
     finally:
