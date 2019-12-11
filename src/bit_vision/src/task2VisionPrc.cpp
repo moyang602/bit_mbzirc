@@ -561,7 +561,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         tf::Transform transform_TargetOnZed;
         transform_TargetOnZed.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
         tf::Quaternion q;
-        q.setRPY(0, 0, -Brick_RZ.D());
+        q.setRPY(0, 0, -Brick_RZ.D()/180.0*3.14159);
         transform_TargetOnZed.setRotation(q);
  
         tf::Transform transform3 = transform_ZedOnBase*transform_TargetOnZed;
@@ -589,7 +589,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         res.VisionData.Pose.position.z = transform3.getOrigin().z();
         res.VisionData.Pose.orientation.x = 0.0;
         res.VisionData.Pose.orientation.y = 0.0;
-        res.VisionData.Pose.orientation.z = Brick_RZ.D();//transform3.getRotation().getZ();
+        res.VisionData.Pose.orientation.z = Brick_RZ.D()/180.0*3.14159;//transform3.getRotation().getZ();
 
     }
     else    // 如果没有识别结果

@@ -273,11 +273,11 @@ class BuildingActionServer  // UGV建筑action服务器
             // bit_task::WriteAddress srv_write;
 
             // 视觉处理的客户端
-            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("GetVisionData");
+            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("/GetVisionData");
             bit_vision::VisionProc srv_vision;
 
             // 设定高度的客户端
-            ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("SetHeight");
+            ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("/Setheight");
             bit_control_tool::SetHeight srv_height;
 
             // simple_goal 话题发布
@@ -375,15 +375,18 @@ class BuildingActionServer  // UGV建筑action服务器
                     // MoveBaseClient.sendGoal(move_base_goal, 100); // 阻塞运行，直到成功之后才继续
 
                 // 调用视觉检测是否到达砖上
-                    srv_vision.request.ProcAlgorithm = GetBrickPos_only;
+                    srv_vision.request.ProcAlgorithm = GetBrickPos;
                     srv_vision.request.BrickType = goal->goal_task.bricks[count - fail_cnt].type;
                     
+                    ROS_INFO_STREAM("type  "<< goal->goal_task.bricks[count - fail_cnt].type);
                     client_vision.call(srv_vision);
 
+                    ros::Duration(0.5).sleep();  
+                    ROS_INFO("response:%d",srv_vision.response.VisionData.Flag);
                     if(srv_vision.response.VisionData.Flag){
-                        simp_cancel.publish(cancel_id);
+                        //simp_cancel.publish(cancel_id);
                         break;
-                    }   
+                    } 
                 }
                 // 循环结束，到达了第一块砖的位置
 

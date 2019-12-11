@@ -202,7 +202,7 @@ class pick_put_act(object):
                 rob.movel(pose, acc=a, vel=v, wait=True)
                 rospy.sleep(0.5)
 
-                rob.movej([0,0,0,0,0,-theta],acc=a, vel=1*v,wait=True, relative=True)
+                rob.movej([0,0,0,0,0,theta],acc=a, vel=1*v,wait=True, relative=True)
 
                 self.show_tell("Arrived block up 0.05m position pependicular to brick")
 

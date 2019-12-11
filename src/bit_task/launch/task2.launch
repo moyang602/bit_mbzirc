@@ -11,16 +11,19 @@
   <!--运行协同规划节点
   <node pkg="bit_plan" type="task2" name="task2" respawn="false" />-->
 
-  <!--运行任务节点
-  <node pkg="bit_task" type="task2_action_test_know" name="task2_action" respawn="false" />-->
+  <!--运行任务节点-->
+  <!--<node pkg="bit_task" type="task2_action_test_know" name="task2_action" output="screen" respawn="true" />-->
 
-  <!--运行取放砖运动节点
-  <node pkg="bit_motion" type="t2_pick_put_server.py" name="pickputAction" respawn="false" />-->
+  <!--运行取放砖运动节点-->
+  <node pkg="bit_motion" type="t2_pick_put_server.py" name="pickputAction" output="screen" respawn="true" />
+
+  <!--运行取放砖运动节点-->
+  <node pkg="bit_task" type="map_address_manage" name="address_manage_node" output="screen" respawn="true" />
 
   <!--运行找砖位置节点-->
-  <node pkg="bit_motion" type="t2_locate_server.py" name="locate_server_node" respawn="false" />
+  <!--<node pkg="bit_motion" type="t2_locate_server.py" name="locate_server_node" respawn="false" />-->
 
-  <!--运行找砖位置节点
-  <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" respawn="false" />-->
+  <!--运行找砖位置节点-->
+  <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" respawn="true" />
 
 </launch>

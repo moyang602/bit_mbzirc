@@ -46,22 +46,33 @@ datawriteto = '''
 
 '''
 def callback(data):
-	global datawriteto
-	f_out = open(r'/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/gps_kml.kml','w')
-	lon = data.longitude
-	lat = data.latitude
-	alt = data.altitude
-	print(lon,lat,alt)
-	gpsData = str(lon)+','+str(lat)+','+str(alt)+' \n'
-	datawriteto = datawriteto + gpsData
-	writeto = msg + datawriteto + msg2
-	f_out.write(writeto)
-	f_out.close()
+  global datawriteto
+  f_out = open(r'/home/mylabtop/bit_mbzirc/src/bit_hardware_interface/src/gps_kml.kml','w')
+  lon = data.longitude
+  lat = data.latitude
+  alt = data.altitude
+  print(lon,lat,alt)
+  degree_lon = int(lon)
+  minute_lon = int((lon - degree_lon)*1e2)
+  second_lon = int((lon - degree_lon - minute_lon*0.01)*1e4)
+  baifen_lon = (lon - degree_lon - minute_lon*0.01 - second_lon*0.0001)*1e6
+  # print(degree_lon,minute_lon,second_lon,baifen_lon)
+  degree_lat = int(lat)
+  minute_lat = int((lat - degree_lat)*1e2)
+  second_lat = int((lat - degree_lat - minute_lat*1e-2)*1e4)
+  baifen_lat = (lat - degree_lat - minute_lat*1e-2 - second_lat*1e-4)*1e6
+  # print(degree_lat,minute_lat,second_lat,baifen_lat)
+  gpsData = str(degree_lon+minute_lon/60.0 + second_lon/60.0/60.0 + baifen_lon/100.0/60.0/60.0)+','+str(degree_lat+minute_lat/60.0 + second_lat/60.0/60.0 + baifen_lat/100.0/60.0/60.0)+' \n'  #','+str(alt)+
+  # gpsData = str(lon)+','+str(lat)+' \n'
+  datawriteto = datawriteto + gpsData
+  writeto = msg + datawriteto + msg2
+  f_out.write(writeto)
+  f_out.close()
 
 
 if __name__ == '__main__':
 	rospy.init_node('gps_produce')
-	rospy.Subscriber("gps_data", NavSatFix, callback)
+	rospy.Subscriber("/GPS/GPS_data", NavSatFix, callback)
 
 	rospy.spin()
 	
