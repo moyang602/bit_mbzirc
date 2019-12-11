@@ -573,10 +573,10 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
         res.VisionData.header.frame_id = "base_link";
 
         res.VisionData.Flag = true;
-        res.VisionData.Pose.position.x = transform3.getOrigin().x();
+        res.VisionData.Pose.position.x = transform3.getOrigin().x()-0.017;
         if (algorithm == GetBrickPos||algorithm == GetBrickAngle)
         {
-          res.VisionData.Pose.position.y = transform3.getOrigin().y();
+          res.VisionData.Pose.position.y = transform3.getOrigin().y()+0.040;
         }
         else if(algorithm == GetBrickPos_only)
         {

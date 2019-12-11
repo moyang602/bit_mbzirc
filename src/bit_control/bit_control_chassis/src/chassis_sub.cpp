@@ -109,7 +109,7 @@ double m0p = 0;
 #define CtrlPerid 10 //ms
 
 #define deltaAng 25.0f   
-#define window 20
+#define window 8
 
 
 double sum = 0;

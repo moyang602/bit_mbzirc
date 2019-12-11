@@ -65,6 +65,19 @@ def callback(data):
     global planEnable
     #global turn_cnt
     if remoterEnable ==1:
+        if (data.linear.x+data.linear.y+data.angular.x+data.angular.y) == 0:
+            os.system('clear')
+            print(msg_remote)
+            print("遥控器归零")
+        else:
+            os.system('clear')
+            print(msg_remote)
+            print("遥控器启动")
+        if r_state == 'r':
+            print("遥控模式")
+        else:
+            print("规划模式")
+
         if data.angular.x > 0 :
             if r_state == 'r':
                 twist.linear.x  = data.angular.x * data.linear.y / 450000.0 * MAX_x
@@ -75,6 +88,7 @@ def callback(data):
                 twist.angular.z = data.angular.x * data.angular.y / 450000.0 * MAX_z 
                 
                 pub.publish(twist)  
+                print("rp")
             elif r_state == 'p':
                 planEnable = 1
         else :
@@ -146,18 +160,7 @@ def callback(data):
                 if open_p == 100: ee.MagState = 0 
                 ee.PumpState = open_p
                 pub_ee.publish(ee)
-        if (data.linear.x+data.linear.y+data.angular.x+data.angular.y) == 0:
-            os.system('clear')
-            print(msg_remote)
-            print("遥控器归零")
-        else:
-            os.system('clear')
-            print(msg_remote)
-            print("遥控器启动")
-        if r_state == 'r':
-            print("遥控模式")
-        else:
-            print("规划模式")
+        
 
             
     
@@ -170,6 +173,7 @@ def plancallback(data):
         twist.angular.y = 0
         twist.angular.z = data.angular.z 
         pub.publish(twist)  
+        print("pp")
 
 
 if __name__ == '__main__':
@@ -317,7 +321,7 @@ if __name__ == '__main__':
                     planEnable = 0
                 lastState = state
 
-                while not rospy.is_shutdown():
+                while 1:
                     key = sys.stdin.read(1)
                     if key == ' ':
                         state = '1'
