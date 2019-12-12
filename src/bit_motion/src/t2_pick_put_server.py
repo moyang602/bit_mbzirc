@@ -39,10 +39,9 @@ global floorHeight_base
 global CarHeight_base
 
 posSequence = [] # 随着摆放的过程不断填充这个list来把位置记录下来
-l = 0.05
+
 v = 0.05*4
 a = 0.3
-r = 0.01
 
 #=====================================
 GetBrickPos = 1   
@@ -430,7 +429,6 @@ if __name__ == '__main__':
             rob.set_payload(0.96, (0.004, -0.042, 0.011))
 
             pick_put_act("pickputAction")     # rospy.get_name())
-            rospy.loginfo('action server ok')
             rospy.spin() 
         except:
             time.sleep(2.0)

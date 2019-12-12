@@ -604,7 +604,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
 
         ROS_INFO_STREAM("Vision data:"<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
         ROS_INFO_STREAM("Vision angle:"<<brick_angle.D());
-        // 返回目标在末端电磁铁坐标系下的位姿
+        // 返回目标在基座坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "base_link";
 
@@ -631,7 +631,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
     else    // 如果没有识别结果
     {
         res.VisionData.header.stamp = ros::Time().now();
-        res.VisionData.header.frame_id = "zed_link";
+        res.VisionData.header.frame_id = "base_link";
 
         res.VisionData.Flag = false;
         res.VisionData.Pose.position.x = 0.0;

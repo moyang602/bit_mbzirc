@@ -253,7 +253,7 @@ add_executable(fire_position
 add_dependencies(fire_position ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(fire_position
   ${catkin_LIBRARIES}
-  /opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
+  #/opt/halcon/lib/x64-linux/libhalconcpp.so.18.05.0
 )
 
 add_executable(task2VisionPrc
