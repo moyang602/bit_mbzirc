@@ -1,0 +1,17 @@
+<launch>
+
+  <node name="interface_encoder" pkg="bit_hardware_interface" type="interface_encoder" respawn="false"> 
+  <!--output="screen"-->
+    <param name="port"       value="/dev/encoder_dev"/>  
+    <param name="baudrate"   value="9600"/>
+    <param name="loop_rate"   value="100"/>
+    
+    <param name="good_init_rotation"   value="[0.024256 4.681043 3.096655 1.533095]"/>
+    <param name="use_absolute_encoder"   value="true"/>
+
+  </node>
+
+</launch>
+
+
+

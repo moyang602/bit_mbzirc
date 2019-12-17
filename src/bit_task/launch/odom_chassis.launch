@@ -1,12 +1,16 @@
 <launch>
-
+  <!--bringup absolute encoder-->  
+  <include file="$(find bit_hardware_interface)/launch/encoder.launch" />
   
-  <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
   <!--bringup remoter-->  
+  <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
+  
+  <!--bringup io device--> 
   <include file="$(find bit_control_tool)/launch/io_control.launch" />
 
-  <!--bringup remoter-->  
+  <!--bringup IMU-->  
   <include file="$(find bit_hardware_interface)/launch/IMU.launch" />
+  
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
   

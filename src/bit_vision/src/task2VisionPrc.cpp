@@ -110,7 +110,7 @@ void rectangle_pose(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,HT
 
     Connection(ho_Regions, &ho_ConnectedRegions3);
     SelectShape(ho_ConnectedRegions3, &ho_SelectedRegions4, (HTuple("rectangularity").Append("area")), 
-    "and", (HTuple(0.85).Append(1000)), (HTuple(1).Append(100000000)));
+    "and", (HTuple(0.85).Append(70000)), (HTuple(1).Append(100000000)));
 
     try
     {

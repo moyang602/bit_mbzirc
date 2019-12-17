@@ -172,6 +172,7 @@ include_directories(
 install(PROGRAMS
   scripts/t2_pick_put_server.py
   scripts/map_dealer.py
+  scripts/test_vision.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -1,5 +1,8 @@
 <launch>
 
+  <!--bringup absolute encoder-->  
+  <include file="$(find bit_hardware_interface)/launch/encoder.launch" />
+  
   <!--bringup remoter-->  
   <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
 
