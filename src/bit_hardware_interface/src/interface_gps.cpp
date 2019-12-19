@@ -49,7 +49,7 @@ int gps_analyse (char * buff , GPRMC *gps_data)
           ROS_INFO("No Satellite!");
       }
       else {
-          ROS_INFO("SateNum:%d ,Accracy:%f ,%f %c,%f %c, %3.2fm High",gps_data->pos_state,gps_data->accu,gps_data->latitude,gps_data->la,gps_data->longitude,gps_data->lo,gps_data->altitude);
+          ROS_INFO("SateNum:%d ,Accracy:%f ,%f %c,%f %c, %3.2fm High",gps_data->pos_state,gps_data->accu,gps_data->latitude/100.0,gps_data->la,gps_data->longitude/100.0,gps_data->lo,gps_data->altitude);
       }
 
       return 0;
@@ -86,10 +86,10 @@ int main (int argc, char** argv)
     //初始化节点 
     ros::init(argc, argv, "interface_gps"); 
     //声明节点句柄 
-    ros::NodeHandle nh; 
+    ros::NodeHandle nh("~"); 
 
     //发布主题 
-    ros::Publisher GPS_pub = nh.advertise<sensor_msgs::NavSatFix>("gps", 1);
+    ros::Publisher GPS_pub = nh.advertise<sensor_msgs::NavSatFix>("/gps_data", 1);
 
 	nh.param<std::string>("port", param_port_path_, "/dev/ttyUSB0");
 	nh.param<int>("baudrate", param_baudrate_, 9600);
@@ -136,8 +136,8 @@ int main (int argc, char** argv)
 
         GPS_GetData();
         //gps_data.status="working";
-        gps_data.latitude = gprmc.latitude;
-        gps_data.longitude = gprmc.longitude;
+        gps_data.latitude = gprmc.latitude/100.0;
+        gps_data.longitude = gprmc.longitude/100.0;
         gps_data.altitude = gprmc.altitude;
     
         ser.flushInput(); 
@@ -146,4 +146,5 @@ int main (int argc, char** argv)
         ros::spinOnce(); 
         loop_rate.sleep(); 
     } 
+    ser.close();
 }

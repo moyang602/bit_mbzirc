@@ -84,6 +84,7 @@ actionlib_msgs::GoalID cancel_id;
 tf::StampedTransform T_ZedOnMap;
 tf::Transform T_BrickOnLBase;
 tf::Transform T_CarOnBrick;
+int new_goal = 1;
 
 class PickPutActionClient   // 取放砖action客户端
 {
@@ -307,11 +308,11 @@ class BuildingActionServer  // UGV建筑action服务器
 
 
             // 视觉处理的客户端
-            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("GetVisionData");
+            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("/GetVisionData");
             bit_vision::VisionProc srv_vision;
 
             // 设定高度的客户端
-            ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("SetHeight");
+            ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("/Setheight");
             bit_control_tool::SetHeight srv_height;
 
             // simple_goal 话题发布
@@ -362,6 +363,7 @@ class BuildingActionServer  // UGV建筑action服务器
                 ROS_INFO("height OK!");
             // 移动直到检测到达砖块上方
                 ros::Time start_time = ros::Time::now();  // 超时检测，记录初始时刻
+                
                 while((ros::Time::now().toSec()-start_time.toSec()) < 100){ // 检测到砖块退出，超时100s
                 // 计算位置
                     float radius = srv_find.response.radius + 0.75; //得到的砖块半径加上车体外接圆半径 sqrt(0.45^2 + 0.6^2)
@@ -370,7 +372,7 @@ class BuildingActionServer  // UGV建筑action服务器
                     this_target.header.stamp = ros::Time::now();
                     this_target.pose.position.x = srv_find.response.AddressPose.pose.position.x - radius/2.0 * cos(InitAngleToPick + count*3.1416/5); // 目标附近R/2处的圆
                     this_target.pose.position.y = srv_find.response.AddressPose.pose.position.y - radius/2.0 * sin(InitAngleToPick + count*3.1416/5);
-                    target_quat = tf::createQuaternionMsgFromYaw(InitAngleToPick - count*3.1416/5);
+                    target_quat = tf::createQuaternionMsgFromYaw(InitAngleToPick + count*3.1416/5);
                     this_target.pose.orientation = target_quat;  //srv_find.response.AddressPose.pose.orientation;//注释掉的为得到转角，但就是固定的，现在为设置转角朝向圆心
                     // 砖堆可能不是圆的，有可能会有别的形状，怎么处理
 
@@ -382,8 +384,11 @@ class BuildingActionServer  // UGV建筑action服务器
                     // this_target.pose.orientation = tf::createQuaternionMsgFromYaw(3.1416);
                     /* =============================== 删除分割线 =============================== */
                 // 发布位置
-                    simp_goal_pub.publish(this_target);
-                    ROS_INFO("published!");
+                    if (new_goal){
+                        new_goal = 0;
+                        simp_goal_pub.publish(this_target);
+                        ROS_INFO("published!");
+                    }
 
                     // move_base_goal.target_pose.header.frame_id = srv_find.response.AddressPose.header.frame_id;
                     // move_base_goal.target_pose.header.stamp = ros::Time::now();
@@ -393,15 +398,18 @@ class BuildingActionServer  // UGV建筑action服务器
                     // MoveBaseClient.sendGoal(move_base_goal, 100); // 阻塞运行，直到成功之后才继续
 
                 // 调用视觉检测是否到达砖上
-                    srv_vision.request.ProcAlgorithm = GetBrickPos_only;
+                    srv_vision.request.ProcAlgorithm = GetBrickPos;
                     srv_vision.request.BrickType = goal->goal_task.bricks[count - fail_cnt].type;
                     
+                    ROS_INFO_STREAM("type  "<< goal->goal_task.bricks[count - fail_cnt].type);
                     client_vision.call(srv_vision);
 
+                    ros::Duration(0.5).sleep();  
+                    ROS_INFO("response:%d",srv_vision.response.VisionData.Flag);
                     if(srv_vision.response.VisionData.Flag){
-                        simp_cancel.publish(cancel_id);
+                        //simp_cancel.publish(cancel_id);
                         break;
-                    }   
+                    } 
                 }
                 // 循环结束，到达了第一块砖的位置
 
@@ -571,6 +579,9 @@ void UAVmsgCallback(const bit_task::UAV_msg::ConstPtr& msg)
 void move_base_feedback(move_base_msgs::MoveBaseActionFeedback a)
 {
     cancel_id = a.status.goal_id;
+    if (a.status.ACTIVE != 1){
+        new_goal = 1;
+    }
 }
 
 int main(int argc, char *argv[])

@@ -12,7 +12,6 @@ from bit_control_tool.msg import EndEffector
 import sys, select, termios, tty ,os
 import time
 
-
 msg_remote = '''
 ------------------------------
 请使用遥控器控制：
@@ -66,6 +65,19 @@ def callback(data):
     global planEnable
     #global turn_cnt
     if remoterEnable ==1:
+        if (data.linear.x+data.linear.y+data.angular.x+data.angular.y) == 0:
+            os.system('clear')
+            print(msg_remote)
+            print("遥控器归零")
+        else:
+            os.system('clear')
+            print(msg_remote)
+            print("遥控器启动")
+        if r_state == 'r':
+            print("遥控模式")
+        else:
+            print("规划模式")
+
         if data.angular.x > 0 :
             if r_state == 'r':
                 twist.linear.x  = data.angular.x * data.linear.y / 450000.0 * MAX_x
@@ -76,6 +88,7 @@ def callback(data):
                 twist.angular.z = data.angular.x * data.angular.y / 450000.0 * MAX_z 
                 
                 pub.publish(twist)  
+                print("rp")
             elif r_state == 'p':
                 planEnable = 1
         else :
@@ -113,7 +126,7 @@ def callback(data):
                         eem_mode += eem
                         eep_mode = 0
                     else:
-                        eep = eem = 1
+                        eep = eem = 1 
                         eep_mode = eem_mode = 0
             else: 
                
@@ -147,18 +160,7 @@ def callback(data):
                 if open_p == 100: ee.MagState = 0 
                 ee.PumpState = open_p
                 pub_ee.publish(ee)
-        if (data.linear.x+data.linear.y+data.angular.x+data.angular.y) == 0:
-            os.system('clear')
-            print(msg_remote)
-            print("遥控器归零")
-        else:
-            os.system('clear')
-            print(msg_remote)
-            print("遥控器启动")
-        if r_state == 'r':
-            print("遥控模式")
-        else:
-            print("规划模式")
+        
 
             
     
@@ -171,7 +173,7 @@ def plancallback(data):
         twist.angular.y = 0
         twist.angular.z = data.angular.z 
         pub.publish(twist)  
-
+        print("pp")
 
 
 if __name__ == '__main__':
@@ -194,7 +196,6 @@ if __name__ == '__main__':
     open_m = 0
     chassis = 0
     endeff = 0
-
 
     try:
         #print(msg)
@@ -331,7 +332,7 @@ if __name__ == '__main__':
                 break
             
 
-    except   Exception as e:
+    except  Exception as e:
         print(e)
 
     finally:

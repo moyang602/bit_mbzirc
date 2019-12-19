@@ -38,6 +38,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf
   nav_msgs
+  bit_hardware_interface
   
 )
 ##   * add "message_runtime" and every package in MSG_DEP_SET to

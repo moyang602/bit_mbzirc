@@ -1,5 +1,8 @@
 <launch>
 
+  <!--bringup absolute encoder-->  
+  <include file="$(find bit_hardware_interface)/launch/encoder.launch" />
+  
   <!--bringup remoter-->  
   <include file="$(find bit_control_tool)/launch/ardu_remoter.launch" />
 
@@ -10,10 +13,10 @@
   <include file="$(find bit_hardware_interface)/launch/IMU.launch" />
 
   <!--运行底盘节点-->
-  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False" required="true"/>
+  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False"/>
 
   <!--发布里程计-->
-  <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
+  <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" respawn="False" />
 
   <!--bringup remoter-->  
   <include file="$(find robot_pose_ekf)/robot_pose_ekf.launch" />
@@ -31,16 +34,20 @@
   <node name="rviz" pkg="rviz" type="rviz"/>
 
  <!--运行控制台的节点，当遥控器不可用时可以切换为键盘-->
-  <node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen" launch-prefix="gnome-terminal -e"/>
+  <node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen"  launch-prefix="gnome-terminal -e"/>
 
   <!--bringup velodyne laser raddar-->
   <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch" />
+
+  <!--filter velodyne laser raddar-->
+  <include file="$(find laser_filters)/examples/box_filter_example.launch"/>
 
   <!--bringup cartographer slam to build map-->
   <include file="$(find cartographer_ros)/launch/velodyne2d.launch" />
 
   <!--bringup move_base to navigate -->
-  <include file="$(find my_robot_name_2dnav)/launch/nav.launch" />
+  <!--<include file="$(find my_robot_name_2dnav)/launch/nav.launch" />-->
+  <include file="$(find my_robot_name_2dnav)/launch2/move_base_burger.launch" />
 
   
 

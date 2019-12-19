@@ -30,7 +30,7 @@ void write_callback_h(const geometry_msgs::Twist& cmd_vel)
 
     if (send > 670 ) send = 670;
     if (send < 320 ) send = 320;
-    uint8_t cmd[4] = {'\0'};
+    uint8_t cmd[8] = {'\0'};
     cmd[0] = 0xaa;
     cmd[1] = ( int(send *10) >> 8 ) &0xff;
     cmd[2] =   int(send *10 ) & 0xff;
@@ -45,7 +45,7 @@ void write_callback_h(const geometry_msgs::Twist& cmd_vel)
 
 void write_callback_ee(const bit_control_tool::EndEffector & endeffCmd) 
 {
-    uint8_t cmd[4] = {'\0'};
+    uint8_t cmd[8] = {'\0'};
     cmd[0] = 0xa0;
     ROS_INFO("SetEndEffector: "); 
     if ( endeffCmd.MagState > 0 ){
@@ -86,7 +86,7 @@ int main (int argc, char** argv)
     //声明节点句柄 
     ros::NodeHandle nh; 
 
-    uint8_t rec[4] = {'\0'}; 
+    uint8_t rec[8] = {'\0'}; 
     height = 320;
 
     //订阅主题，并配置回调函数 
@@ -132,69 +132,74 @@ int main (int argc, char** argv)
     } 
 
     //指定循环的频率 
-    ros::Rate loop_rate(500); 
+    ros::Rate loop_rate(5000); 
     while(ros::ok()) 
     { 
+        try{
+            if(ser.available()){ 
+                ser.read(rec,ser.available()/8);
+                ser.flushInput();
 
-        if(ser.available()){ 
-            //ROS_INFO_STREAM("Reading from serial port\n"); 
-            
-            ser.read(rec,ser.available());
-            if (rec[0] == 0xaa)
-            {
-                if (rec[3] == 0x55){
-                    hn.x = double( rec[1] *0x100 + rec[2] )/10.0f;
-                    ROS_INFO_STREAM("rec:"<<hn.x);
-                }
-            }
-            //ROS_INFO_STREAM(hn.x<<"mm");  
-            if (rec[0] == 0xa0)
-            {
-                if (rec[3] == 0x55){
-                    if ( rec[1] == 0xbb){
-                        ee.MagState = 1;
-                    }else if( rec[1] == 0xcc){
-                        ee.PumpState = 1;
-                    }else if ( rec[1] == 0xdd ){
-                        ee.MagState = 0;
-                        ee.PumpState = 0;
+                if (rec[0] == 0xaa)
+                {
+                    if (rec[3] == 0x55){
+                        hn.x = double( rec[1] *0x100 + rec[2] )/10.0f;
+                        ROS_INFO_STREAM("rec:"<<hn.x);
                     }
                 }
+                //ROS_INFO_STREAM(hn.x<<"mm");  
+                if (rec[0] == 0xa0)
+                {
+                    if (rec[3] == 0x55){
+                        if ( rec[1] == 0xbb){
+                            ee.MagState = 1;
+                        }else if( rec[1] == 0xcc){
+                            ee.PumpState = 1;
+                        }else if ( rec[1] == 0xdd ){
+                            ee.MagState = 0;
+                            ee.PumpState = 0;
+                        }
+                    }
+                }
+            } 
+            endeff_pub.publish(ee);
+            if (hn.x >320 && hn.x <670){
+                height_pub.publish(hn);
+            }  
+            
+            if (service_ava == 1){
+                if (abs(hn.x - height)>10){
+                    uint8_t cmd[8] = {'\0'};
+                    cmd[0] = 0xaa;
+                    cmd[1] = ( int(height *10) >> 8 ) &0xff;
+                    cmd[2] =   int(height *10 ) & 0xff;
+                    cmd[3] = 0x55;
+                    ser.write(cmd,4);
+                    ROS_INFO("Service SetHeight: %3.2f mm",height); 
+                }
+                else{
+                    service_ava = 0;
+                }
+            
             }
-        } 
-        endeff_pub.publish(ee);
-        if (hn.x >320 && hn.x <670){
-            height_pub.publish(hn);
-        }  
         
-        if (service_ava == 1){
-            if (abs(hn.x - height)>10){
-                uint8_t cmd[4] = {'\0'};
-                cmd[0] = 0xaa;
-                cmd[1] = ( int(height *10) >> 8 ) &0xff;
-                cmd[2] =   int(height *10 ) & 0xff;
-                cmd[3] = 0x55;
-                ser.write(cmd,4);
-                ROS_INFO("Service SetHeight: %3.2f mm",height); 
-            }
-           
-            service_ava = 0;
-
+            // 发布TF   car_link -> base_link
+            static tf::TransformBroadcaster br;
+            tf::Transform transform;
+            transform.setOrigin(tf::Vector3(0.45, 0, hn.x/1000.0+0.3737 ));
+            tf::Quaternion q;
+            q.setRPY(0, 0, 1.57079);
+            transform.setRotation(q);
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "car_link", "base_link"));
         }
-       
-
-        // 发布TF   car_link -> base_link
-        static tf::TransformBroadcaster br;
-        tf::Transform transform;
-        transform.setOrigin(tf::Vector3(0.45, 0, hn.x/1000.0+0.3737 ));
-        tf::Quaternion q;
-        q.setRPY(0, 0, 1.57079);
-        transform.setRotation(q);
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "car_link", "base_link"));
-
+        catch (serial::IOException& e)
+        {
+            ROS_ERROR_STREAM("Error reading from the serial port " << ser.getPort() << ". Closing connection.");
+            ser.close();
+        }
         //处理ROS的信息，比如订阅消息,并调用回调函数 
         ros::spinOnce(); 
         loop_rate.sleep(); 
 
-    } 
+    }
 }

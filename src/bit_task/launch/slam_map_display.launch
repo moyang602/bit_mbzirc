@@ -1,9 +1,0 @@
-<launch>
-
-  <!--bringup remoter-->  
-  <include file="$(find bit_task)/launch/slam_map.launch" />
-
-  <!--display-->
-  <node name="rviz" pkg="rviz" type="rviz"/>
-
-</launch>

@@ -83,4 +83,7 @@
 <exec_depend>tf</exec_depend>
 <exec_depend>std_srvs</exec_depend>
 <exec_depend>OpenCV</exec_depend>
+<build_depend>message_generation</build_depend>
+<build_export_depend>message_generation</build_export_depend>
+<exec_depend>message_runtime</exec_depend>
 </package>

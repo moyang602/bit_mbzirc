@@ -13,25 +13,23 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 
-#include <bit_hardware_interface/encoder.h>
 
-
-# include <stdio.h>
-# include <stdlib.h>
-# include <string.h>
-# include <strings.h>
-# include <unistd.h>
-# include <sys/types.h>
-# include <sys/stat.h>
-# include <sys/time.h>
-# include <fcntl.h>
-# include <pthread.h>
-# include <math.h>
-# include <sys/ioctl.h> 
-# include <queue>
-# include "controlcan.h"
-# define msleep(ms)  usleep((ms)*1000)
-# define min(a,b)  (((a) < (b)) ? (a) : (b))
+#   include <stdio.h>
+#   include <stdlib.h>
+#   include <string.h>
+#   include <strings.h>
+#   include <unistd.h>
+#   include <sys/types.h>
+#   include <sys/stat.h>
+#   include <sys/time.h>
+#   include <fcntl.h>
+#   include <pthread.h>
+#   include <math.h>
+#   include <sys/ioctl.h> 
+#   include <queue>
+#   include "controlcan.h"
+#   define msleep(ms)  usleep((ms)*1000)
+#   define min(a,b)  (((a) < (b)) ? (a) : (b))
 
 
 #define MAX_CHANNELS  4     //Can设备的通道最大值，现在其实USBCan2只有两个 
@@ -94,7 +92,6 @@ double m2p = 0;
 double m1p = 0;
 double m0p = 0;
 
-double init_rotation[4] ={0.0f};
 
 //====================车辆数据=======================//
 
@@ -112,22 +109,11 @@ double init_rotation[4] ={0.0f};
 #define CtrlPerid 10 //ms
 
 #define deltaAng 25.0f   
-#define window 8
+#define window 4
 
 
 double sum = 0;
 double alpha[window] = {0};
-
-struct SpeedPlan
-{
-    std::queue<double> plan;
-    double plan_param[4];
-
-}Plan[3];
-
-double plan_run_time;
-double plan_run_max_time;
-
 
 
 //====================函数实现========================//
@@ -172,24 +158,12 @@ void * rx_thread(void *data)
             if ( can[i].Data[1] == 0xFE && can[i].Data[3] == 0x20){
                 pos = (can[i].Data[4]<<24) | (can[i].Data[5]<<16) | (can[i].Data[6]<<8) | (can[i].Data[7]);
                 if (can[i].ID < 5 ){
-                    
                     motor[can[i].ID-1].watchdog = 0;
                     motor[can[i].ID-1].odom = double(pos)/LineNum/10*3.1415926;
                     //printf("ID:%d\tpos:%3.4f\n",can[i].ID,double(pos)/LineNum/10*3.1415926);
-                    if (motor[can[i].ID-1].first_flag == 1){
-                        motor[can[i].ID-1].first_flag = 0;
-                        motor[can[i].ID-1].first_odom = motor[can[i].ID-1].odom;
-                    }
-                    motor[can[i].ID-1].odom = init_rotation[can[i].ID-1] + motor[can[i].ID-1].odom - motor[can[i].ID-1].first_odom;
-                    ROS_INFO("%f",motor[2].first_odom);
                 }
                 if ( can[i].ID == 7 || can[i].ID == 8 ){
                     motor[can[i].ID-1].odom = double(pos)/409600 * WheelC;
-                    if (motor[can[i].ID-1].first_flag == 1){
-                        motor[can[i].ID-1].first_flag = 0;
-                        motor[can[i].ID-1].first_odom = motor[can[i].ID-1].odom;
-                    }
-                    motor[can[i].ID-1].odom -= motor[can[i].ID-1].first_odom;
                     //printf("ID:%d\tpos:%3.4f\n",can[i].ID,double(pos)/409600 * WheelC);
                 }
       
@@ -274,7 +248,7 @@ int CanbusInit(unsigned Channel , unsigned Baud , unsigned TxType  ){
         pthread_create(&rx_threads[i], NULL, rx_thread, &rx_ctx[i]);
     }
 
-     // ----- wait ----------------------advertise----------------------------------
+     // ----- wait --------------------------------------------------------
 
     ROS_INFO("Successed! go to Finish Config: baud: t0=0x%02x, t1=0x%02x,\n",
         config.Timing0, config.Timing1);
@@ -305,8 +279,6 @@ void MotorInit()
         motor[i].odom = 0.0f;
         motor[i].odom_last = 0.0f;
         motor[i].watchdog = 0;
-        motor[i].first_odom = 0.0;
-        motor[i].first_flag = 1;
     }
 
     printf("Moter Init Completed !");
@@ -719,11 +691,52 @@ void dealCommand( double x, double y, double z )
     motor[6].plan.push( m2dir * sqrt (x2 * x2 + y2 * y2 ));
     motor[7].plan.push(-m3dir * sqrt (x3 * x3 + y3 * y3 ));
 
+    
+  
     for( int i = 0; i<8 ; i++ ){
-        if (motor[i].plan.size() > 1 ){  //保持长度为1的队列
+        std::queue<double> tmp;
+        double p1 = 0;
+        double p2 = 0;
+        double p01 = 0;
+        double pf1 = 0;
+        double p02 = 0;
+        double pf2 = 0;
+        double v1 = 0;
+        double v2 = 0;
+        double tf = 0.05f;
+        // printf("%d,\n",motor[i].plan.size());
+        if (motor[i].plan.size() > window ){  //保持window长度的队列
             motor[i].plan.pop();
+
+            for (int j = 0; j<window; j++){  //遍历列表取数
+                tmp.push(motor[i].plan.front());
+                if ( j < window - 1 ){
+                    p1 += tmp.back()*alpha[j]/sum;
+                }
+                if (j >= 1){
+                    p2 += tmp.back()*alpha[j-1]/sum;
+                }
+                if(j == 0) p01 = tmp.back();
+                if(j == 1) p02 = tmp.back();
+                if (j == window - 1) pf2 = tmp.back();
+                if (j == window - 2) pf1 = tmp.back(); 
+                motor[i].plan.pop();
+            }
+            while(!tmp.empty()){        //还原原队列
+                motor[i].plan.push(tmp.front());
+                tmp.pop();
+            }
+            v1 = ( pf1 - p01 ) / ( (window - 2) * tf);  //固定频率为20Hz
+            v2 = ( pf2 - p02 ) / ( (window - 2) * tf);  //固定频率为20Hz
+            motor[i].plan_param[0] = p1;
+            motor[i].plan_param[1] = v1;
+            motor[i].plan_param[2] = 3/(tf*tf)*(p2 - p1) -2/tf*v1 -1/tf*v2;
+            motor[i].plan_param[3] = -2/(tf*tf*tf)*(p2 - p1) +1/(tf*tf)*(v2 + v1);
+            motor[i].run_time = 0;
+            motor[i].run_max_time = tf;
+        
         }
-    }    
+    }
     
     // ctlMotor( &motor[7] , M_spd , -m3dir * sqrt (x3 * x3 + y3 * y3 ), true );   
     // ctlMotor( &motor[6] , M_spd , m2dir * sqrt (x2 * x2 + y2 * y2 ), true );
@@ -739,65 +752,14 @@ void dealCommand( double x, double y, double z )
  */
 void chatterCallback(const geometry_msgs::Twist& cmd_vel)
 {
-    Plan[0].plan.push(-cmd_vel.linear.y*100);
-    Plan[1].plan.push(cmd_vel.linear.x*100);
-    Plan[2].plan.push(1.25*cmd_vel.angular.z);
 
-    for (int i = 0 ; i<3; i ++ ){
-        std::queue<double> tmp;
-        double p1 = 0;
-        double p2 = 0;
-        double p01 = 0;
-        double pf1 = 0;
-        double p02 = 0;
-        double pf2 = 0;
-        double v1 = 0;
-        double v2 = 0;
-        double tf = 0.05f;
-        // printf("%d,\n",motor[i].plan.size());
-        if (Plan[i].plan.size() > window ){  //保持window长度的队列
-            Plan[i].plan.pop();
-
-            for (int j = 0; j<window; j++){  //遍历列表取数
-                tmp.push(Plan[i].plan.front());
-                if ( j < window - 1 ){
-                    p1 += tmp.back()*alpha[j]/sum;
-                }
-                if (j >= 1){
-                    p2 += tmp.back()*alpha[j-1]/sum;
-                }
-                if(j == 0) p01 = tmp.back();
-                if(j == 1) p02 = tmp.back();
-                if (j == window - 1) pf2 = tmp.back();
-                if (j == window - 2) pf1 = tmp.back(); 
-                Plan[i].plan.pop();
-            }
-            while(!tmp.empty()){        //还原原队列
-                Plan[i].plan.push(tmp.front());
-                tmp.pop();
-            }
-            v1 = ( pf1 - p01 ) / ( (window - 2) * tf);  //固定频率为20Hz
-            v2 = ( pf2 - p02 ) / ( (window - 2) * tf);  //固定频率为20Hz
-            Plan[i].plan_param[0] = p1;
-            Plan[i].plan_param[1] = v1;
-            Plan[i].plan_param[2] = 3/(tf*tf)*(p2 - p1) -2/tf*v1 -1/tf*v2;
-            Plan[i].plan_param[3] = -2/(tf*tf*tf)*(p2 - p1) +1/(tf*tf)*(v2 + v1);
-
-            plan_run_time = 0;
-            plan_run_max_time = tf;                    
-        }
-    }
-        
-    
-
-	//dealCommand( -cmd_vel.linear.y*100 , cmd_vel.linear.x*100 , 1.25*cmd_vel.angular.z );  // x:y: cm/s ; z: rad/s ;
+	dealCommand( -cmd_vel.linear.y*100 , cmd_vel.linear.x*100 , 1.25*cmd_vel.angular.z );  // x:y: cm/s ; z: rad/s ;
     //askPos(&motor[2]);
 
     //ROS_INFO("\nx: %1.4f \r\ny: %1.4f \r\nz: %1.4f \r\n",cmd_vel.linear.y,cmd_vel.linear.x,cmd_vel.angular.z); 
     
 	//ROS_INFO("I heard:");
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -807,12 +769,29 @@ int main(int argc, char *argv[])
     bool quit = 0;
     double x , y , z = 0.0f;
     int pub_cnt=0;
-    double err_last[8] = {0};
 
-    geometry_msgs::TwistStamped en;
+    double first = 1;
+    double first2, first3, first6, first7 = 0.0f;
 
-    //初始化规划所需要的参数
-    for (int j = 0; j<window-1; j++){  
+	ros::init(argc, argv, "chassis_sub");
+
+	ros::NodeHandle n;
+
+	MotorInit();
+	if ( !CanbusInit(CAN1 , BAUD_500K ,  NORMAL )  )  
+    {
+        ROS_INFO("Please Recheck Devices! Config failed. \n");
+        return 0;
+    }
+
+	ros::Subscriber sub = n.subscribe("cmd_vel", 1000, chatterCallback);
+    ros::Publisher pub = n.advertise<geometry_msgs::TwistStamped>("encoder",20);
+	
+     ros::Rate loop_rate( int(1000 / CtrlPerid) );
+     
+     geometry_msgs::TwistStamped en;
+
+     for (int j = 0; j<window-1; j++){  //初始化参数
            
             //用钟形分段直线来计算权重系数
             if ( j < int((window - 1)/2) ){
@@ -831,69 +810,21 @@ int main(int argc, char *argv[])
             }
             sum += alpha[j];
      }
-
-	ros::init(argc, argv, "chassis_sub");
-	ros::NodeHandle n;
-    ros::Subscriber sub = n.subscribe("cmd_vel", 1000, chatterCallback);
-    ros::Publisher pub = n.advertise<geometry_msgs::TwistStamped>("encoder",20);
-
-    ros::Duration(2.0).sleep();  // 等待服务启动
-
-    // 调用服务得到初始转动角度
-    ros::ServiceClient client_encoder = n.serviceClient<bit_hardware_interface::encoder>("/interface_encoder/clbEncoder");
-    bit_hardware_interface::encoder srv_encoder;
-
-    ROS_INFO("Waiting for absolute encoder");
-    while(1){
-        client_encoder.call(srv_encoder);
-        if (srv_encoder.response.success){
-            for (int i = 0; i< 4; i++){
-                init_rotation[i] = srv_encoder.response.init_pos[i] ;
-            }
-            break;
-        }
-    }
-    ROS_INFO("Got result");
-
-	MotorInit();        //初始化电机结构体
-	if ( !CanbusInit(CAN1 , BAUD_500K ,  NORMAL )  )    //初始化USB-CAN
-    {
-        ROS_INFO("Please Recheck Devices! Config failed. \n");
-        return 0;
-    }
-    ros::Duration(1.0).sleep();     // 等待接收电机心跳报文
-
-    ros::Rate loop_rate( int(1000 / CtrlPerid) );
-
+double sum = 0;
+double err_last[8] = {0};
      while(ros::ok())
      {
 
-        // 计算速度规划的插值
-        double SpeedX = Plan[0].plan_param[0] + Plan[0].plan_param[1]*plan_run_time + Plan[0].plan_param[2]*plan_run_time*plan_run_time + Plan[0].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
-        double SpeedY = Plan[1].plan_param[0] + Plan[1].plan_param[1]*plan_run_time + Plan[1].plan_param[2]*plan_run_time*plan_run_time + Plan[1].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
-        double SpeedZ = Plan[2].plan_param[0] + Plan[2].plan_param[1]*plan_run_time + Plan[2].plan_param[2]*plan_run_time*plan_run_time + Plan[2].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
-
-        // 在车身分解速度分量
-        dealCommand(SpeedX, SpeedY, SpeedZ);
-            
-        if ( plan_run_time >= plan_run_max_time ) {
-            plan_run_time = plan_run_max_time;
-        }else{
-            plan_run_time += double(CtrlPerid / 1000.0f );
-        }       
-
-        // 循环8个电机控制
         for ( i = 0; i<8; i++){
             
-            double now = motor[i].plan.front(); 
-             
+            double now = motor[i].plan_param[0] + motor[i].plan_param[1]*motor[i].run_time + motor[i].plan_param[2]*motor[i].run_time*motor[i].run_time + motor[i].plan_param[3]*motor[i].run_time*motor[i].run_time*motor[i].run_time;
             if ( i < 4 ){
-                //ROS_INFO("%d",motor[i].watchdog);   //这里必须打印，如果不打印有问题
+                ROS_INFO("%d",motor[i].watchdog);//这里必须打印，如果不打印有问题
               
                 double err = now - motor[i].odom*57.29578f;
-                ROS_INFO("%d,%f",i,motor[i].odom);
-                  
-                now = 20 * err  + 1.0 * (err - err_last[i]);
+                //if (i == 0) ROS_INFO("%f",err);
+               
+                now = 30 * err  + 1.0 * (err - err_last[i]);
                 err_last[i] = err;
 
                 motor[i].watchdog ++;
@@ -909,35 +840,50 @@ int main(int argc, char *argv[])
             else{
                 ctlMotor( &motor[i] , M_spd , now , true );
             }
+
+            if ( motor[i].run_time >= motor[i].run_max_time ) {
+                motor[i].run_time = motor[i].run_max_time;
+            }else{
+                 motor[i].run_time += double(CtrlPerid / 1000.0f );
+
+            }
+
+        //if (i==0) ROS_INFO("%f",now);
                    
         }
+        //printf("%f\n",now);
 
-        en.header.stamp = ros::Time().now();
-        en.twist.linear.x = motor[7].odom;
-        en.twist.linear.y = motor[6].odom;
-        en.twist.angular.x = motor[3].odom;
-        en.twist.angular.y = motor[2].odom;
-        pub.publish(en);
+         if (first == 1){//去除上电之后未运行里程计的误差，去掉初始值
+             first7 = motor[7].odom;
+             first6 = motor[6].odom;
+            //  first3 = motor[3].odom;
+            //  first2 = motor[2].odom;
+             first = 0;
+         }
+            en.header.stamp = ros::Time().now();
+            en.twist.linear.x = motor[7].odom - first7;
+            en.twist.linear.y = motor[6].odom - first6;
+            en.twist.angular.x = motor[3].odom; // - first3;
+            en.twist.angular.y = motor[2].odom; // - first2;
+            pub.publish(en);
 
-        ros::spinOnce();
-        loop_rate.sleep();
+            ros::spinOnce();
+            loop_rate.sleep();
 
-     }
-
-     for(int i = 0; i<8; i++){
-         stop(i);
      }
 
 	for (i = 0; i < MAX_CHANNELS; i++)
     {
         if ((gChMask & (1 << i)) == 0) continue;
+
         rx_ctx[i].stop = 1;
+
         pthread_join(rx_threads[i], NULL);
+
     }
 
     VCI_CloseDevice(gDevType, gDevIdx);
     ROS_INFO("VCI_CloseDevice\n");
-    
 
 	return 0;
 }

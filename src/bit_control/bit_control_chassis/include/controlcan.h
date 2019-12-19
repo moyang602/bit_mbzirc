@@ -93,11 +93,9 @@ typedef struct {
 	double odom;
 	double odom_last;
 	std::queue<double> plan;
-	double plan_param[4];
-	double run_time;
-	double run_max_time;
 	int watchdog;
-
+	double first_odom;
+	bool first_flag;
 
 } Motor;
 

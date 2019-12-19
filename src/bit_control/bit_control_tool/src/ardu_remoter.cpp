@@ -126,4 +126,6 @@ int main (int argc, char** argv)
         ros::spinOnce(); 
         loop_rate.sleep(); 
     } //
+    ser.close();
+    system("killall gnome-terminal-server");
 }
