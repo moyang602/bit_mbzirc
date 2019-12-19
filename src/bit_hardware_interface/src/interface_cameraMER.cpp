@@ -10,9 +10,7 @@
 
 using namespace cv;
 
-bool subscriber_connected_;  // 订阅者连接状态
-ros::Publisher pub;	// 图像发布器
-std::string param_MsgName;
+
 
 // MER相机相关
 GX_DEV_HANDLE g_hDevice = NULL;///< 设备句柄
@@ -24,26 +22,6 @@ int64_t g_nColorFilter = GX_COLOR_FILTER_NONE;      ///< bayer插值的参数
 void *g_pframeInfoData = NULL;                      ///< 帧信息数据缓冲区
 size_t g_nframeInfoDataSize = 0;                    ///< 帧信息数据长度
 
-void subscribeCallback()
-{
-  if (pub.getNumSubscribers() > 0)
-  {
-    if (!subscriber_connected_)
-    {
-      ROS_INFO_STREAM(param_MsgName<<"  Starting stream");
-      subscriber_connected_ = true;
-    }
-  }
-  else
-  {
-    if (subscriber_connected_)
-    {
-      ROS_INFO_STREAM(param_MsgName<<"  Stopping stream");
-      //camera_.StopGrab();
-      subscriber_connected_ = false;
-    }
-  }
-}
 
 //----------------------------------------------------------------------------------
 /**
@@ -126,11 +104,48 @@ void ProcessData(void * pImageBuf, void * pImageRaw8Buf, void * pImageRGBBuf, in
 bool GrabImage(bit_hardware_interface::MER_srv::Request  &req,
                bit_hardware_interface::MER_srv::Response &res)
 {
+    GX_STATUS status = GX_STATUS_SUCCESS;
     ROS_INFO("The exposure_time is %lf", req.exposure_time);
-    //status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, req.exposure_time);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, req.exposure_time);
 
+    status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
+    
+    status = GXGetImage(g_hDevice, &g_frameData, 100);
 
+    if(status == 0)
+    {
+        if(g_frameData.nStatus == 0)
+        {
+            //printf("采集成功: 宽：%d 高：%d\n", g_frameData.nWidth, g_frameData.nHeight);
 
+            //将Raw数据处理成RGB数据
+            ProcessData(g_frameData.pImgBuf, 
+                        g_pRaw8Buffer, 
+                        g_pRGBframeData, 
+                        g_frameData.nWidth, 
+                        g_frameData.nHeight,
+                        g_nPixelFormat,
+                        g_nColorFilter);
+            cv::Mat MatImg(g_frameData.nHeight,g_frameData.nWidth,CV_8UC3, (unsigned char*)g_pRGBframeData);
+
+            sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "rgb8", MatImg).toImageMsg();
+
+            res.success_flag = true;
+            res.MER_image = *msg;
+            return true;
+        }
+        else
+        {
+            ROS_INFO("Grab error, code: %d\n", g_frameData.nStatus);
+            res.success_flag = false;
+            return false;
+        }
+    }
+    else
+    {
+        res.success_flag = false;
+        return false;
+    }
 
 }
 
@@ -139,13 +154,7 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "interface_cameraMER");
     //声明节点句柄 
-    ros::NodeHandle nh("~");
-
-    ros::SubscriberStatusCallback rsscb = boost::bind(&subscribeCallback);
-
-	nh.param<std::string>("MsgName", param_MsgName, "imageMER");
-
-    pub = nh.advertise<sensor_msgs::Image>(param_MsgName, 1, rsscb, rsscb);
+    ros::NodeHandle nh;
 
     //-------------  MER相机处理  -----------------//
 
@@ -257,23 +266,21 @@ int main(int argc, char *argv[])
 	GXGetBufferLength(g_hDevice, GX_BUFFER_FRAME_INFORMATION, &g_nframeInfoDataSize);
 	g_pframeInfoData = malloc(g_nframeInfoDataSize);
 
-
     printf("nPayLoadSize = %ld\n",nPayLoadSize);
-    ros::Rate loop_rate(20);
-    while (ros::ok())
-    {
-        status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
-        if(g_frameData.pImgBuf == NULL)
-		{
-			continue;
-		}
 
-        
 
-        ros::spinOnce();
-        loop_rate.sleep();
-    }
-    
+
+    // 开启采图服务
+    ros::ServiceServer service = nh.advertiseService("GrabMERImage",GrabImage);
+
+    ROS_INFO_STREAM("Server GrabMERImage start!");
+
+    ros::spin();
+
+
+
+
+
     //发送停采命令
 	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
 
