@@ -79,5 +79,8 @@
   <exec_depend>actionlib</exec_depend>
   <exec_depend>actionlib_msgs</exec_depend>
 
+  <build_depend>tf</build_depend>
+  <build_export_depend>tf</build_export_depend>
+  <exec_depend>tf</exec_depend>
 
 </package>

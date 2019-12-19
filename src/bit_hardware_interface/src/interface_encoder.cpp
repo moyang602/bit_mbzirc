@@ -10,7 +10,7 @@
 #include <serial/serial.h>  //ROS已经内置了的串口包 
 #include <std_msgs/String.h> 
 
-#include <bit_hardware_interface/encoder.h>
+#include <bit_hardware_interface/encoder_srv.h>
 
 
 #define CNT_NUM 10
@@ -27,8 +27,8 @@ bool data_ready = 0;
 std::string param_good_init_rotation_;
 bool use_absolute_encoder_ = true;
 
-bool clbEncoder(bit_hardware_interface::encoder::Request&  req,
-                   bit_hardware_interface::encoder::Response& res)
+bool clbEncoder(bit_hardware_interface::encoder_srv::Request&  req,
+                   bit_hardware_interface::encoder_srv::Response& res)
 {
     ros::Time start = ros::Time::now();
     while(1){
@@ -36,11 +36,11 @@ bool clbEncoder(bit_hardware_interface::encoder::Request&  req,
             for (int i = 0;i<4; i++){
                 res.init_pos.push_back(0.0f); 
             }
-            res.success = 1;
+            res.success_flag = 1;
             break;
         }
         if ( (ros::Time::now().toSec() - start.toSec()) > 5.0 ){
-            res.success = 0;
+            res.success_flag = 0;
             break;
         }
         if (data_ready) {
@@ -48,7 +48,7 @@ bool clbEncoder(bit_hardware_interface::encoder::Request&  req,
             res.init_pos.push_back(res_encoder[2]); 
             res.init_pos.push_back(res_encoder[1]); 
             res.init_pos.push_back(res_encoder[0]); 
-            res.success = 1;
+            res.success_flag = 1;
             break;
         }
     }

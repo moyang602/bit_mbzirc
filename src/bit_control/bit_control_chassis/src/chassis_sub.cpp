@@ -13,8 +13,7 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 
-#include <bit_hardware_interface/encoder.h>
-
+#include <bit_hardware_interface/encoder_srv.h>
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -840,13 +839,13 @@ int main(int argc, char *argv[])
     ros::Duration(2.0).sleep();  // 等待服务启动
 
     // 调用服务得到初始转动角度
-    ros::ServiceClient client_encoder = n.serviceClient<bit_hardware_interface::encoder>("/interface_encoder/clbEncoder");
-    bit_hardware_interface::encoder srv_encoder;
+    ros::ServiceClient client_encoder = n.serviceClient<bit_hardware_interface::encoder_srv>("/interface_encoder/clbEncoder");
+    bit_hardware_interface::encoder_srv srv_encoder;
 
     ROS_INFO("Waiting for absolute encoder");
     while(1){
         client_encoder.call(srv_encoder);
-        if (srv_encoder.response.success){
+        if (srv_encoder.response.success_flag){
             for (int i = 0; i< 4; i++){
                 init_rotation[i] = srv_encoder.response.init_pos[i] ;
             }

@@ -22,9 +22,9 @@ find_package(
   cv_bridge 
   image_transport 
   geometry_msgs 
-  tf 
-  std_srvs 
   OpenCV
+  std_srvs
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -68,7 +68,7 @@ find_package(
 
 ## Generate services in the 'srv' folder
 add_service_files(FILES
-  encoder.srv
+  encoder_srv.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -129,8 +129,6 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include ${catkin_INCLUDE_DIRS}
-# include
-  ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   include/serial
   include/cameraIR
