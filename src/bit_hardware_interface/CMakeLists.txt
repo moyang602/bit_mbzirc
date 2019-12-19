@@ -4,10 +4,15 @@ project(bit_hardware_interface)
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
 
+# 通过 locate OpenCVConfig.cmake 查找
+set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev/)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS 
+find_package(
+  catkin REQUIRED COMPONENTS 
+  OpenCV REQUIRED 
   roscpp 
   rospy 
   std_msgs 
@@ -15,15 +20,14 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs 
   cv_bridge 
   image_transport 
-  geometry_msgs
-  tf
-  std_srvs
+  geometry_msgs 
+  tf 
+  std_srvs 
   OpenCV
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -127,8 +131,10 @@ include_directories(
   include ${catkin_INCLUDE_DIRS}
 # include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
   include/serial
   include/cameraIR
+  include/xml
 )
 
 ## Declare a C++ library
@@ -197,7 +203,7 @@ install(PROGRAMS
 # )
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
+# install(FILESinclude_directories(./)
 #   # myfile1
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
@@ -217,6 +223,7 @@ install(PROGRAMS
 # catkin_add_nosetests(test)
 link_directories(lib
   lib/HCNetSDKCom
+  lib/XmlBase
 )
 
 
@@ -254,4 +261,5 @@ target_link_libraries(interface_camerair
   HCCore
   hcnetsdk
   PlayCtrl
+  XmlBase
 )

@@ -5,145 +5,12 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include "HCNetSDK.h"
-#include "LinuxPlayM4.h"
+#include "XmlBase.h"
 using namespace cv;
-
-LONG nPort=-1;
-HWND hWnd=0;
 
 bool subscriber_connected_;  // 订阅者连接状态
 ros::Publisher pub;	// 图像发布器
 std::string param_MsgName;
-
-
-//change vedio format from yv12 to YUV
-void yv12toYUV(char *outYuv, char *inYv12, int width, int height,int widthStep)  
-{  
-   int col,row;  
-   unsigned int Y,U,V;  
-   int tmp;  
-   int idx;   
-
-    for (row=0; row<height; row++)  
-    {  
-        idx=row * widthStep;  
-        int rowptr=row*width;  
-
-        for (col=0; col<width; col++)  
-        {  
-            //int colhalf=col>>1;  
-            tmp = (row/2)*(width/2)+(col/2);    
-            Y=(unsigned int) inYv12[row*width+col];  
-            U=(unsigned int) inYv12[width*height+width*height/4+tmp];  
-            V=(unsigned int) inYv12[width*height+tmp];  
-
-            outYuv[idx+col*3]   = Y;  
-            outYuv[idx+col*3+1] = U;  
-            outYuv[idx+col*3+2] = V;
-        }  
-    }
-} 
-
-
-//解码回调 视频为YUV数据(YV12)，音频为PCM数据  
-void CALLBACK DecCBFun(int nPort,char * pBuf,int nSize,FRAME_INFO * pFrameInfo, void* nReserved1,int nReserved2)  
-{  
-    long lFrameType = pFrameInfo->nType;  
-    
-    if(lFrameType ==T_YV12)  //YV12
-    {  
-        //ROS_INFO("nSize = %d, nWidth = %d, nHeight = %d",nSize, pFrameInfo->nWidth,pFrameInfo->nHeight);
-        
-        IplImage* pImgYCrCb = cvCreateImage(cvSize(pFrameInfo->nWidth,pFrameInfo->nHeight), IPL_DEPTH_8U, 3);//得到图像的Y分量    
-        yv12toYUV(pImgYCrCb->imageData, pBuf, pFrameInfo->nWidth,pFrameInfo->nHeight,pImgYCrCb->widthStep);//得到全部RGB图像  
-        
-        //申请内存
-        IplImage* pImg = cvCreateImage(cvSize(pFrameInfo->nWidth,pFrameInfo->nHeight), IPL_DEPTH_8U, 3);  
-        IplImage* motion = cvCreateImage(cvSize(pFrameInfo->nWidth,pFrameInfo->nHeight), IPL_DEPTH_8U, 1);  
-        
-        cvCvtColor(pImgYCrCb,pImg,CV_YCrCb2RGB);
-
-        Mat MatImg(cvarrToMat(pImg));
-
-        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", MatImg).toImageMsg();
-
-        if (subscriber_connected_)
-		{
-            pub.publish(msg);
-        }
-
-        cvReleaseImage(&pImgYCrCb); 
-        cvReleaseImage(&pImg);
-    }
-
-    if(lFrameType ==T_AUDIO16)
-    {
-        //PCM    
-    }
-
-}
-
-DWORD totalBufSize = 0;
-BYTE TotolBuffer[11059200];
-void CALLBACK g_RealDataCallBack_V30(LONG lRealHandle, DWORD dwDataType, BYTE *pBuffer,DWORD dwBufSize,void* dwUser)
-{
-    DWORD dRet; 
-
-    switch (dwDataType)
-    {
-    case NET_DVR_SYSHEAD: //系统头
-
-        if (!PlayM4_GetPort(&nPort)) //获取播放库未使用的通道号  
-        {  
-            break;  
-        }  
-        if(dwBufSize > 0)  
-        {   
-            if (!PlayM4_OpenStream(nPort,pBuffer,dwBufSize,1024*1024))  
-            {  
-                dRet=PlayM4_GetLastError(nPort);  
-                break;  
-            } 
-            //设置解码回调函数 只解码不显示  
-            if (!PlayM4_SetDecCallBack(nPort,DecCBFun))  
-            {  
-                dRet=PlayM4_GetLastError(nPort);  
-                break;  
-            }  
-            //打开视频解码  
-            if (!PlayM4_Play(nPort,hWnd))  
-            {  
-                dRet=PlayM4_GetLastError(nPort);  
-                break;  
-            }  
-
-            //打开音频解码, 需要码流是复合流  
-            if (!PlayM4_PlaySoundShare(nPort))  
-            {  
-                dRet=PlayM4_GetLastError(nPort);  
-                break;  
-            }         
-        }  
-        break; 
-
-
-    case NET_DVR_STREAMDATA: //码流数据
-        if (dwBufSize > 0 && nPort != -1)  
-        {  
-            BOOL inData=PlayM4_InputData(nPort,pBuffer,dwBufSize); 
-
-            while (!inData)  
-            {  
-                waitKey(0);  
-                inData=PlayM4_InputData(nPort,pBuffer,dwBufSize);  
-                printf("PlayM4_InputData failed \n");     
-            }  
-        }
-        break;
-    default: //其他数据
-        break;
-    }
-}
 
 void CALLBACK g_ExceptionCallBack(DWORD dwType, LONG lUserID, LONG lHandle, void *pUser)
 {
@@ -179,6 +46,13 @@ void subscribeCallback()
     }
   }
 }
+
+union byte2float
+{
+    unsigned char bytebuf[4];
+    float floatbuf;
+};
+
 
 int main(int argc, char *argv[])
 {
@@ -231,6 +105,7 @@ int main(int argc, char *argv[])
     long lUserID;
 
     //登录参数，包括设备地址、登录用户、密码等
+
     NET_DVR_USER_LOGIN_INFO struLoginInfo = {0};        // 登录参数
     struLoginInfo.bUseAsynLogin = 0;                    // 同步登录方式
     strcpy(struLoginInfo.sDeviceAddress, "192.168.50.11"); //设备 IP 地址
@@ -252,44 +127,107 @@ int main(int argc, char *argv[])
     ROS_INFO("IR camera login success!");
     /********************************************/
    
+    // 配置热成像原始数据为“全屏测温数据”
+    char StatusBuffer[10240] = { 0 };
+	char OutBuffer[10240] = { 0 };
+	char InBuffer[10240] = { 0 };
+	CXmlBase xmlBase;
+	int dwRet;
+	
+    // NET_DVR_STDXMLConfig参数
+    NET_DVR_XML_CONFIG_INPUT lpInputParam = {0};
 
-    //---------------------------------------
-    //启动预览并设置回调数据流
-    LONG lRealPlayHandle;
+    lpInputParam.dwSize = sizeof(lpInputParam);
 
-    NET_DVR_PREVIEWINFO struPlayInfo = {0};
-    struPlayInfo.hPlayWnd = 0; //需要 SDK 解码时句柄设为有效值，仅取流不解码时可设为空
-    struPlayInfo.lChannel = 1; //预览通道号
-    struPlayInfo.dwStreamType = 0; //0-主码流，1-子码流，2-码流 3，3-码流 4，以此类推
-    struPlayInfo.dwLinkMode = 0; //0- TCP 方式，1- UDP 方式，2- 多播方式，3- RTP 方式，4-RTP/RTSP，5-RSTP/HTTP
-    struPlayInfo.bBlocked = 1; //0- 非阻塞取流，1- 阻塞取流
-    //struPlayInfo.byProtoType = 0; //应用层取流协议：0- 私有协议，1- RTSP 协议
+    xmlBase.CreateRoot("ThermalStreamParam");
+	xmlBase.SetAttribute("version", "2.0");
+	xmlBase.AddNode("videoCodingType", "pixel-to-pixel_thermometry_data");
+	xmlBase.OutOfElem();
+	xmlBase.WriteToBuf(InBuffer, sizeof(InBuffer), dwRet);
 
-    lRealPlayHandle = NET_DVR_RealPlay_V40(lUserID, &struPlayInfo, g_RealDataCallBack_V30, NULL);
-    if (lRealPlayHandle < 0)
+    lpInputParam.lpRequestUrl = (void*)"PUT /ISAPI/Thermal/channels/1/streamParam";   //请求信令，字符串格式
+    lpInputParam.dwRequestUrlLen = sizeof("PUT /ISAPI/Thermal/channels/1/streamParam"); //请求信令长度，字符串长度
+    lpInputParam.dwRecvTimeOut = 3000;                                  //接收超时时间，单位：ms，填0则使用默认超时5s
+    lpInputParam.byForceEncrpt = 0;                                     //是否强制加密，0-否，1-是
+    lpInputParam.byNumOfMultiPart = 0;                                  //0-无效，其他值表示报文分段个数，非零时lpInBuffer传入的是NET_DVR_MIME_UNIT结构体数组的指针，该值即代表结构体个数
+    lpInputParam.lpInBuffer = InBuffer;                                 //输入参数缓冲区，XML格式
+    lpInputParam.dwInBufferSize = sizeof(InBuffer);                     //输入参数缓冲区大小
+
+    NET_DVR_XML_CONFIG_OUTPUT lpOutputParam = {0};
+    lpOutputParam.dwSize = sizeof(lpOutputParam);
+
+    lpOutputParam.lpOutBuffer = OutBuffer;
+	lpOutputParam.dwOutBufferSize = sizeof(OutBuffer);
+	lpOutputParam.lpStatusBuffer = StatusBuffer;
+	lpOutputParam.dwStatusSize = sizeof(StatusBuffer);
+
+    if (NET_DVR_STDXMLConfig(lUserID, &lpInputParam, &lpOutputParam))
     {
-        ROS_INFO("NET_DVR_RealPlay_V40 error");
-        NET_DVR_Logout(lUserID);
-        NET_DVR_Cleanup();
-        return -1;
     }
-    
+    else
+    {
+        ROS_INFO("StatusBuffer:%s", (char*)lpInputParam.lpRequestUrl);
+    }
+
+    char pJpegPicBuff[500000] = { 0 };  //Jpeg图片指针
+	char pP2PDataBuff[500000] = { 0 };  //全屏测温数据指针      384*288*4 = 442368
+
+    NET_DVR_JPEGPICTURE_WITH_APPENDDATA lpJpegWithAppend;
+    lpJpegWithAppend.pJpegPicBuff = pJpegPicBuff;
+    lpJpegWithAppend.dwJpegPicLen = sizeof(pJpegPicBuff);
+    lpJpegWithAppend.pP2PDataBuff = pP2PDataBuff;
+    lpJpegWithAppend.dwP2PDataLen = sizeof(pP2PDataBuff);
+
     ros::Rate loop_rate(25);
     while (ros::ok())
     {
+        NET_DVR_CaptureJPEGPicture_WithAppendData(lUserID, struDeviceInfoV40.struDeviceV30.byStartChan, &lpJpegWithAppend);
+
+        DWORD   Size = lpJpegWithAppend.dwSize;
+        DWORD   Channel = lpJpegWithAppend.dwChannel;//通道号
+        DWORD   JpegPicLen = lpJpegWithAppend.dwJpegPicLen;//Jpeg图片长度
+        DWORD   JpegPicWidth = lpJpegWithAppend.dwJpegPicWidth;  // 图像宽度
+        DWORD   JpegPicHeight = lpJpegWithAppend.dwJpegPicHeight;  //图像高度
+        DWORD   P2PDataLen = lpJpegWithAppend.dwP2PDataLen;//全屏测温数据长度
+        BYTE    IsFreezedata = lpJpegWithAppend.byIsFreezedata;//是否数据冻结 0-否 1-是
+
+        unsigned char array[288][384];
+        unsigned char min = 255;
+        unsigned char max = 0;
+        for (size_t i = 0; i < 288; i++)
+        {
+            for (size_t j = 0; j < 384; j++)
+            {
+                union byte2float xbuf;
+                xbuf.bytebuf[0] = (unsigned char)pP2PDataBuff[0+(i*384+j)*4];
+                xbuf.bytebuf[1] = (unsigned char)pP2PDataBuff[1+(i*384+j)*4];
+                xbuf.bytebuf[2] = (unsigned char)pP2PDataBuff[2+(i*384+j)*4];
+                xbuf.bytebuf[3] = (unsigned char)pP2PDataBuff[3+(i*384+j)*4];
+                array[i][j] = (unsigned char)(xbuf.floatbuf - 0 )*2;
+                if (array[i][j]>max)
+                {
+                    max = array[i][j];
+                }
+                else if (array[i][j]<min)
+                {
+                    min = array[i][j];
+                }
+            }
+        }
+        ROS_INFO("max = %d, min = %d",max, min);
+        cv::Mat MatImg(288,384,CV_8UC1, (unsigned char*)array);
+
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "8UC1", MatImg).toImageMsg();
+
+        if (subscriber_connected_)
+        {
+            pub.publish(msg);
+        }
+
         ros::spinOnce();
         loop_rate.sleep();
     }
-
-    //关闭预览
-    NET_DVR_StopRealPlay(lRealPlayHandle);
-    //---------------------------------------
-
-    if(!NET_DVR_StopRealPlay(lRealPlayHandle))  
-    {  
-        printf("NET_DVR_StopRealPlay error! Error number: %d\n", NET_DVR_GetLastError());  
-        return -1;
-    } 
+   
 
     //注销设备
     NET_DVR_Logout_V30(lUserID);
