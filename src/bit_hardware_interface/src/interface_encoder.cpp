@@ -69,7 +69,7 @@ int main (int argc, char** argv)
 	nh.param<int>("baudrate", param_baudrate_, 9600);
 	nh.param<int>("loop_rate", param_loop_rate_, 1);
     nh.param<std::string>("good_init_rotation", param_good_init_rotation_, "[0.0 0.0 0.0 0.0]");
-    nh.param<std::string>("use_absolute_encoder", use_absolute_encoder_, true);
+    nh.param<bool>("use_absolute_encoder", use_absolute_encoder_, true);
   
     
     sscanf(param_good_init_rotation_.c_str(),"[%lf %lf %lf %lf]",&(good_rotation[3]),&(good_rotation[2]),&(good_rotation[1]),&(good_rotation[0]));
