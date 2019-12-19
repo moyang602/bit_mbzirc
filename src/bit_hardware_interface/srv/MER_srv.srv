@@ -1,0 +1,4 @@
+float64 exposure_time
+---
+bool success_flag
+sensor_msgs/Image MER_image
