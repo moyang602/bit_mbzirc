@@ -109,7 +109,7 @@ bool GrabImage(bit_hardware_interface::MER_srv::Request  &req,
     status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, req.exposure_time);
 
     status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
-    
+
     status = GXGetImage(g_hDevice, &g_frameData, 100);
 
     if(status == 0)
@@ -154,10 +154,24 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "interface_cameraMER");
     //声明节点句柄 
-    ros::NodeHandle nh;
+    ros::NodeHandle nh("~");
+
+    std::string param_SN_;
+    int param_ExposureTime;
+	int param_SpeedLevel;
+	double param_BalanceRatioRed;
+	double param_BalanceRatioGreen;
+	double param_BalanceRatioBlue;
+
+    ros::NodeHandle private_node_handle("~");
+    private_node_handle.param<std::string>("SN", param_SN_, "RW0172009017");
+    private_node_handle.param<int>("ExposureTime", param_ExposureTime, 10000);
+	private_node_handle.param<int>("SpeedLevel", param_SpeedLevel, 3);
+	private_node_handle.param<double>("BalanceRatioRed", param_BalanceRatioRed, 2.1);
+	private_node_handle.param<double>("BalanceRatioGreen", param_BalanceRatioGreen, 1.0);
+	private_node_handle.param<double>("BalanceRatioBlue", param_BalanceRatioBlue, 2.3);
 
     //-------------  MER相机处理  -----------------//
-
     GX_STATUS status = GX_STATUS_SUCCESS;
 
     // 初始化，申请资源
@@ -191,7 +205,7 @@ int main(int argc, char *argv[])
 
         openParam.accessMode = GX_ACCESS_EXCLUSIVE;     ///< 独占方式
         openParam.openMode = GX_OPEN_SN;                ///< 通过SN打开
-        openParam.pszContent = (char*)"RW0172009017";
+        openParam.pszContent = (char*)param_SN_.c_str();
 
         status = GXOpenDevice(&openParam, &g_hDevice);
         if(status == GX_STATUS_SUCCESS)
@@ -230,7 +244,7 @@ int main(int argc, char *argv[])
     status = GXGetEnum(g_hDevice, GX_ENUM_PIXEL_COLOR_FILTER, &g_nColorFilter);
 
     //设置采集速度级别  级别越大，帧率越大
-	GXSetInt(g_hDevice, GX_INT_ACQUISITION_SPEED_LEVEL, 3);
+	GXSetInt(g_hDevice, GX_INT_ACQUISITION_SPEED_LEVEL, param_SpeedLevel);
 
     //设置AOI
 	int64_t nOffsetX = 0;
@@ -243,7 +257,7 @@ int main(int argc, char *argv[])
 	status = GXSetInt(g_hDevice, GX_INT_HEIGHT, nHeight);
 
     //设置曝光时间
-	status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, 10000);
+	status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, param_ExposureTime);
 
     // 设置自动白平衡设置为关闭
     int64_t   nValue = 0;       
@@ -251,13 +265,13 @@ int main(int argc, char *argv[])
 
     // 设置红色通道
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
-    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, 2.1);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, param_BalanceRatioRed);
     // 设置绿色通道
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_GREEN);
-    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, 1.0);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, param_BalanceRatioGreen);
     // 设置蓝色通道
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
-    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, 2.3);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, param_BalanceRatioBlue);
 
     //发送开采命令
     status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
@@ -268,18 +282,12 @@ int main(int argc, char *argv[])
 
     printf("nPayLoadSize = %ld\n",nPayLoadSize);
 
-
-
     // 开启采图服务
     ros::ServiceServer service = nh.advertiseService("GrabMERImage",GrabImage);
 
     ROS_INFO_STREAM("Server GrabMERImage start!");
 
     ros::spin();
-
-
-
-
 
     //发送停采命令
 	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
