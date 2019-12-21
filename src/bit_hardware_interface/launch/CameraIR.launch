@@ -10,14 +10,14 @@
   </node>
 
   <!--打开相机2-->
-  <node name="cameraIR_car" pkg="bit_hardware_interface" type="interface_camerair" output="screen" respawn="false">
+  <!--<node name="cameraIR_car" pkg="bit_hardware_interface" type="interface_camerair" output="screen" respawn="false">
     <param name="DeviceAddress"       value="192.168.50.12"/>  
     <param name="Port"   value="8000"/>
     <param name="UserName"   value="admin"/>
     <param name="Password"   value="space305"/>
     <param name="PictureName"   value="/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/camerair_car.jpg"/>
     <param name="MsgName"   value="image"/>
-  </node>
+  </node>-->
   
 </launch>
 

@@ -165,58 +165,55 @@ void fire_position_StereoEye(HObject ho_ImageL, HObject ho_ImageR, HTuple &fire_
 }
 
 //单目定位
-void fire_position_HandEye(HObject ho_Image,HTuple &fire_X, HTuple &fire_Y, HTuple &fire_Z, bool &data_flag)
+void fire_position_HandEye(HObject ho_Image, double &delta_x, double &delta_y, bool &data_flag)
 {
-  /*
-  HTuple hv_CameraParameters1, hv_RealPose;
-  HTuple hv_X, hv_Y, hv_Z, hv_Dist, hv_PixelPosition;
-  HTuple hv_CenterX, hv_CenterY, hv_FocalLength;
-  HTuple hv_Rotation1, hv_Rotation2, hv_Rotation3, hv_Transition;
-  HTuple hv_Intrinsics, hv_Extrinsics, hv_size;
-  HTuple hv_RealPosition;
-  HTuple hv_InvIntrinsics, hv_InvExtrinsics;
-  */
+   // Local iconic variables
+  HObject  ho_GrayImage1, ho_Region1;
+  HObject  ho_RegionOpening1, ho_RegionClosing1, ho_RegionFillUp1;
+  HObject  ho_ConnectedRegions1, ho_SelectedRegions1, ho_Cross1;
 
-  //红外相机参数 待输入
-  /*
-  hv_FocalLength = 
-  hv_CenterX = 
-  hv_CenterY = 
-  hv_Rotation1 := [];
-  hv_Rotation2 := [];
-  hv_Rotation3 := [];
-  hv_Transition := [];
-  */
+  // Local control variables
+  HTuple  hv_Width, hv_Height, hv_WindowHandle1;
+  HTuple  hv_WindowHandle2, hv_Number1, hv_Area1, hv_Row1;
+  HTuple  hv_Column1;
 
-  /*
-  create_matrix (3, 3, 0, hv_Intrinsics);
-  create_matrix (3, 3, hv_Rotation1, hv_Rotation2, hv_Transition, hv_Extrinsics);
-  create_matrix (3, 1, 0, hv_RealPosition);
-  create_matrix (3, 1, row, column, 1, hv_PixelPosition);
-  */
+  try
+  {
+    Rgb1ToGray(ho_Image, &ho_GrayImage1);
 
-  //尺度因子
-  //hv_size = 
+    Threshold(ho_GrayImage1, &ho_Region1, 100, 255);
+    OpeningCircle(ho_Region1, &ho_RegionOpening1, 1.5);
+    ClosingCircle(ho_RegionOpening1, &ho_RegionClosing1, 1.5);
+    FillUp(ho_RegionClosing1, &ho_RegionFillUp1);
+    Connection(ho_RegionFillUp1, &ho_ConnectedRegions1);
+    SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions1, "area", "and", 800, 2000);
+    CountObj(ho_SelectedRegions1, &hv_Number1);
 
+    if (0 != (hv_Number1==1))
+    {
+      AreaCenter(ho_SelectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+      data_flag = true;
+      delta_x = 384/2 - hv_Column1.D();
+      delta_y = 288/2 - hv_Row1.D();
+    }
+    else
+    {
+      data_flag = false;
+      delta_x = 0.0;
+      delta_y = 0.0;
 
-  //单目红外相机定位 Z坐标由已知的相机高度确定 待输入
-  /*
-  invert_matrix (hv_Extrinsics, 'general', 0, hv_InvExtrinsics);
-  invert_matrix (hv_Intrinsics, 'general', 0, hv_InvIntrinsics);
-  mult_matrix (hv_size, hv_PixelPosition, 'AB', hv_Intermediate1);
-  mult_matrix (hv_InvIntrinsics, hv_Intermediate1, 'AB', hv_Intermediate2);
-  mult_matrix (hv_InvExtrinsics, hv_Intermediate2, 'AB', hv_RealPosition);
-  
-  hv_X = get_value_matrix (hv_RealPosition, 1, 1, value);
-  hv_Y = get_value_matrix (hv_RealPosition, 2, 1, value);
-  hv_Z = 0;
-  */
-  /*
-  fire_X = 0.0;
-  fire_Y = 0.0;
-  fire_Z = 0.0;
-  */
-  data_flag = true;
+    }
+  }
+  catch (HException &exception)
+  {
+    ROS_ERROR("44  Error #%u in %s: %s\n", exception.ErrorCode(),
+            (const char *)exception.ProcName(),
+            (const char *)exception.ErrorMessage());
+    data_flag = false;
+    delta_x = 0.0;
+    delta_y = 0.0;
+  }
+    
   return;
 }
 
@@ -238,53 +235,96 @@ bool GetFirePosition(bit_vision::FirePosition::Request&  req,
 
   bool data_flag = false;     // 数据置信度
 
-  HTuple fire_X(0);
-  HTuple fire_Y(0);
-  HTuple fire_Z(0);
-  switch (req.cameraUsed)
+  // Local control variables
+  HTuple  hv_MSecond, hv_Second, hv_Minute, hv_Hour;
+  HTuple  hv_Day, hv_YDay, hv_Month, hv_Year;
+
+  try
   {
-    case HandEye:
-      fire_position_HandEye(ho_ImageL,fire_X, fire_Y, fire_Z, data_flag);
-      break;
-     case StereoEye:
-      fire_position_StereoEye(ho_ImageL,ho_ImageR, fire_X, fire_Y, fire_Z, data_flag);
-      break;
-    default:
-      break;
-  }
+    GetSystemTime(&hv_MSecond, &hv_Second, &hv_Minute, &hv_Hour, &hv_Day, &hv_YDay, &hv_Month, &hv_Year);
   
-  if (data_flag)
-  {
-    ROS_INFO_STREAM("Vision data:"<<fire_X.D()<<","<<fire_Y.D()<<","<<fire_Z.D());
+    HTuple fire_X(0);
+    HTuple fire_Y(0);
+    HTuple fire_Z(0);
+    double delta_x = 0;
+    double delta_y = 0;
+    switch (req.cameraUsed)
+    {
+      case HandEye:
+        fire_position_HandEye(ho_ImageL, delta_x, delta_y, data_flag);
+        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        break;
+      case StereoEye:
+        fire_position_StereoEye(ho_ImageL,ho_ImageR, fire_X, fire_Y, fire_Z, data_flag);
+        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/IR/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        break;
+      default:
+        break;
+    }
+    
+    if (data_flag)
+    {
+      ROS_INFO_STREAM("Vision data:"<<delta_x<<","<<delta_y);
+      res.flag = true;
+      res.FirePos.header.stamp = ros::Time().now();
+      res.FirePos.header.frame_id = "IRL_link";
 
-    tf::Transform transform_TargetOnIRL;
-    transform_TargetOnIRL.setOrigin(tf::Vector3(fire_X.D(), fire_Y.D(), fire_Z.D()));
-    tf::Quaternion q;
-    q.setRPY(0, 0, 0);
-    transform_TargetOnIRL.setRotation(q);
+      res.FirePos.point.x = delta_x;
+      res.FirePos.point.y = delta_y;
+      res.FirePos.point.z = 0;
+    }
+    else
+    {
+      res.flag = false;
+      res.FirePos.header.stamp = ros::Time().now();
+      res.FirePos.header.frame_id = "IRL_link";
 
-    tf::Transform transform_TargetOnBase = transform_IRLOnBase*transform_TargetOnIRL;
-
-    ROS_INFO_STREAM("Vision data:"<<fire_X.D()<<","<<fire_Y.D()<<","<<fire_Z.D());
-
-    res.flag = true;
-    res.FirePos.header.stamp = ros::Time().now();
-    res.FirePos.header.frame_id = "base_link";
-
-    res.FirePos.point.x = transform_TargetOnBase.getOrigin().x();
-    res.FirePos.point.y = transform_TargetOnBase.getOrigin().y();
-    res.FirePos.point.z = transform_TargetOnBase.getOrigin().z();
+      res.FirePos.point.x = 0.0;
+      res.FirePos.point.y = 0.0;
+      res.FirePos.point.z = 0.0;
+    }
   }
-  else
+  catch (HException &exception)
   {
-    res.flag = false;
-    res.FirePos.header.stamp = ros::Time().now();
-    res.FirePos.header.frame_id = "base_link";
-
-    res.FirePos.point.x = 0.0;
-    res.FirePos.point.y = 0.0;
-    res.FirePos.point.z = 0.0;
+    ROS_ERROR("44  Error #%u in %s: %s\n", exception.ErrorCode(),
+            (const char *)exception.ProcName(),
+            (const char *)exception.ErrorMessage());
+    
   }
+  // if (data_flag)
+  // {
+    
+  //   ROS_INFO_STREAM("Vision data:"<<fire_X.D()<<","<<fire_Y.D()<<","<<fire_Z.D());
+
+  //   tf::Transform transform_TargetOnIRL;
+  //   transform_TargetOnIRL.setOrigin(tf::Vector3(fire_X.D(), fire_Y.D(), fire_Z.D()));
+  //   tf::Quaternion q;
+  //   q.setRPY(0, 0, 0);
+  //   transform_TargetOnIRL.setRotation(q);
+
+  //   tf::Transform transform_TargetOnBase = transform_IRLOnBase*transform_TargetOnIRL;
+
+  //   ROS_INFO_STREAM("Vision data:"<<fire_X.D()<<","<<fire_Y.D()<<","<<fire_Z.D());
+
+  //   res.flag = true;
+  //   res.FirePos.header.stamp = ros::Time().now();
+  //   res.FirePos.header.frame_id = "base_link";
+
+  //   res.FirePos.point.x = transform_TargetOnBase.getOrigin().x();
+  //   res.FirePos.point.y = transform_TargetOnBase.getOrigin().y();
+  //   res.FirePos.point.z = transform_TargetOnBase.getOrigin().z();
+  // }
+  // else
+  // {
+  //   res.flag = false;
+  //   res.FirePos.header.stamp = ros::Time().now();
+  //   res.FirePos.header.frame_id = "base_link";
+
+  //   res.FirePos.point.x = 0.0;
+  //   res.FirePos.point.y = 0.0;
+  //   res.FirePos.point.z = 0.0;
+  // }
 }
 
 int main(int argc, char *argv[])

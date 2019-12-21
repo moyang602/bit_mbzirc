@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
                 }
             }
         }
-        ROS_INFO("max = %d, min = %d",max, min);
+        //ROS_INFO("max = %d, min = %d",max, min);
         cv::Mat MatImg(288,384,CV_8UC1, (unsigned char*)array);
 
         sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", MatImg).toImageMsg();

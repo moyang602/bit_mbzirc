@@ -218,14 +218,6 @@ install(PROGRAMS
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-add_executable(motion_fight_fire
-  src/motion_fight_fire.cpp
-)
-add_dependencies(motion_fight_fire ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(motion_fight_fire
-  ${catkin_LIBRARIES}
-)
-
 
 
 # -------------------------------------------------------- #
