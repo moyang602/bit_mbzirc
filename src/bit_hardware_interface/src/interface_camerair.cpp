@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	nh.param<int>("Port", param_Port, 8000);
 	nh.param<std::string>("UserName", param_UserName, "admin");
 	nh.param<std::string>("Password", param_Password, "space305");
-	nh.param<std::string>("MsgName", param_MsgName, "imagecar");
+	nh.param<std::string>("MsgName", param_MsgName, "image");
 
     pub = nh.advertise<sensor_msgs::Image>(param_MsgName, 1, rsscb, rsscb);
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 
     NET_DVR_USER_LOGIN_INFO struLoginInfo = {0};        // 登录参数
     struLoginInfo.bUseAsynLogin = 0;                    // 同步登录方式
-    strcpy(struLoginInfo.sDeviceAddress, "192.168.50.11"); //设备 IP 地址
+    strcpy(struLoginInfo.sDeviceAddress, param_DeviceAddress.c_str()); //设备 IP 地址
     struLoginInfo.wPort = 8000;                         // 设备端口号
     strcpy(struLoginInfo.sUserName, "admin");           // 登录用户名
     strcpy(struLoginInfo.sPassword, "space305");           // 登录密码
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
         ROS_INFO("max = %d, min = %d",max, min);
         cv::Mat MatImg(288,384,CV_8UC1, (unsigned char*)array);
 
-        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "8UC1", MatImg).toImageMsg();
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", MatImg).toImageMsg();
 
         if (subscriber_connected_)
         {

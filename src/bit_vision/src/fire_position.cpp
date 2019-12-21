@@ -293,8 +293,8 @@ int main(int argc, char *argv[])
 
   ros::NodeHandle nh;
   
-  message_filters::Subscriber<sensor_msgs::Image> subArm(nh,"/cameraIR_arm/imagearm",1);
-  message_filters::Subscriber<sensor_msgs::Image> subCar(nh,"/cameraIR_car/imagecar",1);
+  message_filters::Subscriber<sensor_msgs::Image> subArm(nh,"/cameraIR_arm/image",1);
+  message_filters::Subscriber<sensor_msgs::Image> subCar(nh,"/cameraIR_car/image",1);
 
   message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subArm, subCar, 5);
   sync.registerCallback(boost::bind(&Imagecallback, _1, _2));

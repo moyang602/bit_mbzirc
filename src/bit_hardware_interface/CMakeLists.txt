@@ -273,12 +273,7 @@ add_executable(interface_cameraMER
 add_dependencies(interface_cameraMER ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(interface_cameraMER
   ${catkin_LIBRARIES}
-  /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libdhgentl.so.1.0.1710.8181
-  /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libgxiapi.so.1.0.1904.8241
-  # /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libGCBase_gcc40_v2_3.so
-  # /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libGenApi_gcc40_v2_3.so
-  # /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/liblog4cpp_gcc40_v2_3.so
-  # /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libLog_gcc40_v2_3.so
-  # /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libMathParser_gcc40_v2_3.so
-  /home/moyang/bit_mbzirc/src/bit_hardware_interface/lib/MER/libdximageproc.so.1.0.1904.8121
+  dhgentl
+  gxiapi
+  dximageproc
 )

@@ -10,14 +10,13 @@ if __name__ == "__main__":
     pub2 = rospy.Publisher("Image2",Image,queue_size=1)
     rospy.init_node("Pub",anonymous=False)
     time = 0
+    rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
+    GrabImage1 = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
+
+    rospy.wait_for_service('/CameraMER_Right/GrabMERImage')
+    GrabImage2 = rospy.ServiceProxy('/CameraMER_Right/GrabMERImage',MER_srv)
     while 1:
         time = time +0.2
-        rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
-        GrabImage1 = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
-
-        rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
-        GrabImage2 = rospy.ServiceProxy('/CameraMER_Right/GrabMERImage',MER_srv)
-
         try:
             respl = GrabImage1(10000*math.sin(time)+10000)
             # print(respl.success_flag)
@@ -28,4 +27,3 @@ if __name__ == "__main__":
             pub2.publish(resp2.MER_image)
         except rospy.ServiceException, e:
             print "Service call failed:",rospy.ServiceException,e
-    

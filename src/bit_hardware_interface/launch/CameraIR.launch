@@ -6,7 +6,7 @@
     <param name="UserName"   value="admin"/>
     <param name="Password"   value="space305"/>
     <param name="PictureName"   value="/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/camerair_arm.jpg"/>
-    <param name="MsgName"   value="imagearm"/>
+    <param name="MsgName"   value="image"/>
   </node>
 
   <!--打开相机2-->
@@ -16,7 +16,7 @@
     <param name="UserName"   value="admin"/>
     <param name="Password"   value="space305"/>
     <param name="PictureName"   value="/home/ugvcontrol/bit_mbzirc/src/bit_hardware_interface/src/camerair_car.jpg"/>
-    <param name="MsgName"   value="imagecar"/>
+    <param name="MsgName"   value="image"/>
   </node>
   
 </launch>

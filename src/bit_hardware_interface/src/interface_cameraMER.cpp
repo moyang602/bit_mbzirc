@@ -10,11 +10,9 @@
 
 using namespace cv;
 
-
-
 // MER相机相关
-GX_DEV_HANDLE g_hDevice = NULL;///< 设备句柄
-GX_FRAME_DATA g_frameData;     ///< 采集图像参数
+GX_DEV_HANDLE g_hDevice = NULL;						///< 设备句柄
+GX_FRAME_DATA g_frameData;     						///< 采集图像参数
 void *g_pRaw8Buffer = NULL;                         ///< 将非8位raw数据转换成8位数据的时候的中转缓冲buffer
 void *g_pRGBframeData = NULL;                       ///< RAW数据转换成RGB数据后的存储空间，大小是相机输出数据大小的3倍
 int64_t g_nPixelFormat = GX_PIXEL_FORMAT_BAYER_GR8; ///< 当前相机的pixelformat格式
