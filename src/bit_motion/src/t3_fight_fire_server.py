@@ -8,11 +8,17 @@ from bit_vision.srv import *
 
 import urx
 import actionlib
-
+import math
 global rob
 
 #=============特征点与运动参数==========
-preFightPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]灭火准备位姿
+deg2rad = 0.017453
+FindFirePos = [-90.0, -60.0, -120.0, -60.0, 90.0, 0.0] # 火源探索位姿
+preFightPos = [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0] # 灭火准备位姿
+for i in range(0,6):
+    FindFirePos[i] = FindFirePos[i]*deg2rad
+    preFightPos[i] = preFightPos[i]*deg2rad
+
 
 v = 0.05*4    # 机械臂关节运动速度
 a = 0.3       # 机械臂关节运动加速度
@@ -57,8 +63,8 @@ class fight_fire_act(object):
             rospy.loginfo("Start fight fire motion")
             pose = rob.getl()
             print("Initial end pose is ", pose)
-            initj = rob.getj()
-            print("Initial joint angle is ", initj)
+            JointAngle = rob.getj()
+            print("Initial joint angle is ", JointAngle)
 
             # 机械臂移动至灭火准备位姿
             rob.movej(preFightPos,acc=a, vel=3*v,wait=True)
