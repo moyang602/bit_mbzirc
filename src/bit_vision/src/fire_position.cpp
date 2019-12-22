@@ -186,7 +186,7 @@ void fire_position_HandEye(HObject ho_Image, double &delta_x, double &delta_y, b
     ClosingCircle(ho_RegionOpening1, &ho_RegionClosing1, 1.5);
     FillUp(ho_RegionClosing1, &ho_RegionFillUp1);
     Connection(ho_RegionFillUp1, &ho_ConnectedRegions1);
-    SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions1, "area", "and", 800, 2000);
+    SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions1, "area", "and", 5, 2000);
     CountObj(ho_SelectedRegions1, &hv_Number1);
 
     if (0 != (hv_Number1==1))
@@ -252,12 +252,12 @@ bool GetFirePosition(bit_vision::FirePosition::Request&  req,
     {
       case HandEye:
         fire_position_HandEye(ho_ImageL, delta_x, delta_y, data_flag);
-        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
         break;
       case StereoEye:
         fire_position_StereoEye(ho_ImageL,ho_ImageR, fire_X, fire_Y, fire_Z, data_flag);
-        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
-        WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/moyang/bit_mbzirc/src/bit_vision/image/IR/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
         break;
       default:
         break;
@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
   ros::NodeHandle nh;
   
   message_filters::Subscriber<sensor_msgs::Image> subArm(nh,"/cameraIR_arm/image",1);
-  message_filters::Subscriber<sensor_msgs::Image> subCar(nh,"/cameraIR_car/image",1);
+  message_filters::Subscriber<sensor_msgs::Image> subCar(nh,"/cameraIR_arm/image",1);
 
   message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subArm, subCar, 5);
   sync.registerCallback(boost::bind(&Imagecallback, _1, _2));

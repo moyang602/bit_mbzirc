@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
                 xbuf.bytebuf[1] = (unsigned char)pP2PDataBuff[1+(i*384+j)*4];
                 xbuf.bytebuf[2] = (unsigned char)pP2PDataBuff[2+(i*384+j)*4];
                 xbuf.bytebuf[3] = (unsigned char)pP2PDataBuff[3+(i*384+j)*4];
-                array[i][j] = (unsigned char)(xbuf.floatbuf - 0 )*2;
+                array[i][j] = (((unsigned char)(xbuf.floatbuf - 0 )*2)<(255)? ((unsigned char)(xbuf.floatbuf - 0 )*2):(255));
                 if (array[i][j]>max)
                 {
                     max = array[i][j];
