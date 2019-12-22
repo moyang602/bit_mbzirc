@@ -9,12 +9,14 @@ from bit_vision.srv import *
 from geometry_msgs.msg import PoseStamped
 from actionlib_msgs.msg import GoalID
 from move_base_msgs.msg import MoveBaseActionFeedback
+from bit_control_tool.msg import EndEffector
 
 import tf
 import urx
 import actionlib
 import math
 global rob
+global ee
 
 #=============特征点与运动参数==========
 deg2rad = 0.017453
@@ -94,10 +96,13 @@ def execute_cb():
 
         # simple_goal 话题发布初始化
         simp_goal_pub = rospy.Publisher('/move_base_simple/goal',PoseStamped,queue_size=1)
-        
         simp_goal_sub = rospy.Subscriber("move_base/feedback",MoveBaseActionFeedback,move_base_feedback)
         # cancel
         simp_cancel = rospy.Publisher('/move_base/cancel',GoalID,1)
+
+        # 末端水枪话题初始化
+        pub_ee = rospy.Publisher('endeffCmd',EndEffector,queue_size=1)
+        ee = EndEffector()
 
         # 机械臂移动至火源探索位姿
         rob.movej(FindFirePos,acc=a, vel=3*v,wait=True)
@@ -143,43 +148,72 @@ def execute_cb():
         rob.movej(FindFirePos,acc=a, vel=1*v,wait=True)
 
         #--------- 控制机械臂移动，直到火源在画面竖直方向中心 -------#
-        rospy.sleep(0.5)
-        while True:
-            VisionData = GetFireVisionData_client(HandEye)
-            if VisionData.flag:
-                deltay = VisionData.FirePos.point.y
-                if math.fabs(deltay)<5:
-                    break
-                pose = [0,0,0,-deltay*0.08*deg2rad,0,0]
-                rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
-            else:
-                break
+        # rospy.sleep(0.5)
+        # while True:
+        #     VisionData = GetFireVisionData_client(HandEye)
+        #     if VisionData.flag:
+        #         deltay = VisionData.FirePos.point.y
+        #         if math.fabs(deltay)<5:
+        #             break
+        #         pose = [0,0,0,-deltay*0.08*deg2rad,0,0]
+        #         rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
+        #     else:
+        #         break
         
         #--------- 控制车臂同时移动，直到到达火源位置 -------#
         rospy.sleep(0.5)
-        print("step3")
         while True:
             VisionData = GetFireVisionData_client(HandEye)
             if VisionData.flag:
                 deltax = VisionData.FirePos.point.x
                 deltay = VisionData.FirePos.point.y
-                # if math.fabs(deltax)<5 and math.fabs(deltay) < 5:
-                #     break
-                pose = [deltax*0.005,0,0,-deltay*0.2*deg2rad,0,0]
+                pose = rob.getl()
+                if math.fabs(pose + pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
+                    simp_cancel.publish(cancel_id)
+                    break
+                if math.fabs(deltax)<5:
+                    deltax = 0
+                if math.fabs(deltay)<5:
+                    deltay = 0
+                CarMove(0.2, 0.0, deltax*0.01*deg2rad)      # 偏航角通过小车调整
+                if pose[0]<-0.5:                            # 机械臂一边移动一边往前伸
+                    pose = [0, 0 ,0,-deltay*0.2*deg2rad,0,0]      # 俯仰角通过机械臂调整
+                else:
+                    pose = [0, -0.1 ,0,-deltay*0.2*deg2rad,0,0]      # 俯仰角通过机械臂调整
                 rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
                 rospy.sleep(0.5)
-                # 水平方向通过小车旋转实现
-                CarAngle = deltax*0.01                 # Todo
+            else:
+                break
+
+        #--------- 机械臂竖直向下 -------#
+        pose = rob.getl()
+        pose[3] = 0
+        pose[4] = -pi
+        pose[5] = 0
+        rob.movel(pose, acc=a, vel=1*v, wait=True,relative=False)
+
+        #--------- 控制机械臂水平移动，对准火源-------#
+        rospy.sleep(0.5)
+        while True:
+            VisionData = GetFireVisionData_client(HandEye)
+            if VisionData.flag:
+                deltax = VisionData.FirePos.point.x + 0.0       # Todo 标定水枪位置
+                deltay = VisionData.FirePos.point.y + 0.0
+                if math.fabs(deltax)<5 and math.fabs(deltay)<5:
+                    break
+                pose = [deltax*0.001, -deltay*0.001,0,0,0,0]      
+                rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
+                rospy.sleep(0.5)
             else:
                 break
 
         '''
         # 操作末端 开始喷水
         
-        # rospy.sleep(1.0)
-        # ee.MagState = 100
-        # pub_ee.publish(ee)
-        # rospy.sleep(1.0)
+        rospy.sleep(1.0)
+        ee.PumpState = 100
+        pub_ee.publish(ee)
+        rospy.sleep(1.0)
         
 
         # 喷5s水
@@ -187,16 +221,17 @@ def execute_cb():
 
         # 操作末端 停止
         
-        # rospy.sleep(1.0)
-        # ee.MagState = 100
-        # pub_ee.publish(ee)
-        # rospy.sleep(1.0)
-        
-
-        # 机械臂复原
-        rob.movej(preFightPos,acc=a, vel=2*v,wait=True)
-        self.show_tell("arrived pre-FightFire position, finished")
+        rospy.sleep(1.0)
+        ee.PumpState = 100
+        pub_ee.publish(ee)
+        rospy.sleep(1.0)
         '''
+
+        rospy.sleep(2.0)
+        # 机械臂复原
+        rob.movej(FindFirePos,acc=a, vel=2*v,wait=True)
+        self.show_tell("arrived pre-FightFire position, finished")
+        
     except Exception as e:
         print("error", e)
         self._result.finish_state = FAIL_ERROR
