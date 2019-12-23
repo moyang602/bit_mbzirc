@@ -111,7 +111,7 @@ double init_rotation[4] ={0.0f};
 #define CtrlPerid 10 //ms
 
 #define deltaAng 25.0f   
-#define window 8
+#define window 5
 
 
 double sum = 0;
@@ -126,6 +126,7 @@ struct SpeedPlan
 
 double plan_run_time;
 double plan_run_max_time;
+geometry_msgs::Twist cmd;
 
 
 
@@ -738,54 +739,9 @@ void dealCommand( double x, double y, double z )
  */
 void chatterCallback(const geometry_msgs::Twist& cmd_vel)
 {
-    Plan[0].plan.push(-cmd_vel.linear.y*100);
-    Plan[1].plan.push(cmd_vel.linear.x*100);
-    Plan[2].plan.push(1.25*cmd_vel.angular.z);
-
-    for (int i = 0 ; i<3; i ++ ){
-        std::queue<double> tmp;
-        double p1 = 0;
-        double p2 = 0;
-        double p01 = 0;
-        double pf1 = 0;
-        double p02 = 0;
-        double pf2 = 0;
-        double v1 = 0;
-        double v2 = 0;
-        double tf = 0.05f;
-        // printf("%d,\n",motor[i].plan.size());
-        if (Plan[i].plan.size() > window ){  //保持window长度的队列
-            Plan[i].plan.pop();
-
-            for (int j = 0; j<window; j++){  //遍历列表取数
-                tmp.push(Plan[i].plan.front());
-                if ( j < window - 1 ){
-                    p1 += tmp.back()*alpha[j]/sum;
-                }
-                if (j >= 1){
-                    p2 += tmp.back()*alpha[j-1]/sum;
-                }
-                if(j == 0) p01 = tmp.back();
-                if(j == 1) p02 = tmp.back();
-                if (j == window - 1) pf2 = tmp.back();
-                if (j == window - 2) pf1 = tmp.back(); 
-                Plan[i].plan.pop();
-            }
-            while(!tmp.empty()){        //还原原队列
-                Plan[i].plan.push(tmp.front());
-                tmp.pop();
-            }
-            v1 = ( pf1 - p01 ) / ( (window - 2) * tf);  //固定频率为20Hz
-            v2 = ( pf2 - p02 ) / ( (window - 2) * tf);  //固定频率为20Hz
-            Plan[i].plan_param[0] = p1;
-            Plan[i].plan_param[1] = v1;
-            Plan[i].plan_param[2] = 3/(tf*tf)*(p2 - p1) -2/tf*v1 -1/tf*v2;
-            Plan[i].plan_param[3] = -2/(tf*tf*tf)*(p2 - p1) +1/(tf*tf)*(v2 + v1);
-
-            plan_run_time = 0;
-            plan_run_max_time = tf;                    
-        }
-    }
+    cmd.linear.x = -cmd_vel.linear.y*100;
+    cmd.linear.y = cmd_vel.linear.x*100;
+    cmd.angular.z = 1.25*cmd_vel.angular.z;
         
     
 
@@ -864,8 +820,63 @@ int main(int argc, char *argv[])
 
     ros::Rate loop_rate( int(1000 / CtrlPerid) );
 
+    int plan_cnt = 5;
      while(ros::ok())
      {
+         
+         if (plan_cnt == 5){
+             plan_cnt = 0;
+            Plan[0].plan.push(cmd.linear.x);
+            Plan[1].plan.push(cmd.linear.y);
+            Plan[2].plan.push(cmd.angular.z);
+
+            for (int i = 0 ; i<3; i ++ ){
+                std::queue<double> tmp;
+                double p1 = 0;
+                double p2 = 0;
+                double p01 = 0;
+                double pf1 = 0;
+                double p02 = 0;
+                double pf2 = 0;
+                double v1 = 0;
+                double v2 = 0;
+                double tf = 0.05f;
+                // printf("%d,\n",motor[i].plan.size());
+                if (Plan[i].plan.size() > window ){  //保持window长度的队列
+                    Plan[i].plan.pop();
+
+                    for (int j = 0; j<window; j++){  //遍历列表取数
+                        tmp.push(Plan[i].plan.front());
+                        if ( j < window - 1 ){
+                            p1 += tmp.back()*alpha[j]/sum;
+                        }
+                        if (j >= 1){
+                            p2 += tmp.back()*alpha[j-1]/sum;
+                        }
+                        if(j == 0) p01 = tmp.back();
+                        if(j == 1) p02 = tmp.back();
+                        if (j == window - 1) pf2 = tmp.back();
+                        if (j == window - 2) pf1 = tmp.back(); 
+                        Plan[i].plan.pop();
+                    }
+                    while(!tmp.empty()){        //还原原队列
+                        Plan[i].plan.push(tmp.front());
+                        tmp.pop();
+                    }
+                    v1 = ( pf1 - p01 ) / ( (window - 2) * tf);  //固定频率为20Hz
+                    v2 = ( pf2 - p02 ) / ( (window - 2) * tf);  //固定频率为20Hz
+                    Plan[i].plan_param[0] = p1;
+                    Plan[i].plan_param[1] = v1;
+                    Plan[i].plan_param[2] = 3/(tf*tf)*(p2 - p1) -2/tf*v1 -1/tf*v2;
+                    Plan[i].plan_param[3] = -2/(tf*tf*tf)*(p2 - p1) +1/(tf*tf)*(v2 + v1);
+
+                    plan_run_time = 0;
+                    plan_run_max_time = tf;                    
+                }
+            }
+         }
+         plan_cnt ++;
+        
 
         // 计算速度规划的插值
         double SpeedX = Plan[0].plan_param[0] + Plan[0].plan_param[1]*plan_run_time + Plan[0].plan_param[2]*plan_run_time*plan_run_time + Plan[0].plan_param[3]*plan_run_time*plan_run_time*plan_run_time;
