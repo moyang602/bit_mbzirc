@@ -1,3 +1,3 @@
 Header header
-bool Flag
+uint8 Flag
 geometry_msgs/Pose Pose
