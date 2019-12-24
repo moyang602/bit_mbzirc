@@ -15,9 +15,10 @@ import tf
 import urx
 import actionlib
 import math
+import PyKDL
 global rob
 global ee
-
+global simp_goal_pub
 #=============特征点与运动参数==========
 deg2rad = 0.017453
 FindFirePos = [-90.0, -60.0, -120.0, -60.0, 90.0, 0.0] # 火源探索位姿
@@ -64,8 +65,14 @@ def CarMove(x,y,theta,frame_id='car_link'):
     this_target.pose.position.x = x
     this_target.pose.position.y = y
     this_target.pose.position.z = 0.0
-    this_target.pose.orientation = tf.createQuaternionMsgFromYaw(theta)
+    a = tf.transformations.quaternion_from_euler(0,0,theta,'ryxz')
+    print(a[0],a[1],a[2],a[3])
+    this_target.pose.orientation.x = a[0]
+    this_target.pose.orientation.y = a[1]
+    this_target.pose.orientation.z = a[2]
+    this_target.pose.orientation.w = a[3]
 
+    global simp_goal_pub
     # 发布位置
     simp_goal_pub.publish(this_target)
 
@@ -93,12 +100,12 @@ def execute_cb():
         print("Initial end pose is ", pose)
         JointAngle = rob.getj()
         print("Initial joint angle is ", JointAngle)
-
+        global simp_goal_pub
         # simple_goal 话题发布初始化
         simp_goal_pub = rospy.Publisher('/move_base_simple/goal',PoseStamped,queue_size=1)
         simp_goal_sub = rospy.Subscriber("move_base/feedback",MoveBaseActionFeedback,move_base_feedback)
         # cancel
-        simp_cancel = rospy.Publisher('/move_base/cancel',GoalID,1)
+        simp_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)
 
         # 末端水枪话题初始化
         pub_ee = rospy.Publisher('endeffCmd',EndEffector,queue_size=1)
@@ -112,7 +119,7 @@ def execute_cb():
         #--------- 机械臂移动直到找到火源 -------#
         CarMove(2.0, 0.0, 0.0*deg2rad)
  
-        offset = [-20*deg2rad, 0*deg2rad, 20*deg2rad, 0*deg2rad]
+        offset = [-20*deg2rad, 20*deg2rad, 20*deg2rad, -20*deg2rad]
         count = 0
         while True:
             MovePos = JointAngle
@@ -121,9 +128,12 @@ def execute_cb():
             rob.movej(MovePos,acc=a, vel=1*v,wait=True)
             rospy.sleep(0.5)
             VisionData = GetFireVisionData_client(HandEye)
+            print("MovePos[0] = ",MovePos[0])
             if VisionData.flag or count>20:  
                 # 取消运动
-                simp_cancel.publish(cancel_id)      
+                simp_cancel.publish(cancel_id)
+                print("car motion has been canceled")
+                print("cancel_id = ",cancel_id)
                 break
         
         #--------- 机械臂移动直到火源在图像中心线 -------#
@@ -142,11 +152,11 @@ def execute_cb():
         
         #--------- 控制小车移动相应角度，使机械臂朝向正前方 -------#
         JointAngle = rob.getj()
-        CarMove(0.0, 0.0, JointAngle)
+        CarMove(0.0, 0.0, JointAngle[0]+90*deg2rad)
         
         # 机械臂移动至灭火准备位姿
         rob.movej(FindFirePos,acc=a, vel=1*v,wait=True)
-
+        
         #--------- 控制机械臂移动，直到火源在画面竖直方向中心 -------#
         # rospy.sleep(0.5)
         # while True:
@@ -168,7 +178,7 @@ def execute_cb():
                 deltax = VisionData.FirePos.point.x
                 deltay = VisionData.FirePos.point.y
                 pose = rob.getl()
-                if math.fabs(pose + pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
+                if math.fabs(pose[4] + math.pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
                     simp_cancel.publish(cancel_id)
                     break
                 if math.fabs(deltax)<5:
@@ -176,7 +186,7 @@ def execute_cb():
                 if math.fabs(deltay)<5:
                     deltay = 0
                 CarMove(0.2, 0.0, deltax*0.01*deg2rad)      # 偏航角通过小车调整
-                if pose[0]<-0.5:                            # 机械臂一边移动一边往前伸
+                if pose[1]<-0.5:                            # 机械臂一边移动一边往前伸
                     pose = [0, 0 ,0,-deltay*0.2*deg2rad,0,0]      # 俯仰角通过机械臂调整
                 else:
                     pose = [0, -0.1 ,0,-deltay*0.2*deg2rad,0,0]      # 俯仰角通过机械臂调整
@@ -184,7 +194,7 @@ def execute_cb():
                 rospy.sleep(0.5)
             else:
                 break
-
+        '''
         #--------- 机械臂竖直向下 -------#
         pose = rob.getl()
         pose[3] = 0
@@ -206,8 +216,9 @@ def execute_cb():
                 rospy.sleep(0.5)
             else:
                 break
-
-        '''
+        
+        
+        
         # 操作末端 开始喷水
         
         rospy.sleep(1.0)

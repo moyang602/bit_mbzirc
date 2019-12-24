@@ -1,0 +1,15 @@
+<launch>
+
+  <!--bringup robot-->  
+  <include file="$(find bit_task)/launch/slam_map.launch" />
+
+  <!--bringup camera-->
+  <include file="$(find bit_hardware_interface)/launch/CameraIR.launch" />  
+
+  <!--运行找砖位置节点-->
+  <node pkg="bit_vision" type="fire_position" name="fire_position" output="screen"  launch-prefix="gnome-terminal -e"/>
+
+  <!--运行找砖位置节点-->
+  <node pkg="rqt_image_view" type="rqt_image_view" name="rqt_image_view" />
+
+</launch>
