@@ -174,6 +174,105 @@ void rectangle_pose(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,HT
     }
 }
 
+// 2.定位砖堆位置 图像来源:zed 双目
+void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z)
+{
+  HObject  ho_ClassRegions;
+  HObject  ho_ClassRegions2, ho_ClassRegion, ho_ClassRegion2;
+  HObject  ho_ConnectedRegions, ho_SelectedRegions, ho_ConnectedRegions2;
+  HObject  ho_SelectedRegions2;
+
+  // Local control variables
+  HTuple  hv_brick_color, hv_pathFile, hv_MLPHandle;
+  HTuple  hv_index, hv_Area, hv_Row, hv_Column, hv_Area2;
+  HTuple  hv_Row2, hv_Column2, hv_Indices, hv_Inverted, hv_R;
+  HTuple  hv_C, hv_Indices2, hv_Inverted2, hv_R2, hv_C2, hv_RelPose;
+  HTuple  hv_CamParam1, hv_CamParam2;
+  HTuple  hv_Dist, hv_Exception;
+
+  try
+  {
+
+      ReadPose("/home/srt/test_ws/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
+      ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
+      ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
+
+      hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/new_segment_four.mlp";
+      ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+      //识别
+      
+      try
+      {
+          ClassifyImageClassMlp(ho_ImageL, &ho_ClassRegions, hv_MLPHandle, 0.9);
+          ClassifyImageClassMlp(ho_ImageR, &ho_ClassRegions2, hv_MLPHandle, 0.9);
+
+          ROS_INFO("begin classify");
+
+          if (brick_color=="orange")
+          {
+            SelectObj(ho_ClassRegions, &ho_ClassRegion, 1);
+            SelectObj(ho_ClassRegions2, &ho_ClassRegion2, 1);
+          }
+          else if (brick_color=="blue")
+          {
+            SelectObj(ho_ClassRegions, &ho_ClassRegion, 2);
+            SelectObj(ho_ClassRegions2, &ho_ClassRegion2, 2);
+          }
+          else if (brick_color=="green")
+          {
+            SelectObj(ho_ClassRegions, &ho_ClassRegion, 3);
+            SelectObj(ho_ClassRegions2, &ho_ClassRegion2, 3);
+          }
+          else if (brick_color=="red")
+          {
+            SelectObj(ho_ClassRegions, &ho_ClassRegion, 4);
+            SelectObj(ho_ClassRegions2, &ho_ClassRegion2, 4);
+          }
+
+          //set area threshold
+          Connection(ho_ClassRegion, &ho_ConnectedRegions);
+          SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, "area", "and", 150, 99999999);
+          AreaCenter(ho_SelectedRegions, &hv_Area, &hv_Row, &hv_Column);
+
+          Connection(ho_ClassRegion2, &ho_ConnectedRegions2);
+          SelectShape(ho_ConnectedRegions2, &ho_SelectedRegions2, "area", "and", 150, 99999999);
+          AreaCenter(ho_SelectedRegions2, &hv_Area2, &hv_Row2, &hv_Column2);
+
+          //sort according to area
+          TupleSortIndex(hv_Area, &hv_Indices);
+          TupleInverse(hv_Indices, &hv_Inverted);
+          hv_R = HTuple(hv_Row[HTuple(hv_Inverted[0])]);
+          hv_C = HTuple(hv_Column[HTuple(hv_Inverted[0])]);
+
+          TupleSortIndex(hv_Area2, &hv_Indices2);
+          TupleInverse(hv_Indices2, &hv_Inverted2);
+          hv_R2 = HTuple(hv_Row2[HTuple(hv_Inverted2[0])]);
+          hv_C2 = HTuple(hv_Column2[HTuple(hv_Inverted2[0])]);
+
+          ROS_INFO_STREAM("Vision data:"<<hv_R.D()<<","<<hv_C.D());
+        
+          IntersectLinesOfSight(hv_CamParam1, hv_CamParam2, hv_RelPose, hv_R, hv_C, 
+              hv_R2, hv_C2, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
+          
+          data_flag = true;
+
+    }
+    catch (exception e)
+    {
+      data_flag = false;
+    }
+    
+
+  }
+  // catch (Exception) 
+  catch (HException &HDevExpDefaultException)
+  {
+    HDevExpDefaultException.ToHTuple(&hv_Exception);
+    data_flag = false;
+  }
+
+}
+
 // 3.放砖角度估计
 void put_brick(HObject ho_Image1)
 {
