@@ -93,3 +93,5 @@ src/bit_hardware_interface/include/xml/build
 src/bit_hardware_interface/include/xml/Release
 
 src/bit_vision/image/
+
+*.png

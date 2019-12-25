@@ -8,16 +8,6 @@
     <param name="BalanceRatioGreen"   value="1.0"/>
     <param name="BalanceRatioBlue"   value="2.3"/>
   </node>
-
-  <!--打开相机2-->
-  <!--<node name="CameraMER_Right" pkg="bit_hardware_interface" type="interface_cameraMER" output="log" respawn="false">
-    <param name="SN"       value="RW0172009017"/>  
-    <param name="ExposureTime"   value="10000"/>
-    <param name="SpeedLevel"   value="3"/>
-    <param name="BalanceRatioRed"   value="2.1"/>
-    <param name="BalanceRatioGreen"   value="1.0"/>
-    <param name="BalanceRatioBlue"   value="2.3"/>
-  </node>-->
   
 </launch>
 
