@@ -7,7 +7,7 @@
     <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 
     <!--运行模型显示节点-->
-    <include file="$(find robotcar_moveit_config)/launch/display.launch" />
+    <include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />
 
     <!--bringup remoter-->  
     <include file="$(find bit_control_tool)/launch/io_control.launch" />

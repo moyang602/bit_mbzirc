@@ -10,7 +10,6 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <exec_depend>bit_robotcar</exec_depend>
-  <exec_depend>robotcar_moveit_config</exec_depend>
 
   <export>
     <metapackage/>

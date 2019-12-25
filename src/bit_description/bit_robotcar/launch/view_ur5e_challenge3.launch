@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <include file="$(find bit_robotcar)/launch/ur5e_challenge2_upload.launch"/>
+  <include file="$(find bit_robotcar)/launch/ur5e_challenge3_upload.launch"/>
 
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
 
