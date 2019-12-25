@@ -2,7 +2,7 @@
 <package format="2">
   <name>bit_robotcar</name>
   <version>0.0.0</version>
-  <description>The robotcar package</description>
+  <description>The bit_robotcar package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/robotcar</url> -->
+  <!-- <url type="website">http://wiki.ros.org/bit_robotcar</url> -->
 
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
@@ -49,15 +49,12 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>gazebo</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>urdf</build_depend>
-  <build_export_depend>gazebo</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>urdf</build_export_depend>
-  <exec_depend>gazebo</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>urdf</exec_depend>

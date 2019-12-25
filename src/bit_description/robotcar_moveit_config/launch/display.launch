@@ -1,18 +1,12 @@
 <launch>
-  <arg
-    name="model" />
+  <arg name="model" />
 
-  <param
-    name="robot_description"
-    textfile="$(find bit_robotcar)/robots/ur5e.urdf" />
+  <param  name="robot_description"  textfile="$(find bit_robotcar)/robots/ur5e_challenge2.urdf" />
   
   <!--node    name="joint_state_publisher"    pkg="joint_state_publisher"    type="joint_state_publisher">
     <param name="use_gui" value="false"/>
   </node-->
-  <node
-    name="robot_state_publisher"
-    pkg="robot_state_publisher"
-    type="state_publisher" />
+  <node  name="robot_state_publisher"  pkg="robot_state_publisher"  type="state_publisher" />
   <!--<node
     name="rviz"
     pkg="rviz"

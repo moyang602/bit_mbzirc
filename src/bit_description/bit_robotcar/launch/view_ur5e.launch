@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find bit_robotcar)/launch/ur5e_upload.launch"/>
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
+    <param name="use_gui" value="true"/>
+    <!-- <param name="source_list" value=["/car_base_joint_state_msg"]/> -->
+    <rosparam param="source_list">[/car_base_joint_state_msg]</rosparam>
+  </node>
+<!-- 发布car_base关节的位置 -->
+  <node name="pub_car_base_joint_state" pkg="bit_robotcar" type="pub_car_base_joint_state">
+  </node>
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find bit_robotcar)/cfg/view_robot.rviz" required="true" />
+</launch>
