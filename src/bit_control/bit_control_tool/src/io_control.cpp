@@ -4,16 +4,16 @@
 #include <std_msgs/Empty.h> 
 
 #include<geometry_msgs/Twist.h>
-#include<bit_control_tool/heightNow.h>
-#include<bit_control_tool/EndEffector.h>
-#include<bit_control_tool/SetHeight.h>
+#include<bit_control_msgs/heightNow.h>
+#include<bit_control_msgs/EndEffector.h>
+#include<bit_control_msgs/SetHeight.h>
 #include "tf/transform_broadcaster.h"
 
 
 serial::Serial ser; //声明串口对象
 
-bit_control_tool::heightNow hn; 
-bit_control_tool::EndEffector ee;
+bit_control_msgs::heightNow hn; 
+bit_control_msgs::EndEffector ee;
 
 bool param_use_debug;
 /* serial */
@@ -43,7 +43,7 @@ void write_callback_h(const geometry_msgs::Twist& cmd_vel)
     //ser.write(msg->data);   //发送串口数据 
 } 
 
-void write_callback_ee(const bit_control_tool::EndEffector & endeffCmd) 
+void write_callback_ee(const bit_control_msgs::EndEffector & endeffCmd) 
 {
     uint8_t cmd[8] = {'\0'};
     cmd[0] = 0xa0;
@@ -66,8 +66,8 @@ void write_callback_ee(const bit_control_tool::EndEffector & endeffCmd)
     //ser.write(msg->data);   //发送串口数据 
 } 
 
-bool setHeight(bit_control_tool::SetHeight::Request&  req,
-                   bit_control_tool::SetHeight::Response& res)
+bool setHeight(bit_control_msgs::SetHeight::Request&  req,
+                   bit_control_msgs::SetHeight::Response& res)
 {
     service_ava = 1;
     height = req.req_height.x;
@@ -92,12 +92,12 @@ int main (int argc, char** argv)
     //订阅主题，并配置回调函数 
     ros::Subscriber height_sub = nh.subscribe("cmd_vel", 1000, write_callback_h); 
     //发布主题 
-    ros::Publisher height_pub = nh.advertise<bit_control_tool::heightNow>("heightNow", 1000); 
+    ros::Publisher height_pub = nh.advertise<bit_control_msgs::heightNow>("heightNow", 1000); 
     
    //订阅主题，并配置回调函数 
     ros::Subscriber endeff_sub = nh.subscribe("endeffCmd", 1000, write_callback_ee); 
     //发布主题 
-    ros::Publisher endeff_pub = nh.advertise<bit_control_tool::EndEffector>("endeffState", 1000); 
+    ros::Publisher endeff_pub = nh.advertise<bit_control_msgs::EndEffector>("endeffState", 1000); 
 
     ros::ServiceServer service = nh.advertiseService("Setheight",setHeight);
 

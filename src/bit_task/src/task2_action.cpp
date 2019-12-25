@@ -14,14 +14,10 @@
 #include <actionlib/server/simple_action_server.h>
 #include "bit_plan/buildingAction.h"
 
-#include "bit_task/isAddressExist.h"
-#include "bit_task/FindMapAddress.h"
-#include "bit_task/WriteAddress.h"
-
-#include "bit_task/UAV_msg.h"
-#include "bit_task/UGV_msg.h"
+#include "bit_task_msgs/UAV_msg.h"
+#include "bit_task_msgs/UGV_msg.h"
 #include "bit_control_tool/SetHeight.h"
-#include "bit_vision/VisionProc.h"
+#include "bit_vision_msgs/VisionProc.h"
 
 #define TASK_GET 0
 #define TASK_BUILD 1
@@ -298,15 +294,15 @@ class BuildingActionServer  // UGV建筑action服务器
             *       创建各个服务访问客户端，等待后续指令
             *****************************************************/
             ros::NodeHandle n("~");
-            ros::ServiceClient client_is = n.serviceClient<bit_task::isAddressExist>("isAddressExist");
-            bit_task::isAddressExist srv_is;
+            ros::ServiceClient client_is = n.serviceClient<bit_task_msgs::isAddressExist>("isAddressExist");
+            bit_task_msgs::isAddressExist srv_is;
 
-            ros::ServiceClient client_find = n.serviceClient<bit_task::FindMapAddress>("FindMapAddress");
-            bit_task::FindMapAddress srv_find;
+            ros::ServiceClient client_find = n.serviceClient<bit_task_msgs::FindMapAddress>("FindMapAddress");
+            bit_task_msgs::FindMapAddress srv_find;
 
             // 视觉处理的客户端
-            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("GetVisionData");
-            bit_vision::VisionProc srv_vision;
+            ros::ServiceClient client_vision = n.serviceClient<bit_vision_msgs::VisionProc>("GetVisionData");
+            bit_vision_msgs::VisionProc srv_vision;
 
             // 设定高度的客户端
             ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("SetHeight");
@@ -513,7 +509,7 @@ class BuildingActionServer  // UGV建筑action服务器
         }
 };
 
-void UAVmsgCallback(const bit_task::UAV_msg::ConstPtr& msg)
+void UAVmsgCallback(const bit_task_msgs::UAV_msg::ConstPtr& msg)
 {
     UAV_data.UAV_Num	= msg->UAV_Num;		// 个体编号
     UAV_data.flag_detect_bricks	= msg->flag_detect_bricks;	// 发现砖堆标志位（++至4，搜索砖堆任务完成）

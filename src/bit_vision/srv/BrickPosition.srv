@@ -1,4 +1,0 @@
-uint8 Proc_states
-string BrickType
----
-bit_vision/PositionInfo PositionData

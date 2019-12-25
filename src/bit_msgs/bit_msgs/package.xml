@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>bit_msgs</name>
+  <version>1.0.0</version>
+  <description>bit robot msgs and srvs</description>
+  <maintainer email="moyang602@163.com">moyang</maintainer>
+  <license>BSD</license>
+  <author email="moyang602@163.com">moyang</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>bit_vision_msgs</exec_depend>
+  <exec_depend>bit_hardware_msgs</exec_depend>
+  <exec_depend>bit_control_msgs</exec_depend>
+  <exec_depend>bit_task_msgs</exec_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>

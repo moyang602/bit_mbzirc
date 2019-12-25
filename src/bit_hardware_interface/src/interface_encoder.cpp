@@ -10,7 +10,7 @@
 #include <serial/serial.h>  //ROS已经内置了的串口包 
 #include <std_msgs/String.h> 
 
-#include <bit_hardware_interface/encoder_srv.h>
+#include <bit_hardware_msgs/encoder_srv.h>
 
 
 #define CNT_NUM 10
@@ -27,8 +27,8 @@ bool data_ready = 0;
 std::string param_good_init_rotation_;
 bool use_absolute_encoder_ = true;
 
-bool clbEncoder(bit_hardware_interface::encoder_srv::Request&  req,
-                   bit_hardware_interface::encoder_srv::Response& res)
+bool clbEncoder(bit_hardware_msgs::encoder_srv::Request&  req,
+                   bit_hardware_msgs::encoder_srv::Response& res)
 {
     ros::Time start = ros::Time::now();
     while(1){

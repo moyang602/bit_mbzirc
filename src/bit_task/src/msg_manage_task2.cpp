@@ -2,7 +2,7 @@
 
 #include <tf/transform_listener.h>
 #include <geometry_msgs/Twist.h>
-#include "bit_task/UGV_msg.h"
+#include "bit_task_msgs/UGV_msg.h"
 
 double car_vx = 0;
 double car_vy = 0;
@@ -26,7 +26,7 @@ int main (int argc, char** argv)
     //订阅消息
     ros::Subscriber sub = nh.subscribe("cmd_vel", 500, Vel_Callback);
     //发布主题 
-    ros::Publisher UGV_pub = nh.advertise<bit_task::UGV_msg>("UGV_data", 1);
+    ros::Publisher UGV_pub = nh.advertise<bit_task_msgs::UGV_msg>("UGV_data", 1);
 
     // TF 读取
     tf::TransformListener listener;
@@ -52,7 +52,7 @@ int main (int argc, char** argv)
             continue;
         }
         
-        bit_task::UGV_msg ugv_data;
+        bit_task_msgs::UGV_msg ugv_data;
         
         ugv_data.flag_detect_blueprint = 0;		//识别建筑图案完成标志位
         //ugv_data.blueprint	= {1,2,3};		    //建筑图矩阵

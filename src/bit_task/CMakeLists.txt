@@ -7,16 +7,16 @@ project(bit_task)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  message_generation
-  roscpp
-  rospy
-  std_msgs
-  geometry_msgs
-  actionlib
-  actionlib_msgs
-  move_base_msgs
+find_package(
+  catkin REQUIRED COMPONENTS 
+  roscpp rospy 
+  std_msgs 
+  geometry_msgs 
+  actionlib 
+  actionlib_msgs 
+  move_base_msgs 
   tf
+  bit_task_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -53,25 +53,15 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  DIRECTORY msg
-  FILES
-    BrickInfo.msg
-    TaskInfo.msg
-    CameraStates.msg
-    VisionStates.msg
-    Ground_msg.msg
-    UGV_msg.msg
-    UAV_msg.msg
-    task_msg.msg
-)
+# add_message_files(
+#   DIRECTORY msg
+#   FILES
+#     )
 
 ## Generate services in the 'srv' folder
-add_service_files(FILES
-  WriteAddress.srv
-  isAddressExist.srv
-  FindMapAddress.srv
-)
+# add_service_files(
+#   FILES
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -81,11 +71,11 @@ add_service_files(FILES
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs
+#   geometry_msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -119,6 +109,7 @@ generate_messages(
 catkin_package(
   CATKIN_DEPENDS
   message_runtime
+  bit_task_msgs
 #  INCLUDE_DIRS include
 #  LIBRARIES bit_task
 #  CATKIN_DEPENDS roscpp rospy std_msgs
@@ -223,43 +214,35 @@ include_directories(
 # catkin_add_nosetests(test)
 
 
-add_executable(task2_action
-  src/task2_action.cpp
-)
-add_dependencies(task2_action ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(task2_action
-  ${catkin_LIBRARIES}
-)
+# add_executable(task2_action
+#   src/task2_action.cpp
+# )
+# add_dependencies(task2_action ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(task2_action
+#   ${catkin_LIBRARIES}
+# )
 
-add_executable(map_address_manage
-  src/map_address_manage.cpp
-)
-add_dependencies(map_address_manage ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(map_address_manage
-  ${catkin_LIBRARIES}
-)
+# add_executable(map_address_manage
+#   src/map_address_manage.cpp
+# )
+# add_dependencies(map_address_manage ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(map_address_manage
+#   ${catkin_LIBRARIES}
+# )
 
 
-add_executable(task2_action_test_know
-  src/task2_action_know_test.cpp
-)
-add_dependencies(task2_action_test_know ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(task2_action_test_know
-  ${catkin_LIBRARIES}
-)
+# add_executable(task2_action_test_know
+#   src/task2_action_know_test.cpp
+# )
+# add_dependencies(task2_action_test_know ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(task2_action_test_know
+#   ${catkin_LIBRARIES}
+# )
 
 add_executable(msg_manage_task2
   src/msg_manage_task2.cpp
 )
 add_dependencies(msg_manage_task2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(msg_manage_task2
-  ${catkin_LIBRARIES}
-)
-
-add_executable(task3
-  src/task3.cpp
-)
-add_dependencies(task3 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(task3
   ${catkin_LIBRARIES}
 )

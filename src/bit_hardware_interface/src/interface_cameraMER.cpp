@@ -6,7 +6,7 @@
 
 #include "GxIAPI.h"
 #include "DxImageProc.h"
-#include <bit_hardware_interface/MER_srv.h>
+#include <bit_hardware_msgs/MER_srv.h>
 
 using namespace cv;
 
@@ -99,8 +99,8 @@ void ProcessData(void * pImageBuf, void * pImageRaw8Buf, void * pImageRGBBuf, in
 }
 
 // service 回调函数，输入参数req，输出参数res
-bool GrabImage(bit_hardware_interface::MER_srv::Request  &req,
-               bit_hardware_interface::MER_srv::Response &res)
+bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
+               bit_hardware_msgs::MER_srv::Response &res)
 {
     GX_STATUS status = GX_STATUS_SUCCESS;
     ROS_INFO("The exposure_time is %lf", req.exposure_time);

@@ -23,7 +23,7 @@
 
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
-#include <bit_vision/FirePosition.h>
+#include <bit_vision_msgs/FirePosition.h>
 #include "halcon_image.h"
 #include <tf/transform_listener.h>
 
@@ -228,8 +228,8 @@ void Imagecallback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_m
 }
 
 // service 回调函数，输入参数req，输出参数res
-bool GetFirePosition(bit_vision::FirePosition::Request&  req,
-                     bit_vision::FirePosition::Response& res)
+bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
+                     bit_vision_msgs::FirePosition::Response& res)
 {
   ROS_INFO("VisionAlgorithm:[%d]",req.cameraUsed);
 

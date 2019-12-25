@@ -7,28 +7,16 @@
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="moyang@todo.todo">moyang</maintainer>
-
-
-  <!-- One license tag required, multiple allowed, one license per tag -->
+  <maintainer email="moyang@todo.todo">moyang</maintainer>  <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>TODO</license>
-
-
-  <!-- Url tags are optional, but multiple are allowed, one per tag -->
+  <license>TODO</license>  <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/bit_task</url> -->
-
-
-  <!-- Author tags are optional, multiple are allowed, one per tag -->
+  <!-- <url type="website">http://wiki.ros.org/bit_task</url> -->  <!-- Author tags are optional, multiple are allowed, one per tag -->
   <!-- Authors do not have to be maintainers, but could be -->
   <!-- Example: -->
-  <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
-
-
-  <!-- The *depend tags are used to specify dependencies -->
+  <!-- <author email="jane.doe@example.com">Jane Doe</author> -->  <!-- The *depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
   <!-- Examples: -->
   <!-- Use depend as a shortcut for packages that are both build and exec dependencies -->
@@ -68,8 +56,6 @@
     <!-- Other tools can request additional information be placed here -->
 
   </export>
-<build_depend>message_generation</build_depend>
-<build_export_depend>message_generation</build_export_depend>
 <exec_depend>message_runtime</exec_depend>
 
 <build_depend>actionlib</build_depend>
@@ -82,5 +68,12 @@
   <build_depend>tf</build_depend>
   <build_export_depend>tf</build_export_depend>
   <exec_depend>tf</exec_depend>
+
+<build_depend>geometry_msgs</build_depend>
+<build_export_depend>geometry_msgs</build_export_depend>
+<exec_depend>geometry_msgs</exec_depend>
+<build_depend>bit_task_msgs</build_depend>
+<build_export_depend>bit_task_msgs</build_export_depend>
+<exec_depend>bit_task_msgs</exec_depend>
 
 </package>

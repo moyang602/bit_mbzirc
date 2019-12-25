@@ -1,6 +1,6 @@
 #include <ros/ros.h> 
 #include <std_msgs/String.h> 
-#include <bit_task/UAV_msg.h>
+#include <bit_task_msgs/UAV_msg.h>
 
 int main (int argc, char** argv) 
 { 
@@ -10,14 +10,14 @@ int main (int argc, char** argv)
     ros::NodeHandle nh; 
 
     //发布主题 
-    ros::Publisher uav_pub = nh.advertise<bit_task::UAV_msg>("UAV", 5);
+    ros::Publisher uav_pub = nh.advertise<bit_task_msgs::UAV_msg>("UAV", 5);
 
     //指定循环的频率 
     ros::Rate loop_rate(10); 
 
     while(ros::ok()) 
     { 
-        bit_task::UAV_msg uav_data;
+        bit_task_msgs::UAV_msg uav_data;
 
         uav_data.UAV_Num = 1;               // 个体编号
         uav_data.flag_detect_bricks	= 4;	// 发现砖堆标志位（++至4，搜索砖堆任务完成）

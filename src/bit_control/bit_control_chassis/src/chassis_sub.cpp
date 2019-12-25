@@ -13,7 +13,7 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 
-#include <bit_hardware_interface/encoder_srv.h>
+#include <bit_hardware_msgs/encoder_srv.h>
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -761,12 +761,12 @@ int main(int argc, char *argv[])
     }
 
     //---------------- 2. 调用服务获取绝对码盘值 ----------------//
-    ros::ServiceClient client_encoder = nh.serviceClient<bit_hardware_interface::encoder_srv>("/interface_encoder/clbEncoder");
+    ros::ServiceClient client_encoder = nh.serviceClient<bit_hardware_msgs::encoder_srv>("/interface_encoder/clbEncoder");
     // 等待服务启动 
     ros::Duration five_seconds(5,0);    
     client_encoder.waitForExistence(five_seconds);
 
-    bit_hardware_interface::encoder_srv srv_encoder;
+    bit_hardware_msgs::encoder_srv srv_encoder;
 
     ROS_INFO("Waiting for absolute encoder");
     while(1){

@@ -30,7 +30,7 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 #include "tf/transform_broadcaster.h"
-#include "bit_vision/VisionProc.h"
+#include "bit_vision_msgs/VisionProc.h"
 #include <opencv2/core/core.hpp>
 
 #include<iostream>
@@ -513,8 +513,8 @@ void callback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_msgs::
     
 }
 
-bool GetVisionData(bit_vision::VisionProc::Request&  req,
-                   bit_vision::VisionProc::Response& res)
+bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
+                   bit_vision_msgs::VisionProc::Response& res)
 {
     ROS_INFO("BrickType:[%s], VisionAlgorithm:[%d]",req.BrickType.c_str(),req.ProcAlgorithm);
     // 设置视觉处理颜色与算法
@@ -528,7 +528,7 @@ bool GetVisionData(bit_vision::VisionProc::Request&  req,
 
     GetSystemTime(&hv_MSecond, &hv_Second, &hv_Minute, &hv_Hour, &hv_Day, &hv_YDay, &hv_Month, &hv_Year);
 
-    WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+    WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision_msgs/image/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
     WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
 
     switch (algorithm)

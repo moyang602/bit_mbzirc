@@ -1,4 +1,0 @@
-uint8 ProcAlgorithm
-string BrickType
----
-bit_vision/Task2_vision_msg VisionData

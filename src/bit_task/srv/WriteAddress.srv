@@ -1,4 +1,0 @@
-string AddressToFind            # red/yellow/blue/orange/BuildingPlace
-geometry_msgs/PoseStamped AddressPose
----
-uint8 state

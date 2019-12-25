@@ -13,7 +13,6 @@ find_package(
   std_msgs 
   rospy 
   asr_halcon_bridge 
-  message_generation 
   cv_bridge 
   image_transport 
   sensor_msgs 
@@ -21,6 +20,7 @@ find_package(
   tf 
   message_filters
   eigen_conversions
+  bit_vision_msgs
 )
 
 find_package(Boost REQUIRED)
@@ -68,20 +68,12 @@ include_directories(
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(FILES
-  Task2_vision_msg.msg
-  PositionInfo.msg
-  BuildingStates.msg
-  LocateInfo.msg
-)
+# add_message_files(FILES
+#   #   # )
 
 ## Generate services in the 'srv' folder
-add_service_files(FILES
-  VisionProc.srv
-  BrickPosition.srv
-  FirePosition.srv
-  BrickLocate.srv
-)
+# add_service_files(FILES
+#   #   # )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -91,10 +83,10 @@ add_service_files(FILES
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(DEPENDENCIES
+#   std_msgs
+#   geometry_msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -127,7 +119,6 @@ generate_messages(DEPENDENCIES
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   CATKIN_DEPENDS
-  message_runtime
 #  INCLUDE_DIRS include
 #  LIBRARIES halcon_test
 #  CATKIN_DEPENDS roscpp std_msgs

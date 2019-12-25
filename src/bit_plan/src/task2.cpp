@@ -2,12 +2,12 @@
 此程序用于读取蓝图并下发UAV与UGV建筑程序
 */
 #include <actionlib/client/simple_action_client.h>
-#include "bit_plan/buildingAction.h"
-#include "bit_task/BrickInfo.h"
+#include "bit_task_msgs/buildingAction.h"
+#include "bit_task_msgs/BrickInfo.h"
 #include <vector>
 #include "blueprint_read.h"
 
-typedef actionlib::SimpleActionClient<bit_plan::buildingAction> Client;
+typedef actionlib::SimpleActionClient<bit_task_msgs::buildingAction> Client;
 
 BrickPlan brickplan;    // 建筑蓝图对象定义
 
@@ -28,7 +28,7 @@ public:
         ROS_INFO_STREAM("UGV action server: ["<<ClientName<<"] start!");
     }
 
-    bool SendGoal(bit_plan::buildingGoal goal, double Timeout = 10.0)   // 执行成功为true 失败为false
+    bool SendGoal(bit_task_msgs::buildingGoal goal, double Timeout = 10.0)   // 执行成功为true 失败为false
     {
         // 发送目标至服务器
         client.sendGoal(goal,
@@ -59,7 +59,7 @@ private:
     /*
     *action完成时的回调函数，一次性
     */
-    void done_cb(const actionlib::SimpleClientGoalState& state, const bit_plan::buildingResultConstPtr& result)
+    void done_cb(const actionlib::SimpleClientGoalState& state, const bit_task_msgs::buildingResultConstPtr& result)
     {
         ROS_INFO("Building task finished, State: %d",result->finish_state);
     }
@@ -75,7 +75,7 @@ private:
     /*
     *action收到反馈时的回调函数
     */
-    void feedback_cb(const bit_plan::buildingFeedbackConstPtr& feedback)
+    void feedback_cb(const bit_task_msgs::buildingFeedbackConstPtr& feedback)
     {
         ROS_INFO_STREAM("The UGV state is "<<feedback->task_feedback);
     }
@@ -87,9 +87,9 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "task2_plan");
     
     // 任务变量初始化
-    bit_plan::buildingGoal ugv_building_goal;   // action 目标
-    std::vector<bit_task::BrickInfo> ugv_brick; // 砖块信息堆栈
-    bit_task::BrickInfo brick;                  // 单个砖块信息
+    bit_task_msgs::buildingGoal ugv_building_goal;   // action 目标
+    std::vector<bit_task_msgs::BrickInfo> ugv_brick; // 砖块信息堆栈
+    bit_task_msgs::BrickInfo brick;                  // 单个砖块信息
 
     /* 建立UGV 堆墙action客户端 */
     BuildingActionClient UGVClient("ugv_building", true);    // 创建小车堆墙action客户端

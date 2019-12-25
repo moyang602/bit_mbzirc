@@ -21,7 +21,7 @@
 #include "bit_task/UAV_msg.h"
 #include "bit_task/UGV_msg.h"
 #include "bit_control_tool/SetHeight.h"
-#include "bit_vision/VisionProc.h"
+#include "bit_vision_msgs/VisionProc.h"
 
 
 #define TASK_GET 0
@@ -308,8 +308,8 @@ class BuildingActionServer  // UGV建筑action服务器
 
 
             // 视觉处理的客户端
-            ros::ServiceClient client_vision = n.serviceClient<bit_vision::VisionProc>("/GetVisionData");
-            bit_vision::VisionProc srv_vision;
+            ros::ServiceClient client_vision = n.serviceClient<bit_vision_msgs::VisionProc>("/GetVisionData");
+            bit_vision_msgs::VisionProc srv_vision;
 
             // 设定高度的客户端
             ros::ServiceClient client_height = n.serviceClient<bit_control_tool::SetHeight>("/Setheight");

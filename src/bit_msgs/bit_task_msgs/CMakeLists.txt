@@ -1,34 +1,17 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(bit_hardware_interface)
+project(bit_task_msgs)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
-
-# 通过 locate OpenCVConfig.cmake 查找
-set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev/)
+# add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(
-  catkin REQUIRED COMPONENTS 
-  OpenCV REQUIRED 
-  roscpp 
-  rospy 
-  std_msgs 
-  serial 
-  sensor_msgs 
-  cv_bridge 
-  image_transport 
-  geometry_msgs 
-  OpenCV
-  std_srvs
-  tf
-  bit_hardware_msgs
-)
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
+
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -51,7 +34,13 @@ find_package(
 ##     * add a exec_depend tag for "message_runtime"
 ## * In this file (CMakeLists.txt):
 ##   * add "message_generation" and every package in MSG_DEP_SET to
-##     find_package(catkin REQUIRED COMPONENTS ...)
+find_package(
+  catkin REQUIRED COMPONENTS 
+  actionlib_msgs 
+  std_msgs 
+  message_generation 
+  geometry_msgs
+)
 ##   * add "message_runtime" and every package in MSG_DEP_SET to
 ##     catkin_package(CATKIN_DEPENDS ...)
 ##   * uncomment the add_*_files sections below as needed
@@ -60,29 +49,39 @@ find_package(
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(FILES
+  VisionStates.msg
+  UGV_msg.msg
+  TaskInfo.msg
+  task_msg.msg
+  Ground_msg.msg
+  CameraStates.msg
+  BrickInfo.msg
+  UAV_msg.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
+#   Service1.srv
+#   Service2.srv
 # )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(FILES
+  building.action
+  pickput.action
+  locate.action
+  fightfire.action
+)
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(DEPENDENCIES
-#   std_msgs
-#   sensor_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  actionlib_msgs
+  std_msgs
+  geometry_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -116,9 +115,12 @@ find_package(
 catkin_package(
   CATKIN_DEPENDS
   message_runtime
+  actionlib_msgs
+  std_msgs
+  geometry_msgs
 #  INCLUDE_DIRS include
-#  LIBRARIES bit_hardware_interface
-#  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs serial std_srvs tf
+#  LIBRARIES bit_task_msgs
+#  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
 
@@ -129,17 +131,13 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
-  include/serial
-  include/cameraIR
-  include/xml
-  include/MER
+# include
+# ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/bit_hardware_interface.cpp
+#   src/${PROJECT_NAME}/bit_task_msgs.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -150,7 +148,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/bit_hardware_interface_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/bit_task_msgs_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -176,10 +174,10 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-install(PROGRAMS
-  scripts/produce.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# install(PROGRAMS
+#   scripts/my_python_script
+#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
@@ -203,7 +201,7 @@ install(PROGRAMS
 # )
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILESinclude_directories(./)
+# install(FILES
 #   # myfile1
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
@@ -214,65 +212,10 @@ install(PROGRAMS
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_bit_hardware_interface.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_bit_task_msgs.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-link_directories(lib
-  lib/HCNetSDKCom
-  lib/XmlBase
-  lib/MER
-)
-
-
-add_executable(interface_gps
-  src/interface_gps.cpp
-)
-add_dependencies(interface_gps ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_gps
-  ${catkin_LIBRARIES}
-)
-
-add_executable(interface_imu
-  src/interface_imu.cpp
-)
-add_dependencies(interface_imu ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_imu
-  ${catkin_LIBRARIES}
-)
-
-add_executable(interface_encoder
-  src/interface_encoder.cpp
-)
-add_dependencies(interface_encoder ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_encoder
-  ${catkin_LIBRARIES}
-)
-
-
-add_executable(interface_camerair
-  src/interface_camerair.cpp
-)
-add_dependencies(interface_camerair ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_camerair
-  ${catkin_LIBRARIES}
-  HCCore
-  hcnetsdk
-  PlayCtrl
-  XmlBase
-)
-
-
-add_executable(interface_cameraMER
-  src/interface_cameraMER.cpp
-)
-add_dependencies(interface_cameraMER ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interface_cameraMER
-  ${catkin_LIBRARIES}
-  dhgentl
-  gxiapi
-  dximageproc
-)
