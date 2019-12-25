@@ -14,8 +14,8 @@ import actionlib
 import urx
 import tf
 
-from bit_control_tool.msg import EndEffector
-from bit_control_tool.msg import heightNow
+from bit_control_msgs.msg import EndEffector
+from bit_control_msgs.msg import heightNow
 
 from geometry_msgs.msg import WrenchStamped
 from geometry_msgs.msg import PoseStamped
@@ -25,10 +25,10 @@ from actionlib_msgs.msg import GoalID
 from actionlib_msgs.msg import GoalStatus
 from move_base_msgs.msg import MoveBaseActionFeedback
 
-import bit_plan.msg
+import bit_task_msgs.msg
 
-import bit_vision.srv
-from bit_control_tool.srv import SetHeight
+import bit_vision_msgs.srv
+from bit_control_msgs.srv import SetHeight
 
 if sys.version_info[0] < 3:  # support python v2
     input = raw_input
@@ -162,12 +162,12 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
 ## ================================================== ##
 
 class pick_put_act(object):
-    _feedback = bit_plan.msg.buildingFeedback()
-    _result = bit_plan.msg.buildingResult()
+    _feedback = bit_task_msgs.msg.buildingFeedback()
+    _result = bit_task_msgs.msg.buildingResult()
 
     def __init__(self, name):
         self._action_name = name
-        self._as = actionlib.SimpleActionServer(self._action_name, bit_plan.msg.buildingAction , execute_cb=self.execute_cb, auto_start = False)
+        self._as = actionlib.SimpleActionServer(self._action_name, bit_task_msgs.msg.buildingAction , execute_cb=self.execute_cb, auto_start = False)
         self._as.start()
         rospy.loginfo("%s server ready! ", name)
 

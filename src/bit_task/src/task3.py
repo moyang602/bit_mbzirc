@@ -10,9 +10,9 @@ from geometry_msgs.msg import PoseStamped
 from move_base_msgs.msg import MoveBaseActionFeedback
 from actionlib_msgs.msg import GoalID
 # 末端工具
-from bit_control_tool.msg import EndEffector
+from bit_control_msgs.msg import EndEffector
 # 视觉相关
-from bit_vision.srv import FirePosition
+from bit_vision_msgs.srv import FirePosition
 
 #---- 变量初始化 ----#
 cancel_id = 0  # MoveBase 正在运行任务ID
@@ -76,14 +76,14 @@ def GoIntoDoor():
 def FightFire():
     rospy.loginfo("Start fight fire motion")
     pose = rob.getl()
-    print("Initial end pose is ", pose)
+    print "Initial end pose is", pose 
     JointAngle = rob.getj()
-    print("Initial joint angle is ", JointAngle)
-
+    print "Initial joint angle is", JointAngle 
+    
     #----- 1. 机械臂移动至火源探索位姿 -------#
     rob.movej(FindFirePos, acc=a, vel=3*v, wait=True, relative=False)
 
-
+    '''
     #----- 2. 车臂移动探索火源 -------#
     # 2.1 小车开始自由移动
     CarMove(2.0, 0.0, 0.0*deg2rad)
@@ -163,7 +163,7 @@ def FightFire():
             break
 
     #----- 7. 开始灭火-------#
-    '''
+    
     # 操作末端 开始喷水
     
     rospy.sleep(1.0)
@@ -184,11 +184,11 @@ def FightFire():
 
     # 等待水停止
     rospy.sleep(10.0)
-    '''
+    
      
     #----- 8. 机械臂复原-------#
     rob.movej(FindFirePos,acc=a, vel=2*v,wait=True)
-
+    '''
 
 
 if __name__ == '__main__':
@@ -198,10 +198,11 @@ if __name__ == '__main__':
     try:
         #---------- 0. 初始化 --------------#
         # UR 机器人
-        rob = urx.Robot("192.168.50.60", use_rt = True)
-        rospy.loginfo('UR controller connected')
-        rob.set_tcp((0, 0, 0, 0, 0, 0))             # 设置工具中心 Todo
-        rob.set_payload(0.0, (0.0, 0.0, 0.0))       # 设置末端负载 Todo
+
+        # rob = urx.Robot("192.168.50.60", use_rt = True)
+        # rospy.loginfo('UR controller connected')
+        # rob.set_tcp((0, 0, 0, 0, 0, 0))             # 设置工具中心 Todo
+        # rob.set_payload(0.0, (0.0, 0.0, 0.0))       # 设置末端负载 Todo
 
         # 小车移动相关话题初始化
         goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
@@ -224,6 +225,6 @@ if __name__ == '__main__':
     except Exception as e:
         rospy.logerr('error', e)
     finally:
-        rob.stop()
-        rob.close()
-        rospy.loginfo('Task3 finished!')
+        # rob.stop()
+        # rob.close()
+        # rospy.loginfo('Task3 finished!')

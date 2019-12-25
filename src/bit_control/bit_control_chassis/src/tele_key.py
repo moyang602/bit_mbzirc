@@ -7,7 +7,7 @@ import roslib
 import rospy
 
 from geometry_msgs.msg import Twist
-from bit_control_tool.msg import EndEffector
+from bit_control_msgs.msg import EndEffector
 
 import sys, select, termios, tty ,os
 import time
