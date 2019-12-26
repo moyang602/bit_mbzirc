@@ -209,7 +209,7 @@ class pick_put_act(object):
             '''
             # 找砖：视觉引导，雷达微调 CarMove() tf.TransformListener.lookupTransform()
             while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLocation, "orange")
+                VisionData = GetVisionData_client(GetBrickLocation, "O")
                 if VisionData.Flag:     # 能够看到
                     CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,VisionData.Pose.orientation.z,VisionData.header.frame_id)
                     # 调用激光雷达检测的服务
@@ -399,8 +399,7 @@ class pick_put_act(object):
         self.show_tell("Got brick and arrived pre-Pick position" )
 
         # TODO:需要进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
-        if goal.goal_brick.type == "orange":
-            pass
+        if goal.goal_brick.type == "O":
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
             # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
 
@@ -429,8 +428,7 @@ class pick_put_act(object):
 
         set_height(400)     # 可能需要提高
         # TODO:需要进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
-        if goal.goal_brick.type == "orange":
-            pass
+        if goal.goal_brick.type == "O":
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
             # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
 

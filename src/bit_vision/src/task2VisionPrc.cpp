@@ -60,7 +60,7 @@ bool data_flag = false;     // 数据置信度
 
 //取砖和放砖用同一个变量表示角度
 HTuple brick_angle(0);
-string brick_color = "green";
+string brick_color = "G";
 HTuple Brick_X(0);
 HTuple Brick_Y(0);
 HTuple Brick_Z(0);
@@ -208,15 +208,15 @@ void put_brick(HObject ho_Image1)
     ClassifyImageClassMlp(ho_Image1, &ho_ClassRegions, hv_MLPHandle, 0.5);
     //基于先前举起砖块时做的颜色分类结果 先选择砖块对应的区域
 
-    if (0 != (brick_color=="red"))
+    if (0 != (brick_color=="R"))
     {
       hv_index = 1;
     }
-    else if (0 != (brick_color=="green"))
+    else if (0 != (brick_color=="G"))
     {
       hv_index = 2;
     }
-    else if (0 != (brick_color=="blue"))
+    else if (0 != (brick_color=="B"))
     {
       hv_index = 3;
     }
@@ -406,15 +406,15 @@ void brick_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTuple &hv
 
     if (0 != (hv_index==0))
     {
-      hv_class = "red";
+      hv_class = "R";
     }
     else if (0 != (hv_index==1))
     {
-      hv_class = "green";
+      hv_class = "G";
     }
     else if (0 != (hv_index==2))
     {
-      hv_class = "blue";
+      hv_class = "B";
     }
 
     //获取左图中的位置

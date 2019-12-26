@@ -214,7 +214,7 @@ include_directories(
 
 
 add_executable(task2
-  src/blueprint_read.cpp
+  src/GetBrick.cpp
   src/task2.cpp
 )
 add_dependencies(task2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
