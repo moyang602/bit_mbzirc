@@ -23,7 +23,8 @@ from geometry_msgs.msg import Twist
 
 from actionlib_msgs.msg import GoalID
 from actionlib_msgs.msg import GoalStatus
-from move_base_msgs.msg import MoveBaseActionFeedback
+from actionlib_msgs.msg import GoalStatusArray
+# from move_base_msgs.msg import MoveBaseFeedback
 
 import bit_task_msgs.msg
 
@@ -126,24 +127,32 @@ def Laser_client(LaserAlgoritm):
 def move_base_feedback(a):
     global cancel_id
     global status
-    cancel_id = a.status.goal_id
-    status = a.status.status
+    cancel_id = a.status_list[0].goal_id.id
+    status = a.status_list[0].status
 
 # 小车移动
 def CarMove(x,y,theta,frame_id="car_link",wait = False):
+
+    global status
     this_target = PoseStamped()
     this_target.header.frame_id = frame_id
     this_target.header.stamp = rospy.Time.now()
     this_target.pose.position.x = x
     this_target.pose.position.y = y
     this_target.pose.position.z = 0.0
-    this_target.pose.orientation = tf.transformations.quaternion_from_euler(0,0,theta)
+    ori = tf.transformations.quaternion_from_euler(0,0,theta,'ryxz')
+    this_target.pose.orientation.x = ori[0]
+    this_target.pose.orientation.y = ori[1]
+    this_target.pose.orientation.z = ori[2]
+    this_target.pose.orientation.w = ori[3]
+
     # 发布位置
     simp_goal_pub.publish(this_target)
+    rospy.sleep(0.1)
 
     if wait :
         while status != GoalStatus.SUCCEEDED:
-            if status = GoalStatus.ABORTED:     # 如果规划器失败的处理
+            if status == GoalStatus.ABORTED:     # 如果规划器失败的处理
                 simp_goal_pub.publish(this_target)
             pass
 
@@ -194,10 +203,10 @@ class pick_put_act(object):
             # 机械臂移动至观察砖堆准备位姿
             rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
             # 调用激光雷达找位置，转一个角度
-            CarMove(0,0,theta)
+            # CarMove(0,0,theta)
 
             # -------------------- 找砖 --------------------- #
-
+            '''
             # 找砖：视觉引导，雷达微调 CarMove() tf.TransformListener.lookupTransform()
             while True:         # Todo 避免进入死循环
                 VisionData = GetVisionData_client(GetBrickLocation, "orange")
@@ -209,10 +218,13 @@ class pick_put_act(object):
                 else:
                     # 调用激光雷达找位置，来移动
                     CarMove(0,0,theta)
-            
+            '''
+            CarMove(2.0,0,0,frame_id="car_link",wait=True)
             # ----------- 到达砖堆橙色处，开始取砖 --------------#
+            wait()
+            '''
             brickIndex = 0
-            for brickIndex < goal.Num:
+            while brickIndex < goal.Num:
                 # 调用激光雷达检测的服务  goal.bricks[brickIndex].type
 
                 for attempt in range(0,3):  # 最大尝试次数30
@@ -224,7 +236,7 @@ class pick_put_act(object):
                         break
                       
             self.show_tell("Got all bricks, go to build")
-
+            
             # --------------- 寻找L架 ------------------------#
             # 机械臂移动至观察L架位姿
             rob.movej(lookDownPos, acc=a, vel=3*v,wait=True)
@@ -262,7 +274,7 @@ class pick_put_act(object):
             # --------------------找到L架，开始搭建 ------------#
 
             brickIndex = 0
-            for brickIndex < goal.Num:
+            while brickIndex < goal.Num:
                 
                 tf_BrickOnOrign = tf.TransformListener.fromTranslationRotation((goal.bricks[brickIndex].x,goal.bricks[brickIndex].y,0),(0,0,0,1))
                 if goal.bricks[brickIndex].x == 0.0:
@@ -274,6 +286,7 @@ class pick_put_act(object):
                 target_tf = tf_OrignOnMap * tf_BrickOnOrign * tf_CarOnBrick
                 Rotation = tf.transformations.euler_from_quaternion(target_tf.transform.rotation)
 
+                # 动态配置
                 CarMove(target_tf.transform.translation.x,target_tf.transform.translation.y,Rotation[3],frame_id="map",wait = True )
                 self.show_tell("Got the %d brick place"% brickIndex)
 
@@ -285,6 +298,8 @@ class pick_put_act(object):
                         brickIndex = brickIndex + 1     # 成功了就取下一块 
                         break 
             self.show_tell("Build all bricks")
+
+            '''
 
         except Exception as e:
             print("error", e)
@@ -349,6 +364,7 @@ class pick_put_act(object):
                     break
             
         self.show_tell("In the workspace，Ready to pick")
+        wait()
         # 得到识别结果，平移到相机正对砖块上方0.5m（待确定）处
         pose[0] = VisionData.Pose.position.x-0.023      #使ZED正对砖块中心  0.023为zed与magnet偏移
         pose[1] = VisionData.Pose.position.y+0.142      #使ZED正对砖块中心  0.142为zed与magnet偏移
@@ -384,6 +400,7 @@ class pick_put_act(object):
 
         # TODO:需要进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
         if goal.goal_brick.type == "orange":
+            pass
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
             # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
 
@@ -391,6 +408,7 @@ class pick_put_act(object):
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
         else:
+            pass
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
             # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
 
@@ -398,7 +416,7 @@ class pick_put_act(object):
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
 
-        self.forceDown(0.32)        # 伪力控放置
+        self.forceDown(0.32)        # 伪力控放置status
         self.show_tell("Put Down")        
         self.turnEndEffect(OFF)     # 释放末端
 
@@ -412,6 +430,7 @@ class pick_put_act(object):
         set_height(400)     # 可能需要提高
         # TODO:需要进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
         if goal.goal_brick.type == "orange":
+            pass
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
             # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
 
@@ -419,6 +438,7 @@ class pick_put_act(object):
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
         else:
+            pass
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
             # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
 
@@ -488,8 +508,8 @@ if __name__ == '__main__':
 
     # 小车移动相关话题初始化
     simp_goal_pub = rospy.Publisher('/move_base_simple/goal',PoseStamped,queue_size=1)
-    simp_goal_sub = rospy.Subscriber("move_base/feedback",MoveBaseActionFeedback,move_base_feedback)
-    simp_cancel = rospy.Publisher('/move_base/cancel',GoalID,1)
+    simp_goal_sub = rospy.Subscriber("move_base/status",GoalStatusArray,move_base_feedback)
+    simp_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)
 
     ee = EndEffector()
     normal = 0
@@ -504,7 +524,7 @@ if __name__ == '__main__':
             rob.set_tcp((0, 0, 0.074, 0, 0, 0))     #TASK2 参数 m,rad
             rob.set_payload(0.96, (0.004, -0.042, 0.011))
 
-            pick_put_act("pickputAction")     # rospy.get_name())
+            pick_put_act("ugv_building")     # rospy.get_name())
             rospy.spin() 
         except:
             time.sleep(2.0)

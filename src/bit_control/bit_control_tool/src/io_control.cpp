@@ -124,7 +124,7 @@ int main (int argc, char** argv)
     //检测串口是否已经打开，并给出提示信息 
     if(ser.isOpen()) 
     { 
-        ROS_INFO_STREAM("Serial Port initialized"); 
+        ROS_INFO_STREAM("Serial Port"<<param_port_path_<<"initialized"); 
     } 
     else 
     { 

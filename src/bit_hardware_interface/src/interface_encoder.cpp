@@ -30,28 +30,24 @@ bool use_absolute_encoder_ = true;
 bool clbEncoder(bit_hardware_msgs::encoder_srv::Request&  req,
                    bit_hardware_msgs::encoder_srv::Response& res)
 {
-    ros::Time start = ros::Time::now();
-    while(1){
-        if (!use_absolute_encoder_){
-            for (int i = 0;i<4; i++){
-                res.init_pos.push_back(0.0f); 
-            }
-            res.success_flag = 1;
-            break;
+    if (!use_absolute_encoder_){
+        for (int i = 0;i<4; i++){
+            res.init_pos.push_back(0.0f); 
         }
-        if ( (ros::Time::now().toSec() - start.toSec()) > 5.0 ){
-            res.success_flag = 0;
-            break;
-        }
-        if (data_ready) {
-            res.init_pos.push_back(res_encoder[3]); 
-            res.init_pos.push_back(res_encoder[2]); 
-            res.init_pos.push_back(res_encoder[1]); 
-            res.init_pos.push_back(res_encoder[0]); 
-            res.success_flag = 1;
-            break;
-        }
+        res.success_flag = 1;
+        return 1;
     }
+    if (data_ready) {
+        res.init_pos.push_back(res_encoder[3]); 
+        res.init_pos.push_back(res_encoder[2]); 
+        res.init_pos.push_back(res_encoder[1]); 
+        res.init_pos.push_back(res_encoder[0]); 
+        res.success_flag = 1;
+        return 1;
+    }
+    res.success_flag = 0;
+    return 1;
+
 }
 
 
@@ -73,7 +69,7 @@ int main (int argc, char** argv)
   
     
     sscanf(param_good_init_rotation_.c_str(),"[%lf %lf %lf %lf]",&(good_rotation[3]),&(good_rotation[2]),&(good_rotation[1]),&(good_rotation[0]));
-    ROS_INFO("m0:%lf,m1:%lf,m2:%lf,m3:%lf",good_rotation[0],good_rotation[1],good_rotation[2],good_rotation[3]);
+    ROS_INFO("good value set to: m0:%lf,m1:%lf,m2:%lf,m3:%lf",good_rotation[0],good_rotation[1],good_rotation[2],good_rotation[3]);
 
     try 
     { 
@@ -93,7 +89,7 @@ int main (int argc, char** argv)
     //检测串口是否已经打开，并给出提示信息 
     if(ser.isOpen()) 
     { 
-        ROS_INFO_STREAM("Serial Port initialized"); 
+        ROS_INFO_STREAM("Serial Port "<<param_port_path_<<"initialized"); 
     } 
     else 
     { 
@@ -106,6 +102,8 @@ int main (int argc, char** argv)
 
     uint8_t sum = 0;
     double init_encoder[4] = {0.0};
+    double raw_encoder[4] = {0.0};
+
     uint8_t error[4] = {0};
     int encoder_cnt = 0;
     uint8_t rec[30] = {0};
@@ -124,19 +122,19 @@ int main (int argc, char** argv)
                     }
                     if (rec[13] == sum){
                         for (int i = 0; i<4 ; i++){
-                            init_encoder[i] = double((rec[3*i +1]<<15) | (rec[3*i +2]<<7) | (rec[3*i +3]>>1))/0xfffff * 3.1415926 *2.0;
+                            raw_encoder[i] = double((rec[3*i +1]<<15) | (rec[3*i +2]<<7) | (rec[3*i +3]>>1))/0xfffff * 3.1415926 *2.0;
                             error[i] = rec[3*i + 3] & 0x01;
-                            init_encoder[i] = good_rotation[i]-init_encoder[i];
+                            init_encoder[i] = good_rotation[i]-raw_encoder[i];
                             if (init_encoder[i] < -3.1415926) init_encoder[i] += 3.1415926*2;
                             if (init_encoder[i] > 3.1415926) init_encoder[i] -= 3.1415926*2;
                         }
 
-                        ROS_INFO("m0:%lf,m1:%lf,m2:%lf,m3:%lf",init_encoder[3],init_encoder[2],init_encoder[1],init_encoder[0]);
+                        ROS_INFO("m0:%lf,m1:%lf,m2:%lf,m3:%lf",raw_encoder[3],raw_encoder[2],raw_encoder[1],raw_encoder[0]);
 
                         if(error[0] +error[1] +error[2] +error[3] == 0){ //全都是0，都不报错
                             
                             if (encoder_cnt < CNT_NUM+10){
-                                if (10 <=encoder_cnt){
+                                if (encoder_cnt >= 10){
                                     ROS_INFO("ok:%d",encoder_cnt);
                                     res_encoder[0] += init_encoder[0]/CNT_NUM;
                                     res_encoder[1] += init_encoder[1]/CNT_NUM;

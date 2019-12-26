@@ -179,7 +179,7 @@ void * rx_thread(void *data)
                         motor[can[i].ID-1].first_odom = motor[can[i].ID-1].odom;
                     }
                     motor[can[i].ID-1].odom = init_rotation[can[i].ID-1] + motor[can[i].ID-1].odom - motor[can[i].ID-1].first_odom;
-                    ROS_INFO("%f",motor[2].first_odom);
+                    // ROS_INFO("%f",motor[2].first_odom);
                 }
                 if ( can[i].ID == 7 || can[i].ID == 8 ){
                     motor[can[i].ID-1].odom = double(pos)/409600 * WheelC;
@@ -763,20 +763,23 @@ int main(int argc, char *argv[])
     //---------------- 2. 调用服务获取绝对码盘值 ----------------//
     ros::ServiceClient client_encoder = nh.serviceClient<bit_hardware_msgs::encoder_srv>("/interface_encoder/clbEncoder");
     // 等待服务启动 
-    ros::Duration five_seconds(5,0);    
+    ros::Duration five_seconds(5.0);  
+    
+    ROS_INFO("Waiting for absolute encoder"); 
     client_encoder.waitForExistence(five_seconds);
 
     bit_hardware_msgs::encoder_srv srv_encoder;
 
-    ROS_INFO("Waiting for absolute encoder");
     while(1){
         client_encoder.call(srv_encoder);
+        ROS_INFO("%d",srv_encoder.response.success_flag);
         if (srv_encoder.response.success_flag){
             for (int i = 0; i< 4; i++){
                 init_rotation[i] = srv_encoder.response.init_pos[i] ;
             }
             break;
         }
+        ros::Duration(0.5).sleep();
     }
     ROS_INFO("Got result");
 
@@ -871,7 +874,7 @@ int main(int argc, char *argv[])
             if ( i < 4 )
             {
                 double err = now - motor[i].odom*57.29578f;
-                ROS_INFO("%d,%f",i,motor[i].odom);
+                // ROS_INFO("%d,%f",i,motor[i].odom);
 
                 now = 20 * err  + 1.0 * (err - err_last[i]);
                 err_last[i] = err;

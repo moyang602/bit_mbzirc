@@ -18,7 +18,7 @@
   <include file="$(find robot_pose_ekf)/robot_pose_ekf.launch" />
 
   <!--运行底盘节点-->
-  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub"  respawn="false" />
+  <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" output = "screen" respawn="false" />
    
   <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 
