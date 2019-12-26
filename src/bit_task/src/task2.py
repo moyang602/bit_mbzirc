@@ -4,6 +4,7 @@
 '''ur_force ROS Node'''
 import rospy
 from math import pi
+import math
 import time,sys,logging,os
 import numpy as np
 import threading
@@ -36,6 +37,7 @@ if sys.version_info[0] < 3:  # support python v2
 do_wait = True
 
 #=============特征点与运动参数==========
+deg2rad = 0.017453
 prePickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]取砖准备位姿
 upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
 prePutPos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
@@ -82,6 +84,7 @@ global force
 global ee
 global cancel_id
 global status
+FinishFlag = 0
 
 def forcecallback(data):
     '''ur_force Callback Function'''
@@ -150,7 +153,7 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
     simp_goal_pub.publish(this_target)
     rospy.sleep(0.1)
 
-    if wait :
+    if wait:
         while status != GoalStatus.SUCCEEDED:
             if status == GoalStatus.ABORTED:     # 如果规划器失败的处理
                 simp_goal_pub.publish(this_target)
@@ -204,14 +207,14 @@ class pick_put_act(object):
             rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
             # 调用激光雷达找位置，转一个角度
             # CarMove(0,0,theta)
-
             # -------------------- 找砖 --------------------- #
             '''
             # 找砖：视觉引导，雷达微调 CarMove() tf.TransformListener.lookupTransform()
             while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLocation, "O")
+                VisionData = GetVisionData_client(GetBrickLocation, "O")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
-                    CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,VisionData.Pose.orientation.z,VisionData.header.frame_id)
+                    theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
+                    CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,VisionData.header.frame_id)
                     # 调用激光雷达检测的服务
                     if 1:# 激光雷达检测到在范围内，并且已经到达
                         break
@@ -246,13 +249,7 @@ class pick_put_act(object):
                 while VisionData.Flag > 0:
                     while VisionData.Flag > 1:
                         while VisionData.Flag > 2:
-                            temp_pos = PoseStamped()
-                            temp_pos.header.frame_id = "map"
-                            temp_pos.header.stamp = rospy.Time.now()
-                            temp_pos.pose = VisionData.Pose
-                            tf_BaseOnMap = tf.TransformListener.lookupTransform("base_link","map",rospy.Time(0))
-                            tf_OrignOnBase = tf.TransformListener.transformPose("base_link",temp_pos)
-                            tf_OrignOnMap = tf_OrignOnBase * tf_BaseOnMap
+                            tf_OrignOnMap = PoseCal(tf_BaseOnMap_rot,tf_BaseOnMap_trans,VisionData.Pose.orientation,VisionData.Pose.posotion):
                             # TODO 记录
                             out = 1
                             break
@@ -298,6 +295,8 @@ class pick_put_act(object):
                         brickIndex = brickIndex + 1     # 成功了就取下一块 
                         break 
             self.show_tell("Build all bricks")
+            global FinishFlag
+            FinishFlag = 1
 
             '''
 
@@ -406,6 +405,7 @@ class pick_put_act(object):
             # pose = rob.getl()
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
+            pass
         else:
             pass
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
@@ -414,6 +414,7 @@ class pick_put_act(object):
             # pose = rob.getl()
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
+            pass
 
         self.forceDown(0.32)        # 伪力控放置status
         self.show_tell("Put Down")        
@@ -435,6 +436,7 @@ class pick_put_act(object):
             # pose = rob.getl()
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
+            pass
         else:
             pass
             # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
@@ -443,6 +445,7 @@ class pick_put_act(object):
             # pose = rob.getl()
             # pose[2] = CarHeight_base + 0.32
             # rob.movel(pose, acc=a, vel=v,wait=True)
+            pass
         self.show_tell("arrived pre-pick position")
 
         rospy.sleep(0.5)
@@ -494,6 +497,19 @@ class pick_put_act(object):
         rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
         return SUCCESS
 
+def PoseCal(quat1,trans1,quat2,trans2):
+    t1 = tf.transformations.quaternion_matrix(quat1)
+    t1[0][3] = trans1[0]
+    t1[1][3] = trans1[1]
+    t1[2][3] = trans1[2]
+    t2 = tf.transformations.quaternion_matrix(quat2)
+    t2[0][3] = trans2[0]
+    t2[1][3] = trans2[1]
+    t2[2][3] = trans2[2]
+
+    t3 = np.dot(t2,t1)
+    return t3
+
 
 if __name__ == '__main__':
 
@@ -511,7 +527,7 @@ if __name__ == '__main__':
 
     ee = EndEffector()
     normal = 0
-   
+  
     while(not rospy.is_shutdown()):
         try :
             global rob
@@ -519,11 +535,18 @@ if __name__ == '__main__':
             normal = 1
             rospy.loginfo('robot ok')
             # Todo 根据实际末端负载与工具中心设置
-            rob.set_tcp((0, 0, 0.074, 0, 0, 0))     #TASK2 参数 m,rad
-            rob.set_payload(0.96, (0.004, -0.042, 0.011))
+            rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
+            rob.set_payload(0.76, (0.011, -0.042, 0.003))
 
             pick_put_act("ugv_building")     # rospy.get_name())
-            rospy.spin() 
+            
+            # TF 计算
+            listener = tf.TransformListener()
+            while not FinishFlag:
+                try:
+                    (tf_BaseOnMap_trans,tf_BaseOnMap_rot) = listener.lookupTransform("base_link","map", rospy.Time(0))
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    continue
         except:
             time.sleep(2.0)
         finally:
