@@ -31,9 +31,6 @@
   <!--display-->
   <node name="rviz" pkg="rviz" type="rviz"/>
 
- <!--运行控制台的节点，当遥控器不可用时可以切换为键盘-->
-  <!--node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen"/-->
-
 <!--运行控制台的节点，当遥控器不可用时可以切换为键盘-->
   <node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen" launch-prefix="gnome-terminal -e"/>
 
