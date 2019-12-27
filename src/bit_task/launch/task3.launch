@@ -3,6 +3,9 @@
   <!--bringup robot-->  
   <include file="$(find bit_task)/launch/slam_map.launch" />
 
+  <!--运行模型显示节点-->
+  <include file="$(find bit_robotcar)/launch/view_ur5e_challenge3.launch" />
+
   <!--bringup camera-->
   <include file="$(find bit_hardware_interface)/launch/CameraIR.launch" />  
 

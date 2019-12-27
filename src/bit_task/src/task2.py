@@ -214,7 +214,7 @@ class pick_put_act(object):
                 VisionData = GetVisionData_client(GetBrickLocation, "O")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
                     theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
-                    CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,VisionData.header.frame_id)
+                    CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
                     # 调用激光雷达检测的服务
                     if 1:# 激光雷达检测到在范围内，并且已经到达
                         break
