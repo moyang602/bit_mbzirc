@@ -70,9 +70,9 @@ bool setHeight(bit_control_msgs::SetHeight::Request&  req,
                    bit_control_msgs::SetHeight::Response& res)
 {
     service_ava = 1;
-    height = req.req_height.x;
-    if (height > 670 ) height = 670;
-    if (height < 320 ) height = 320;
+    height = req.req_height;
+    if (height >= 670 ) height = 670;
+    if (height <= 320 ) height = 320;
 
     res.finished = 1;
     return 1;
@@ -85,6 +85,7 @@ int main (int argc, char** argv)
     ros::init(argc, argv, "bit_control_tool"); 
     //声明节点句柄 
     ros::NodeHandle nh; 
+
 
     uint8_t rec[8] = {'\0'}; 
     height = 320;
@@ -133,6 +134,7 @@ int main (int argc, char** argv)
 
     //指定循环的频率 
     ros::Rate loop_rate(5000); 
+    int cnt = 0;
     while(ros::ok()) 
     { 
         try{
@@ -168,14 +170,19 @@ int main (int argc, char** argv)
             }  
             
             if (service_ava == 1){
-                if (abs(hn.x - height)>10){
-                    uint8_t cmd[8] = {'\0'};
-                    cmd[0] = 0xaa;
-                    cmd[1] = ( int(height *10) >> 8 ) &0xff;
-                    cmd[2] =   int(height *10 ) & 0xff;
-                    cmd[3] = 0x55;
-                    ser.write(cmd,4);
-                    ROS_INFO("Service SetHeight: %3.2f mm",height); 
+                cnt ++;
+                if (abs(hn.x - height)>10 ){
+                    if( cnt > 100){     // 发送太快会造成读回错误，需要多次循环发送一次
+                        cnt = 0;
+                        uint8_t cmd[8] = {'\0'};
+                        cmd[0] = 0xaa;
+                        cmd[1] = ( int(height *10) >> 8 ) &0xff;
+                        cmd[2] =   int(height *10 ) & 0xff;
+                        cmd[3] = 0x55;
+                        ser.write(cmd,4);
+                        // ROS_INFO("Service SetHeight: %3.2f mm",height); 
+                    }
+                    
                 }
                 else{
                     service_ava = 0;

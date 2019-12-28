@@ -30,7 +30,7 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 #include "tf/transform_broadcaster.h"
-#include "bit_vision/VisionProc.h"
+#include "bit_vision_msgs/VisionProc.h"
 #include <opencv2/core/core.hpp>
 
 #include<iostream>
@@ -1073,8 +1073,8 @@ void callback(const sensor_msgs::Image::ConstPtr& MERImage)
     
 }
 
-bool GetVisionData(bit_vision::VisionProc::Request&  req,
-                   bit_vision::VisionProc::Response& res)
+bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
+                   bit_vision_msgs::VisionProc::Response& res)
 {
     ROS_INFO("BrickType:[%s], VisionAlgorithm:[%d]",req.BrickType.c_str(),req.ProcAlgorithm);
     // 设置视觉处理颜色与算法
