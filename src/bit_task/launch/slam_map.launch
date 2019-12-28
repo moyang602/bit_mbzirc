@@ -10,7 +10,9 @@
   <include file="$(find bit_control_tool)/launch/io_control.launch" />
 
   <!--bringup remoter-->  
-  <include file="$(find bit_hardware_interface)/launch/IMU.launch" />
+  <!--<include file="$(find bit_hardware_interface)/launch/IMU.launch" />-->
+
+  <include file="$(find dji_sdk)/launch/sdk.launch" />
 
   <!--运行底盘节点-->
   <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False"/>
@@ -28,7 +30,7 @@
  <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
 
   <!--运行模型显示节点-->
-  <!--<include file="$(find bit_robotcar)/launch/view_ur5e_challenge3.launch" />-->
+  <include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />
   
   <!--display-->
   <node name="rviz" pkg="rviz" type="rviz"/>

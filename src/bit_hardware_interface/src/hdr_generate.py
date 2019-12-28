@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 #coding=utf-8
 import sys
 import rospy
-from bit_hardware_interface.srv import *
+from bit_hardware_msgs.srv import *
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import math
@@ -41,7 +42,7 @@ if __name__ == "__main__":
 
     bridge = CvBridge()
 
-    while 1:
+    while(not rospy.is_shutdown()):
         try:
             time = [1000,2000,10000,20000]
             times = np.array(time, dtype=np.float32)
@@ -54,10 +55,10 @@ if __name__ == "__main__":
                 imgl.append(cv_image_L)
                 #pub1.publish(bridge.cv2_to_imgmsg(cv_image_L,'rgb8'))
 
-            hdr_l = hdr_gen(imgl,times)
+            # hdr_l = hdr_gen(imgl,times)
             print(respl.success_flag)
-            pub1.publish(bridge.cv2_to_imgmsg(hdr_l,"bgr8"))
-
+            # pub1.publish(bridge.cv2_to_imgmsg(hdr_l,"bgr8"))
+            pub1.publish(bridge.cv2_to_imgmsg(cv_image_L,'rgb8'))
         except rospy.ServiceException, e:
             print "Service call failed:",rospy.ServiceException,e
             

@@ -9,4 +9,7 @@
     <param name="enc_key" type="string" value="a1f79a37adcd36a85b881a559dd464bc455545cff1dd12b4af0e35d341d2934b"/>
     <param name="use_broadcast" type="bool" value="false"/>
     </node>
+
+
+  <node pkg="tf" type="static_transform_publisher" name="dji_imu_link_to_car" args="-0.58 0.45 0.362 0 0 0  /car_link /imu_link 0" />
 </launch>

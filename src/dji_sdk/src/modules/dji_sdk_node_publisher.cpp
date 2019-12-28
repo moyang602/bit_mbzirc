@@ -82,7 +82,7 @@ DJISDKNode::dataBroadcastCallback()
   {
     sensor_msgs::Imu imu;
 
-    imu.header.frame_id = "body_FLU";
+    imu.header.frame_id = "imu_link";
     imu.header.stamp    = now_time;
 
     imu.linear_acceleration.x =  vehicle->broadcast->getAcceleration().x * gravity_const;
@@ -92,6 +92,18 @@ DJISDKNode::dataBroadcastCallback()
     imu.angular_velocity.x    =  vehicle->broadcast->getAngularRate().x;
     imu.angular_velocity.y    = -vehicle->broadcast->getAngularRate().y;
     imu.angular_velocity.z    = -vehicle->broadcast->getAngularRate().z;
+    
+    imu.linear_acceleration_covariance[0] = 1e-3;
+    imu.linear_acceleration_covariance[4] = 1e-3;
+    imu.linear_acceleration_covariance[8] = 1e-3;
+
+    imu.angular_velocity_covariance[0] = 1e-6;
+    imu.angular_velocity_covariance[4] = 1e-6;
+    imu.angular_velocity_covariance[8] = 1e-6;
+
+    imu.orientation_covariance[0] =(1e-17)*7.43243; 
+    imu.orientation_covariance[4] = (1e-9)*1.86259;
+    imu.orientation_covariance[8] = (1e-15)*6.22595;
 
     // Since the orientation is duplicated from attitude
     // at this point, q_FLU2ENU has already been updated
@@ -659,7 +671,7 @@ DJISDKNode::publish400HzData(Vehicle *vehicle, RecvContainer recvFrame,
 
   sensor_msgs::Imu synced_imu;
 
-  synced_imu.header.frame_id = "body_FLU";
+  synced_imu.header.frame_id = "imu_link";
   synced_imu.header.stamp    = msg_time;
 
   //y, z signs are flipped from RD to LU for rate and accel

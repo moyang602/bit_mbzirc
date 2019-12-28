@@ -9,7 +9,8 @@
   <include file="$(find bit_control_tool)/launch/io_control.launch" />
 
   <!--bringup IMU-->  
-  <include file="$(find bit_hardware_interface)/launch/IMU.launch" />
+  <!--<include file="$(find bit_hardware_interface)/launch/IMU.launch" />-->
+  <include file="$(find dji_sdk)/launch/sdk.launch" />
   
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" />
