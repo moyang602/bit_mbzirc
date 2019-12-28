@@ -34,11 +34,10 @@ def hdr_gen(images,times):
 
 
 if __name__ == "__main__":
-    pub1 = rospy.Publisher("Image1",Image,queue_size=1)
-    # pub2 = rospy.Publisher("Image2",Image,queue_size=1)
-    rospy.init_node("Pub",anonymous=False)
+    pub = rospy.Publisher("Image_hdr",Image,queue_size=1)
+    rospy.init_node("image2hdr_node",anonymous=False)
     rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
-    GrabImage1 = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
+    GrabImage = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
 
     bridge = CvBridge()
 
@@ -46,19 +45,17 @@ if __name__ == "__main__":
         try:
             time = [1000,2000,10000,20000]
             times = np.array(time, dtype=np.float32)
-            imgl = []
-            imgr = []
+            img = []
 
             for ti in time:
-                respl = GrabImage1(ti)
+                respl = GrabImage(ti)
                 cv_image_L = bridge.imgmsg_to_cv2(respl.MER_image, desired_encoding="passthrough")
-                imgl.append(cv_image_L)
-                #pub1.publish(bridge.cv2_to_imgmsg(cv_image_L,'rgb8'))
+                img.append(cv_image_L)
+                #pub.publish(bridge.cv2_to_imgmsg(cv_image_L,'rgb8'))
 
-            # hdr_l = hdr_gen(imgl,times)
-            print(respl.success_flag)
-            # pub1.publish(bridge.cv2_to_imgmsg(hdr_l,"bgr8"))
-            pub1.publish(bridge.cv2_to_imgmsg(cv_image_L,'rgb8'))
+            hdr_image = hdr_gen(img,times)
+            pub.publish(bridge.cv2_to_imgmsg(hdr_image,"bgr8"))
+
         except rospy.ServiceException, e:
             print "Service call failed:",rospy.ServiceException,e
             

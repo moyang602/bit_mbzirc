@@ -186,18 +186,6 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		// //默认打开第1个设备
-		// status = GXOpenDeviceByIndex(1, &g_hDevice);
-		// if(status == GX_STATUS_SUCCESS)
-		// {
-		// 	printf("打开设备成功!\n");
-		// }
-		// else
-		// {
-		// 	printf("打开设备失败!\n");
-		// 	return 0;			
-		// }
-
         // 通过序列号打开相机
         GX_OPEN_PARAM openParam;
 

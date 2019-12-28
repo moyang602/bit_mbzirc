@@ -285,7 +285,7 @@
     </inertial>
   </link>
   <joint name="infrared_joint" type="fixed">
-    <origin xyz="0.0 0.05147 0.077" rpy="0.0 0.0 0.0"/>
+    <origin xyz="0.0 0.05147 0.077" rpy="-1.57079 0.0 0.0"/>
     <parent link="grasping_frame"/>
     <child link="infrared_link"/>
   </joint>
@@ -310,7 +310,7 @@
   <joint name="penzi_joint" type="fixed">
     <parent link="grasping_frame"/>
     <child link="penzi_link"/>
-    <origin xyz="0.0 0.119 -0.0615 " rpy="0 0.0 0.0"/>
+    <origin xyz="0.0 0.119 -0.0615 " rpy="-1.57079 0.0 0.0"/>
   </joint>
   <link name="penzi_link">
     <inertial>
