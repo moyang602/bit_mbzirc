@@ -1,4 +1,7 @@
 float64 exposure_time
+float64 BalanceRatioRed
+float64 BalanceRatioGreen
+float64 BalanceRatioBlue
 ---
 bool success_flag
 sensor_msgs/Image MER_image

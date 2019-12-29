@@ -1,14 +1,14 @@
 <launch>
   <!--打开相机1-->
-  <node name="CameraMER_Left" pkg="bit_hardware_interface" type="interface_cameraMER" output="log" respawn="false">
-    <param name="SN"       value="RW0171009017"/>  
+  <node name="CameraMER_Left" pkg="bit_hardware_interface" type="interface_cameraMER" output="screen" respawn="false">
+    <param name="SN"       value="RW0172009017"/>  
     <param name="ExposureTime"   value="10000"/>
     <param name="SpeedLevel"   value="3"/>
-    <param name="BalanceRatioRed"   value="2.1"/>
-    <param name="BalanceRatioGreen"   value="1.0"/>
-    <param name="BalanceRatioBlue"   value="2.3"/>
+    <param name="BalanceRatioRed"   value="2.0"/>
+    <param name="BalanceRatioGreen"   value="1.6"/>
+    <param name="BalanceRatioBlue"   value="2.5"/>
   </node>
-  
+
 </launch>
 
 

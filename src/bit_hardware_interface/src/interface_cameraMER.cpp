@@ -4,9 +4,12 @@
 #include <opencv/cv.h>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <opencv2/opencv.hpp>
+
 #include "GxIAPI.h"
 #include "DxImageProc.h"
 #include <bit_hardware_msgs/MER_srv.h>
+#include <bit_hardware_msgs/MER_Continues_srv.h>
 
 using namespace cv;
 
@@ -15,11 +18,12 @@ GX_DEV_HANDLE g_hDevice = NULL;						///< 设备句柄
 GX_FRAME_DATA g_frameData;     						///< 采集图像参数
 void *g_pRaw8Buffer = NULL;                         ///< 将非8位raw数据转换成8位数据的时候的中转缓冲buffer
 void *g_pRGBframeData = NULL;                       ///< RAW数据转换成RGB数据后的存储空间，大小是相机输出数据大小的3倍
-int64_t g_nPixelFormat = GX_PIXEL_FORMAT_BAYER_GR8; ///< 当前相机的pixelformat格式
-int64_t g_nColorFilter = GX_COLOR_FILTER_NONE;      ///< bayer插值的参数
+int64_t g_nPixelFormat = GX_PIXEL_FORMAT_BAYER_RG8; ///< 当前相机的pixelformat格式
+int64_t g_nColorFilter = GX_COLOR_FILTER_BAYER_RG;      ///< bayer插值的参数
 void *g_pframeInfoData = NULL;                      ///< 帧信息数据缓冲区
 size_t g_nframeInfoDataSize = 0;                    ///< 帧信息数据长度
 
+bool continues_flag = false;
 
 //----------------------------------------------------------------------------------
 /**
@@ -103,8 +107,19 @@ bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
                bit_hardware_msgs::MER_srv::Response &res)
 {
     GX_STATUS status = GX_STATUS_SUCCESS;
+
+
     ROS_INFO("The exposure_time is %lf", req.exposure_time);
     status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, req.exposure_time);
+	// 设置红色通道
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, req.BalanceRatioRed);
+    // 设置绿色通道
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_GREEN);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, req.BalanceRatioGreen);
+    // 设置蓝色通道
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, req.BalanceRatioBlue);
 
     status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
 
@@ -147,6 +162,43 @@ bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
 
 }
 
+// service_continues 回调函数，输入参数req，输出参数res
+bool GrabImage_Continues(bit_hardware_msgs::MER_Continues_srv::Request  &req,
+               		     bit_hardware_msgs::MER_Continues_srv::Response &res)
+{
+	GX_STATUS status = GX_STATUS_SUCCESS;
+	if (req.start_flag)		// 开启连续采图
+	{
+		continues_flag = true;
+		//发送停采命令
+		status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
+		//设置触发开关为OFF
+		status = GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_OFF);
+		//设置采集模式为连续采集
+		status = GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
+		// 设置自动曝光设置为 连续
+    	status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
+		//发送开采命令
+    	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
+		res.success_flag = true;
+	}
+	else					// 关闭连续采图
+	{
+		continues_flag = false;
+		//发送停采命令
+		status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
+		//设置触发开关为ON
+		status = GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_ON);
+		//设置采集模式为单帧采集
+		status = GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_SINGLE_FRAME);
+		// 设置自动曝光设置为 关闭
+    	status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF);
+		//发送开采命令
+    	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
+		res.success_flag = true;
+	}
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -165,9 +217,12 @@ int main(int argc, char *argv[])
     private_node_handle.param<std::string>("SN", param_SN_, "RW0172009017");
     private_node_handle.param<int>("ExposureTime", param_ExposureTime, 10000);
 	private_node_handle.param<int>("SpeedLevel", param_SpeedLevel, 3);
-	private_node_handle.param<double>("BalanceRatioRed", param_BalanceRatioRed, 2.1);
-	private_node_handle.param<double>("BalanceRatioGreen", param_BalanceRatioGreen, 1.0);
-	private_node_handle.param<double>("BalanceRatioBlue", param_BalanceRatioBlue, 2.3);
+	private_node_handle.param<double>("BalanceRatioRed", param_BalanceRatioRed, 2.0);
+	private_node_handle.param<double>("BalanceRatioGreen", param_BalanceRatioGreen, 1.6);
+	private_node_handle.param<double>("BalanceRatioBlue", param_BalanceRatioBlue, 2.5);
+
+	// 设置图像消息发布
+	ros::Publisher MER_pub = nh.advertise<sensor_msgs::Image>("MER_image", 1);
 
     //-------------  MER相机处理  -----------------//
     GX_STATUS status = GX_STATUS_SUCCESS;
@@ -181,7 +236,7 @@ int main(int argc, char *argv[])
 
 	if(nDeviceNum <=0)
 	{
-		printf("当前无可用设备!\n");
+		ROS_ERROR("There is no MER camera!");
 		return 0;
 	}
 	else
@@ -206,7 +261,7 @@ int main(int argc, char *argv[])
 	}
     
     //----------- 相机参数读取与设置 -------------//
-    //设置采集模式为单帧采集
+    //设置采集模式为单帧
 	GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_SINGLE_FRAME);
 
     //设置触发开关为ON
@@ -219,13 +274,10 @@ int main(int argc, char *argv[])
 
     //将非8位raw数据转换成8位数据的时候的中转缓冲buffer
 	g_pRaw8Buffer = malloc(nPayLoadSize);
-
     //RGB数据是RAW数据的3倍大小
 	g_pRGBframeData = malloc(nPayLoadSize * 3);
-
     //获取相机输出数据的颜色格式
 	status = GXGetEnum(g_hDevice, GX_ENUM_PIXEL_FORMAT, &g_nPixelFormat);
-
     //获取相机Bayer插值参数
     status = GXGetEnum(g_hDevice, GX_ENUM_PIXEL_COLOR_FILTER, &g_nColorFilter);
 
@@ -246,8 +298,9 @@ int main(int argc, char *argv[])
 	status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, param_ExposureTime);
 
     // 设置自动白平衡设置为关闭
-    int64_t   nValue = 0;       
-    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_WHITE_AUTO, nValue);
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_OFF);
+	// 设置自动曝光设置为关闭
+    status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF);
 
     // 设置红色通道
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
@@ -266,14 +319,54 @@ int main(int argc, char *argv[])
 	GXGetBufferLength(g_hDevice, GX_BUFFER_FRAME_INFORMATION, &g_nframeInfoDataSize);
 	g_pframeInfoData = malloc(g_nframeInfoDataSize);
 
-    printf("nPayLoadSize = %ld\n",nPayLoadSize);
-
-    // 开启采图服务
-    ros::ServiceServer service = nh.advertiseService("GrabMERImage",GrabImage);
-
+	//！！！！！！！！！！  开启相机服务  ！！！！！！！！！//
+    // 开启单帧采图服务
+    ros::ServiceServer service_once = nh.advertiseService("GrabMERImage",GrabImage);
     ROS_INFO_STREAM("Server GrabMERImage start!");
 
-    ros::spin();
+	// 开启连续采图服务
+    ros::ServiceServer service_continues = nh.advertiseService("StartAutoMER",GrabImage_Continues);
+    ROS_INFO_STREAM("Server StartAutoMER start!");
+
+    ros::Rate loop_rate(30); 
+    while(ros::ok()) 
+    { 
+
+		if (continues_flag)
+		{
+			// status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
+			status = GXGetImage(g_hDevice, &g_frameData, 100);
+			if(status == 0)	// 如果采集到数据，进行处理
+			{
+				if(g_frameData.nStatus == 0)
+				{
+					//将Raw数据处理成RGB数据
+					ProcessData(g_frameData.pImgBuf, 
+								g_pRaw8Buffer, 
+								g_pRGBframeData, 
+								g_frameData.nWidth, 
+								g_frameData.nHeight,
+								g_nPixelFormat,
+								g_nColorFilter);
+					cv::Mat MatImg(g_frameData.nHeight,g_frameData.nWidth,CV_8UC3, (unsigned char*)g_pRGBframeData);
+
+					sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "rgb8", MatImg).toImageMsg();
+					MER_pub.publish(msg);
+				}
+				else
+				{
+					ROS_INFO("Grab error, code: %d\n", g_frameData.nStatus);
+				}
+				
+			}
+			
+		}
+
+        //处理ROS的信息，比如订阅消息,并调用回调函数 
+        ros::spinOnce(); 
+        loop_rate.sleep(); 
+    } 
+	
 
     //发送停采命令
 	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);

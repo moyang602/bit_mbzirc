@@ -276,3 +276,11 @@ target_link_libraries(interface_cameraMER
   gxiapi
   dximageproc
 )
+
+add_executable(gen_hdrImage
+  src/gen_hdrImage.cpp
+)
+add_dependencies(gen_hdrImage ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(gen_hdrImage
+  ${catkin_LIBRARIES}
+)

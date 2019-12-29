@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 
 def hdr_gen(images,times):
 
+    # 对齐图像
     alignMTB = cv2.createAlignMTB()
     alignMTB.process(images, images)
 
@@ -29,13 +30,22 @@ def hdr_gen(images,times):
     ldrReinhard = np.int16(ldrReinhard*255)     # convert to signed 16 bit integer to allow overflow
     ldrReinhard = np.uint8(ldrReinhard)
     # cv2.imwrite('ldrReinhard.png',ldrReinhard)
-
     return ldrReinhard
+
+    # # 使用Drago色调映射算法获得24位彩色图像
+    # tonemapDrago = cv2.createTonemapDrago(1.0, 0.7)
+    # ldrDrago = tonemapDrago.process(hdrDebevec)
+    # ldrDrago = 3 * ldrDrago
+    # ldrDrago = np.int16(ldrDrago*255)     # convert to signed 16 bit integer to allow overflow
+    # ldrDrago = np.uint8(ldrDrago)
+    # # cv2.imwrite("ldr-Drago.jpg", ldrDrago * 255)
+    # return ldrDrago
+    
 
 
 if __name__ == "__main__":
     pub = rospy.Publisher("Image_hdr",Image,queue_size=1)
-    rospy.init_node("image2hdr_node",anonymous=False)
+    rospy.init_node("hdr_node",anonymous=False)
     rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
     GrabImage = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
 
@@ -43,18 +53,18 @@ if __name__ == "__main__":
 
     while(not rospy.is_shutdown()):
         try:
-            time = [1000,2000,10000,20000]
-            times = np.array(time, dtype=np.float32)
+            time = [100,1000,5000,10000,20000,30000]
+            times = np.array(time, dtype=np.float32)*0.000001
             img = []
 
             for ti in time:
-                respl = GrabImage(ti)
-                cv_image_L = bridge.imgmsg_to_cv2(respl.MER_image, desired_encoding="passthrough")
-                img.append(cv_image_L)
-                #pub.publish(bridge.cv2_to_imgmsg(cv_image_L,'rgb8'))
+                respl = GrabImage(ti,2.0,1.6,2.5)
+                cv_image = bridge.imgmsg_to_cv2(respl.MER_image, desired_encoding="passthrough")
+                img.append(cv_image)
+                #pub.publish(bridge.cv2_to_imgmsg(cv_image,'rgb8'))
 
             hdr_image = hdr_gen(img,times)
-            pub.publish(bridge.cv2_to_imgmsg(hdr_image,"bgr8"))
+            pub.publish(bridge.cv2_to_imgmsg(hdr_image,"rgb8"))
 
         except rospy.ServiceException, e:
             print "Service call failed:",rospy.ServiceException,e

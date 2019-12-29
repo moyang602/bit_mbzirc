@@ -55,6 +55,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
 add_service_files(FILES
   MER_srv.srv
+  MER_Continues_srv.srv
   encoder_srv.srv
 )
 
