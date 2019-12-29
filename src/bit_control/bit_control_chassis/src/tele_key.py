@@ -12,6 +12,8 @@ from bit_control_msgs.msg import EndEffector
 import sys, select, termios, tty ,os
 import time
 
+import numpy as np
+
 msg_remote = '''
 ------------------------------
 请使用遥控器控制：
@@ -163,15 +165,36 @@ def callback(data):
         
 
             
-    
+
+cmd1 = []
+cmd2 = []
+cmd3 = []
+NUM = 2
 
 def plancallback(data):
     #global turn_cnt
+    global cmd1
+    global cmd2
+    global cmd3
     if planEnable ==1:
-        twist.linear.x = data.linear.x; twist.linear.y = data.linear.y; twist.linear.z = 0
+        if len(cmd1) < NUM:
+            cmd1 = [data.linear.x]*NUM
+            cmd2 = [data.linear.y]*NUM
+            cmd3 = [data.angular.z ]*NUM
+        else:
+            cmd1.remove(cmd1[0])
+            cmd2.remove(cmd2[0])
+            cmd3.remove(cmd3[0])
+            cmd1.append(data.linear.x)
+            cmd2.append(data.linear.y)
+            cmd3.append(data.angular.z)
+
+        twist.linear.x = np.mean(cmd1)
+        twist.linear.y = np.mean(cmd2)
+        twist.angular.z = np.mean(cmd3)
+        twist.linear.z = 0
         twist.angular.x = 0
         twist.angular.y = 0
-        twist.angular.z = data.angular.z 
         pub.publish(twist)  
         print("pp")
 
