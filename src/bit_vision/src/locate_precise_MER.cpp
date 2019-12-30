@@ -937,7 +937,7 @@ void rectangle_pose(HObject ho_ImageL,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,H
   HObject  ho_SelectedRegions4, ho_ObjectSelectedL, ho_RegionClosing;
   HObject  ho_ContourL, ho_ContoursSplit, ho_SelectedEdges;
   HObject  ho_UnionContours1, ho_UnionContours2, ho_UnionContours;
-
+  HObject   ho_Image1, ho_Image2, ho_Image3, ho_ImageH, ho_ImageS, ho_ImageV;
   // Local control variables
   HTuple  hv_RectWidth, hv_RectHeight, hv_Pointer;
   HTuple  hv_Type, hv_Width, hv_Height, hv_CamParOriginal;
@@ -950,8 +950,8 @@ void rectangle_pose(HObject ho_ImageL,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,H
   try{
 
       //step1:根据颜色提取指定颜色的砖块区域
-      hv_RectWidth = 0.3;
-      hv_RectHeight = 0.17;
+      hv_RectWidth = 0.2;
+      hv_RectHeight = 0.15;
 
       GetImagePointer1(ho_ImageL, &hv_Pointer, &hv_Type, &hv_Width, &hv_Height);
       Rgb1ToGray(ho_ImageL, &ho_GrayImage);
@@ -970,7 +970,12 @@ void rectangle_pose(HObject ho_ImageL,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,H
       ChangeRadialDistortionImage(ho_GrayImage, ho_ROI, &ho_ImageRectifiedAdaptive, hv_CamParOriginal, 
           hv_CamParVirtualAdaptive);
       //step2: 提取ROI区域用于轮廓提取 此处用特定颜色的分割以及矩形拟合来提取区域
-      Threshold(ho_ImageRectifiedAdaptive, &ho_Regions, 65, 91);
+      Decompose3(ho_ImageL, &ho_Image1, &ho_Image2, &ho_Image3);
+      TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
+      "hsv");
+
+      Threshold(ho_ImageS, &ho_Regions, 0, 80);
+      // Threshold(ho_ImageRectifiedAdaptive, &ho_Regions, 180, 255);
       Connection(ho_Regions, &ho_ConnectedRegions3);
       SelectShape(ho_ConnectedRegions3, &ho_SelectedRegions4, (HTuple("rectangularity").Append("area")), 
           "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
@@ -1139,7 +1144,7 @@ int main(int argc, char *argv[])
 
   ros::NodeHandle nh; 
 
-  ros::Subscriber subLeft  = nh.subscribe("Image_hdr", 1, callback);
+  ros::Subscriber subLeft  = nh.subscribe("Image1", 1, callback);
 
   ros::ServiceServer service = nh.advertiseService("GetPreciseVisionData",GetVisionData);
 
