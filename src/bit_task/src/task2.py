@@ -38,20 +38,40 @@ do_wait = True
 
 #=============特征点与运动参数==========
 deg2rad = 0.017453
-prePickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]取砖准备位姿
-upHeadPos = (-1.57, -1.57, 0, 0, 1.57, 0)
-prePutPos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
+pickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]取砖准备位姿
+buildPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]取砖准备位姿
+# takePos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
 lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
-lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与prePickPos相同
-# floorHeight_base = -0.710  # 初始状态机械臂基座离地710mm
-# CarHeight_base = -0.140  # 初始状态机械臂基座离车表面140mm
-# floorHeight_base = -0.375 - 0.330
-# CarHeight_base = 0.180 - 0.330 
+lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与pickPos相同
 
-global floorHeight_base
+takePos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)
+onCarStartPos = list(np.array([-232.52,-66.49,-62.19,-141.32,90.30,34.13])*deg2rad)
+
+onCarStartPos = list(np.array([-232.52,-66.49,-62.19,-141.32,90.30,34.13])*deg2rad) # 车上开始操作的位置
+onCarReadyPos = list(np.array([-249.93,-86.05,-53.04,-130.93,90.36,19.77])*deg2rad) # 车上开始操作的位置
+putPos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)   # 取出砖准备搭墙的位置
+
+# 砖块观察点相对位置，直接MoveL
+RGB = (
+    [ 0.3, 0.42, 0.2, pi, 0, 0]    # 红4
+    [-0.3, 0.42, 0.2, pi, 0, 0],   # 红3
+    [ 0.3, 0.22, 0.2, pi, 0, 0],   # 红2
+    [-0.3, 0.22, 0.2, pi, 0, 0],   # 红1
+    [ 0.0, 0.42, 0.4, pi, 0, 0],   # 兰1
+    [ 0.3, 0.22, 0.4, pi, 0, 0],   # 绿2
+    [-0.3, 0.22, 0.4, pi, 0, 0],   # 绿1
+)
+ORG = (
+    [0.0, 0.42, 0.2, pi, 0, 0],     # 橙0
+    [0.0, 0.22, 0.2, pi, 0, 0],     # 橙1
+    [0.0, 0.42, 0.4, pi, 0, 0],     # 橙2
+    [0.0, 0.22, 0.4, pi, 0, 0],     # 橙3
+    [0.0, 0.42, 0.6, pi, 0, 0],     # 橙4
+    [0.0, 0.22, 0.6, pi, 0, 0],     # 橙5
+)
+
+global floorHeight_base     # 使用时直接将期望值加上这个值就可以发给机械臂
 global CarHeight_base
-
-posSequence = [] # 随着摆放的过程不断填充这个list来把位置记录下来
 
 # 机械臂移动的速度和加速度  
 v = 0.05*4
@@ -67,8 +87,7 @@ GetBrickPos_only = 6
 GetBrickLocation = 7
 
 SUCCESS = 1
-FAIL_VISION = 2
-FAIL_ERROR = 3
+FAIL = 0
 
 
 TASK_GET = 0
@@ -151,15 +170,15 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
 
     # 发布位置
     simp_goal_pub.publish(this_target)
-    rospy.sleep(0.1)
+    # rospy.sleep(0.1)  更换为等待任务开始
+    while status != GoalStatus.ACTIVE:
+        pass
 
     if wait:
         while status != GoalStatus.SUCCEEDED:
-            if status == GoalStatus.ABORTED:     # 如果规划器失败的处理
+            if status == GoalStatus.ABORTED:     # TODO 如果规划器失败的处理
                 simp_goal_pub.publish(this_target)
             pass
-
-
 
 ## ================================================== ##
 ## ================================================== ##
@@ -287,8 +306,8 @@ class pick_put_act(object):
                 CarMove(target_tf.transform.translation.x,target_tf.transform.translation.y,Rotation[3],frame_id="map",wait = True )
                 self.show_tell("Got the %d brick place"% brickIndex)
 
-                for attempt in range(0,3):  # 最大尝试次数30
-                    result_ = self.goLPutBrick(goal.bricks[brickIndex])
+                for attempt in range(0,3):  # 最大尝试次数3
+                    result_ = self.buildWall(goal.bricks[brickIndex])
                     if result_ == SUCCESS:
                         # 记录当前点为这种砖的位置
                         self.show_tell("finished !BUILD! brick %d,go get next" %brickIndex)
@@ -302,7 +321,7 @@ class pick_put_act(object):
 
         except Exception as e:
             print("error", e)
-            self._result.finish_state = FAIL_ERROR
+            self._result.finish_state = FAIL
             self._as.set_aborted(self._result)
             rob.stopl()
             # rob = urx.Robot("192.168.50.60",use_rt = True)
@@ -315,35 +334,12 @@ class pick_put_act(object):
                 self._as.set_aborted(self._result)
 
 
-    def forceDown(distance):
-        rob.movel([0.0, 0.0, -distance, 0.0, 0.0, 0.0], acc=a, vel=v*0.1, wait=False, relative=True)     # 相对运动
-
-        _force_prenvent_wrongdata_ = 0
-        while force < 15:
-            _force_prenvent_wrongdata_ += 1
-            if _force_prenvent_wrongdata_ >150: 
-                _force_prenvent_wrongdata_ = 150 
-            rospy.sleep(0.002)
-            if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
-                rospy.loginfo("did not contact")
-                break
-        rob.stopl()
-        self.show_tell("Reached Block")
-    
-
-    def turnEndEffect(state):
-        # 操作末端
-        # rospy.sleep(1.0)
-        ee.MagState = state
-        pub_ee.publish(ee)
-        rospy.sleep(1.0)
-
     def goGetBrick(self, goal):
 
         # ----------- 已经到达橙色砖堆面前---------------- #
 
         # 机械臂移动至取砖准备位姿
-        rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
+        rob.movej(pickPos,acc=a, vel=3*v,wait=True)
         self.show_tell("arrived pre-pick position")
 
         # 视觉搜索目标砖块位置
@@ -367,7 +363,7 @@ class pick_put_act(object):
         # 得到识别结果，平移到相机正对砖块上方0.5m（待确定）处
         pose[0] = VisionData.Pose.position.x-0.023      #使ZED正对砖块中心  0.023为zed与magnet偏移
         pose[1] = VisionData.Pose.position.y+0.142      #使ZED正对砖块中心  0.142为zed与magnet偏移
-        pose[2] = VisionData.Pose.position.z + 0.5      # 移动到砖上方0.5m处， 偏移值待确定
+        pose[2] = VisionData.Pose.position.z + floorHeight_base + 0.5      # 移动到砖上方0.5m处， 偏移值待确定
         pose[3] = 0
         pose[4] = -pi   # 下两个坐标使其垂直于地面Brick remembered
         pose[5] = 0 
@@ -394,7 +390,7 @@ class pick_put_act(object):
         rob.translate((0,0,0.3), acc=a, vel=v, wait=True)       # 先提起，后转正
 
         # 抬升到抓取准备的位置
-        rob.movej(prePickPos,acc=a, vel=1*v,wait=True)
+        rob.movej(pickPos,acc=a, vel=1*v,wait=True)
         self.show_tell("Got brick and arrived pre-Pick position" )
 
         # TODO:需要进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
@@ -422,63 +418,31 @@ class pick_put_act(object):
 
         # 移动回放置处
         rob.translate((0, 0, 0.05), acc=a, vel=v*0.3, wait=True)
-        rob.movej(prePutPos,acc=a, vel=2*v,wait=True)
+        rob.movej(takePos,acc=a, vel=2*v,wait=True)
         return SUCCESS
 
-    def goLPutBrick(self,goal):
+    def buildWall(self,goal):
 
-        set_height(400)     # 可能需要提高
-        # TODO:需要进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
-        if goal.goal_brick.type == "O":
-            # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
-            # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
-
-            # pose = rob.getl()
-            # pose[2] = CarHeight_base + 0.32
-            # rob.movel(pose, acc=a, vel=v,wait=True)
-            pass
+        # set_height(320)     # 可能需要提高
+        # 进行一系列的操作，来放置砖块 @ 周权 % goal.goal_brick.Sequence
+        if goal.goal_brick.type in ("R","G","B","O"):
+            self.takeOneBrickOnCar(goal, False)
         else:
-            pass
-            # delta = (0.0, -0.1+goal.goal_brick.Sequence * 0.21, 0, 0, 0, 0)
-            # rob.movel(delta, acc=a, vel=v,wait=True, relative=True )
-
-            # pose = rob.getl()
-            # pose[2] = CarHeight_base + 0.32
-            # rob.movel(pose, acc=a, vel=v,wait=True)
-            pass
-        self.show_tell("arrived pre-pick position")
-
-        rospy.sleep(0.5)
-        while True:         # Todo 避免进入死循环
-            VisionData = GetVisionData_client(GetBrickPos, goal.type)
-            if VisionData.Flag:
-                break
-
-        # 得到识别结果，移动到砖块上方0.1，平移
-        pose[0] = VisionData.Pose.position.x
-        pose[1] = VisionData.Pose.position.y
-        pose[2] = VisionData.Pose.position.z + 0.1     # 0.1是离砖10cm
-        pose[3] = 0  # 下两个坐标使其垂直于地面Brick remembered
-        pose[4] = -pi 
-        pose[5] = 0
-        rob.movel(pose, acc=a, vel=v, wait=True)
-        # rospy.sleep(0.5)
-
-        self.forceDown(0.2)         # 伪力控下落
-        self.turnEndEffect(ON)      # 操作末端
-        
-        # 提起 或是升降台提升
-        rob.translate((0,0,0.25), acc=a, vel=v, wait=True)
-
-        # 根据建筑物位置改变升降台到高度320-670cm
-        # set_height(400)
-
-        rob.movej(prePickPos,acc=a, vel=3*v,wait=True)     
+            rospy.logwarn("Wrong Brick Type")
+       
+        '''takePos的数值已经定了？'''
+        rob.movej(takeStartPos,acc=a, vel=v,wait=True)     
         self.show_tell("arrived pre-Build position")
-            
+
+        # ************* DEBUG temp stop *********************#
+        rospy.sleep(2.0)
+        self.turnEndEffect(OFF)
+        return SUCCESS
+        # ************* DEBUG temp stop *********************#
+
         # 配合手眼移动到摆放的位置
         # 调用视觉
-        while True:         # Todo 避免进入死循环
+        while True:         # TODO 避免进入死循环
             VisionData = GetVisionData_client(GetPutPos, goal.type)
             if VisionData.Flag:
                 break
@@ -494,8 +458,126 @@ class pick_put_act(object):
         self.forceDown(0.15)
         self.turnEndEffect(OFF)
 
-        rob.movej(prePickPos,acc=a, vel=3*v,wait=True)
+        rob.movej(pickPos,acc=a, vel=3*v,wait=True)
         return SUCCESS
+
+
+    def takeOneBrickOnCar(self, goal, useVisionToGetBrickOnCar_ = False):
+        
+        num = goal.Sequence
+        try: 
+            # 开始臂车运动
+            rospy.loginfo("begining %d" %num)
+            pose = rob.getl()
+            # print("Initial end pose is ", pose)
+            initj = rob.getj()
+            # print("Initial joint angle is ", initj)
+
+            if goal.type == "O":
+                if num > 3:     # 有第三层的两块
+                    set_height(520)     # 可能需要提高,升降台的高度，目前320mm
+                    rospy.sleep(2.0)    # TODO 改进时间
+                elif num <= 3 and num >= 0:
+                    set_height(320)
+                    rospy.sleep(2.0)
+            elif goal.type in ("R","G","B"):
+                set_height(320)     # 升降台的高度到达 320mm
+                # rospy.sleep(2.0)
+
+            rob.movej(onCarStartPos,acc=a, vel=v,wait=True)    #到达相机搜索砖块位置
+            
+            if: goal.type == "O":
+                delta = ORG[num]
+                delta[2] += 0.35 + CarHeight_base
+                rob.movel(delta, acc=a, vel=v,wait=True)   # 摄像机对准铁片
+            elif goal.type in ("R","G","B"):    #颜色类型 R/G/B
+                delta = RGB[num]
+                delta[2] += 0.35 + CarHeight_base          # 砖块上方0.35处
+                rob.movel(delta, acc=a, vel=v,wait=True)   # 摄像机对准铁片
+
+            # 视觉处理
+            rospy.sleep(0.5)
+            if useVisionToGetBrickOnCar_:
+                while True:         # TODO 避免进入死循环
+                    VisionData = GetVisionData_client(GetBrickPos, goal.type)
+                    if VisionData.Flag:
+                        # 工作空间判断 ok TODO 验证
+                        if y > 0.2 and y < 0.70 \
+                            and x < 0.35 and x>-0.35 \
+                            and VisionData.Pose.position.z + CarHeight_base >0.1 \ 
+                            and VisionData.Pose.position.z + CarHeight_base <0.7:
+                            break
+
+                # 得到识别结果，移动到砖块上方0.1，平移
+                pose[0] = VisionData.Pose.position.x
+                pose[1] = VisionData.Pose.position.y
+                pose[2] = VisionData.Pose.position.z + CarHeight_base + 0.1     # 0.1是离砖10cm
+                pose[3] = pi # 下两个坐标使其垂直于地面Brick remembered
+                pose[4] = 0 
+                pose[5] = 0
+                rob.movel(pose, acc=a, vel=v, wait=True)
+            else:
+                rob.translate((0.0,0.15,-0.30), acc=a, vel=v,wait=True)   #模拟视觉处理后磁体对准铁片
+                return FAIL
+
+            self.forceDown(0.2)         # 伪力控下落
+            self.turnEndEffect(ON)      # 操作末端
+    
+            if goal.type == "O":
+                rob.movel([0.0,0.37,0.71,pi,0,0],acc=0.7*a, vel=0.8*v,wait=True)
+            elif goal.type in ("R","G","B"):
+                if num in (5,6):
+                    # 只能抬升
+                    rob.translate((0,0,0.35), acc=a, vel=v, wait=True)
+                elif num  == 4:
+                    #直接斜着提过去
+                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=a, vel=v,wait=True)
+                elif num in (3,2):
+                    # 抬升，并到位
+                    rob.translate((0,0,0.35), acc=a, vel=v, wait=True)
+                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=a, vel=v,wait=True)
+                elif num in (1,0):
+                    #直接斜着提过去
+                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=a, vel=v,wait=True)
+            
+            return SUCCESS
+
+        except Exception as e:
+            rospy.logwarn("error", e)
+            rob.stopl()
+            return FAIL
+        finally:
+            pass
+
+    def takeOneBrickOnCar(self, goal, useVisionToGetBrickOnCar_ = False):
+
+
+
+
+    def forceDown(self,distance,forcelimit = 15):
+        rob.movel([0.0, 0.0, -distance, 0.0, 0.0, 0.0], acc=a, vel=v*0.1, wait=False, relative=True)     # 相对运动
+
+        _force_prenvent_wrongdata_ = 0
+        while force < forcelimit:
+            _force_prenvent_wrongdata_ += 1
+            if _force_prenvent_wrongdata_ >150: 
+                _force_prenvent_wrongdata_ = 150 
+            rospy.sleep(0.002)
+            if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
+                rospy.loginfo("did not contact")
+                break
+        rob.stopl()
+        self.show_tell("Reached Block")
+    
+
+    def turnEndEffect(self,state):
+        # 操作末端
+        # rospy.sleep(1.0)
+        ee.MagState = state
+        pub_ee.publish(ee)
+        rospy.sleep(1.0)
+
+# ================== END CLASS ===========================#
 
 def PoseCal(quat1,trans1,quat2,trans2):
     t1 = tf.transformations.quaternion_matrix(quat1)
