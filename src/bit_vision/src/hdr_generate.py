@@ -29,18 +29,7 @@ def hdr_gen(images,times):
     ldrReinhard = tonemapReinhard.process(hdrDebevec)
     ldrReinhard = np.int16(ldrReinhard*255)     # convert to signed 16 bit integer to allow overflow
     ldrReinhard = np.uint8(ldrReinhard)
-    # cv2.imwrite('ldrReinhard.png',ldrReinhard)
     return ldrReinhard
-
-    # # 使用Drago色调映射算法获得24位彩色图像
-    # tonemapDrago = cv2.createTonemapDrago(1.0, 0.7)
-    # ldrDrago = tonemapDrago.process(hdrDebevec)
-    # ldrDrago = 3 * ldrDrago
-    # ldrDrago = np.int16(ldrDrago*255)     # convert to signed 16 bit integer to allow overflow
-    # ldrDrago = np.uint8(ldrDrago)
-    # # cv2.imwrite("ldr-Drago.jpg", ldrDrago * 255)
-    # return ldrDrago
-    
 
 
 if __name__ == "__main__":
