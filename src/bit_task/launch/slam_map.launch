@@ -48,7 +48,7 @@
   <include file="$(find cartographer_ros)/launch/velodyne2d.launch" />
 
   <!--bringup move_base to navigate -->
-  <!--<include file="$(find my_robot_name_2dnav)/launch/nav.launch" />-->
+  <!--include file="$(find my_robot_name_2dnav)/launch/nav.launch" /-->
   <include file="$(find my_robot_name_2dnav)/launch2/move_base_burger.launch" />
 
   

@@ -202,7 +202,7 @@ if __name__ == '__main__':
     rospy.Subscriber("map", OccupancyGrid, callback)
     while not rospy.is_shutdown():
         try: 
-             trans, _ = listener.lookupTransform('/base_footprint', '/map', rospy.Time(0))        # 可以缓冲10S内最近的信息。
+             trans, _ = listener.lookupTransform('/car_link', '/map', rospy.Time(0))        # 可以缓冲10S内最近的信息。
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException): 
             continue
         # print(trans)
