@@ -1,0 +1,4 @@
+
+---
+bool success_flag
+sensor_msgs/Image MER_image

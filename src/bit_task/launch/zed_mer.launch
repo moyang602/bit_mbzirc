@@ -1,0 +1,11 @@
+<launch>
+
+  <!--bringup zed-->  
+  <include file="$(find zed_wrapper)/launch/zedm.launch" />
+  <include file="$(find bit_hardware_interface)/launch/CameraMER.launch" />
+  <!--运行图像hdr处理节点-->
+  <node pkg="bit_vision" type="cameraHDR.py" name="cameraHDR" respawn="true" />
+  <!--运行视觉算法节点-->
+  <!--<node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" respawn="true" />-->
+
+</launch>

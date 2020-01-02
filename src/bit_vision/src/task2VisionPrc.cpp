@@ -1537,7 +1537,7 @@ int main(int argc, char *argv[])
   message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subleft, subRight,5);
   sync.registerCallback(boost::bind(&callback, _1, _2));
 
-  ros::Subscriber subMER  = nh.subscribe("Image1", 1, callback_MER);
+  ros::Subscriber subMER  = nh.subscribe("/CameraMER/Image", 1, callback_MER);
 
   ros::ServiceServer service = nh.advertiseService("GetVisionData",GetVisionData);
 

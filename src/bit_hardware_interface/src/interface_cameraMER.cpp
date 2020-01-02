@@ -1,3 +1,26 @@
+#ifndef __APPLE__
+#  include "HalconCpp.h"
+#  include "HDevThread.h"
+#  if defined(__linux__) && !defined(__arm__) && !defined(NO_EXPORT_APP_MAIN)
+#    include <X11/Xlib.h>
+#  endif
+#else
+#  ifndef HC_LARGE_IMAGES
+#    include <HALCONCpp/HalconCpp.h>
+#    include <HALCONCpp/HDevThread.h>
+#  else
+#    include <HALCONCppxl/HalconCpp.h>
+#    include <HALCONCppxl/HDevThread.h>
+#  endif
+#  include <stdio.h>
+#  include <HALCON/HpThread.h>
+#  include <CoreFoundation/CFRunLoop.h>
+#endif
+
+#include "halcon_image.h"
+#undef Status  
+
+
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
@@ -10,8 +33,12 @@
 #include "DxImageProc.h"
 #include <bit_hardware_msgs/MER_srv.h>
 #include <bit_hardware_msgs/MER_Continues_srv.h>
+#include <bit_hardware_msgs/MER_hdr.h>
+#include <iostream>
 
+using namespace std;
 using namespace cv;
+using namespace HalconCpp;
 
 // MER相机相关
 GX_DEV_HANDLE g_hDevice = NULL;						///< 设备句柄
@@ -101,6 +128,95 @@ void ProcessData(void * pImageBuf, void * pImageRaw8Buf, void * pImageRGBBuf, in
 		break;
 	}
 }
+
+HObject Mat2HObject(const cv::Mat &image)
+{
+	HObject Hobj = HObject();
+	int hgt = image.rows;
+	int wid = image.cols;
+	int i;
+	//  CV_8UC3  
+	if (image.type() == CV_8UC3)
+	{
+		vector<cv::Mat> imgchannel;
+		split(image, imgchannel);
+		cv::Mat imgB = imgchannel[0];
+		cv::Mat imgG = imgchannel[1];
+		cv::Mat imgR = imgchannel[2];
+		uchar* dataR = new uchar[hgt*wid];
+		uchar* dataG = new uchar[hgt*wid];
+		uchar* dataB = new uchar[hgt*wid];
+		for (i = 0; i<hgt; i++)
+		{
+			memcpy(dataR + wid*i, imgR.data + imgR.step*i, wid);
+			memcpy(dataG + wid*i, imgG.data + imgG.step*i, wid);
+			memcpy(dataB + wid*i, imgB.data + imgB.step*i, wid);
+		}
+		GenImage3(&Hobj, "byte", wid, hgt, (Hlong)dataR, (Hlong)dataG, (Hlong)dataB);
+		delete[]dataR;
+		delete[]dataG;
+		delete[]dataB;
+		dataR = NULL;
+		dataG = NULL;
+		dataB = NULL;
+	}
+	//  CV_8UCU1  
+	else if (image.type() == CV_8UC1)
+	{
+		uchar* data = new uchar[hgt*wid];
+		for (i = 0; i<hgt; i++)
+			memcpy(data + wid*i, image.data + image.step*i, wid);
+		GenImage1(&Hobj, "byte", wid, hgt, (Hlong)data);
+		delete[] data;
+		data = NULL;
+	}
+	return Hobj;
+}
+
+cv::Mat HObject2Mat(HObject Hobj)
+{
+	HTuple htCh;
+	HString cType;
+	cv::Mat Image;
+	ConvertImageType(Hobj, &Hobj, "byte");
+	CountChannels(Hobj, &htCh);
+	Hlong wid = 0;
+	Hlong hgt = 0;
+	if (htCh[0].I() == 1)
+	{
+		HImage hImg(Hobj);
+		void *ptr = hImg.GetImagePointer1(&cType, &wid, &hgt);//GetImagePointer1(Hobj, &ptr, &cType, &wid, &hgt);
+		int W = wid;
+		int H = hgt;
+		Image.create(H, W, CV_8UC1);
+		unsigned char *pdata = static_cast<unsigned char *>(ptr);
+		memcpy(Image.data, pdata, W*H);
+	}
+	else if (htCh[0].I() == 3)
+	{
+		void *Rptr;
+		void *Gptr;
+		void *Bptr;
+		HImage hImg(Hobj);
+		hImg.GetImagePointer3(&Rptr, &Gptr, &Bptr, &cType, &wid, &hgt);
+		int W = wid;
+		int H = hgt;
+		Image.create(H, W, CV_8UC3);
+		vector<cv::Mat> VecM(3);
+		VecM[0].create(H, W, CV_8UC1);
+		VecM[1].create(H, W, CV_8UC1);
+		VecM[2].create(H, W, CV_8UC1);
+		unsigned char *R = (unsigned char *)Rptr;
+		unsigned char *G = (unsigned char *)Gptr;
+		unsigned char *B = (unsigned char *)Bptr;
+		memcpy(VecM[2].data, R, W*H);
+		memcpy(VecM[1].data, G, W*H);
+		memcpy(VecM[0].data, B, W*H);
+		cv::merge(VecM, Image);
+	}
+	return Image;
+}
+
 
 // service 回调函数，输入参数req，输出参数res
 bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
@@ -200,6 +316,81 @@ bool GrabImage_Continues(bit_hardware_msgs::MER_Continues_srv::Request  &req,
 
 }
 
+// service 回调函数，输入参数req，输出参数res
+bool GrabImage_hdr(bit_hardware_msgs::MER_hdr::Request  &req,
+               	   bit_hardware_msgs::MER_hdr::Response &res)
+{
+    GX_STATUS status = GX_STATUS_SUCCESS;
+  
+	// 设置红色通道
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, 2.0);
+    // 设置绿色通道
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_GREEN);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, 1.6);
+    // 设置蓝色通道
+    status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
+    status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, 2.5);
+
+	std::vector<float> exposure_time{1000,20000,10000};
+	std::vector<HObject> PrcImage;
+	int count = 0;
+	for(int i=0;i<3;i++)
+	{
+		
+		count = 0;
+		bool flag = false;
+		do
+		{
+			status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, exposure_time[i]);
+			status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
+			status = GXGetImage(g_hDevice, &g_frameData, 100);
+			count++;
+		
+
+			if(status == 0)
+			{
+				if(g_frameData.nStatus == 0)
+				{
+					//printf("采集成功: 宽：%d 高：%d\n", g_frameData.nWidth, g_frameData.nHeight);
+
+					//将Raw数据处理成RGB数据
+					ProcessData(g_frameData.pImgBuf, 
+								g_pRaw8Buffer, 
+								g_pRGBframeData, 
+								g_frameData.nWidth, 
+								g_frameData.nHeight,
+								g_nPixelFormat,
+								g_nColorFilter);
+					cv::Mat MatImg(g_frameData.nHeight,g_frameData.nWidth,CV_8UC3, (unsigned char*)g_pRGBframeData);
+
+					PrcImage.push_back(Mat2HObject(MatImg));
+					flag = true;
+				}
+				else
+				{
+					ROS_INFO("Grab error, code: %d\n", g_frameData.nStatus);
+					res.success_flag = false;
+				}
+			}
+		}
+		while(!flag||count>10);
+
+	}
+	HObject ho_ImageResult1, ho_ImageResult2;
+	AddImage(PrcImage[0], PrcImage[1], &ho_ImageResult1, 0.5, 0);
+	AddImage(ho_ImageResult1, PrcImage[2], &ho_ImageResult2, 0.5, 0);
+
+	cv::Mat halconImage = HObject2Mat(ho_ImageResult2);
+
+	sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "rgb8", halconImage).toImageMsg();
+
+	res.success_flag = true;
+	res.MER_image = *msg;
+	return true;
+
+}
+
 int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "interface_cameraMER");
@@ -214,7 +405,7 @@ int main(int argc, char *argv[])
 	double param_BalanceRatioBlue;
 
     ros::NodeHandle private_node_handle("~");
-    private_node_handle.param<std::string>("SN", param_SN_, "RW0172009017");
+    private_node_handle.param<std::string>("SN", param_SN_, "RW0171009017");
     private_node_handle.param<int>("ExposureTime", param_ExposureTime, 10000);
 	private_node_handle.param<int>("SpeedLevel", param_SpeedLevel, 3);
 	private_node_handle.param<double>("BalanceRatioRed", param_BalanceRatioRed, 2.0);
@@ -327,6 +518,10 @@ int main(int argc, char *argv[])
 	// 开启连续采图服务
     ros::ServiceServer service_continues = nh.advertiseService("StartAutoMER",GrabImage_Continues);
     ROS_INFO_STREAM("Server StartAutoMER start!");
+
+	// 开启HDR采图服务
+    ros::ServiceServer service_hdr = nh.advertiseService("GrabHDRImage",GrabImage_hdr);
+    ROS_INFO_STREAM("Server GrabHDRImage start!");
 
     ros::Rate loop_rate(30); 
     while(ros::ok()) 

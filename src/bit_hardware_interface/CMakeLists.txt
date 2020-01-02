@@ -24,6 +24,7 @@ find_package(
   OpenCV
   std_srvs
   tf
+  asr_halcon_bridge 
   bit_hardware_msgs
 )
 
@@ -135,6 +136,8 @@ include_directories(
   include/cameraIR
   include/xml
   include/MER
+  /opt/halcon/include/halconcpp
+  /opt/halcon/include
 )
 
 ## Declare a C++ library
@@ -225,6 +228,7 @@ link_directories(lib
   lib/HCNetSDKCom
   lib/XmlBase
   lib/MER
+  /opt/halcon/lib/x64-linux
 )
 
 

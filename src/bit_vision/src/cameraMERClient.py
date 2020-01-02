@@ -16,8 +16,8 @@ if __name__ == "__main__":
     pub1 = rospy.Publisher("Image1",Image,queue_size=1)
     rospy.init_node("Pub",anonymous=False)
     
-    rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
-    GrabImage1 = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
+    rospy.wait_for_service('/CameraMER_Left/GrabHDRImage')
+    GrabImage1 = rospy.ServiceProxy('/CameraMER_Left/GrabHDRImage',MER_hdr)
 
     cv.namedWindow('image')
     # create trackbars for color change
@@ -36,11 +36,22 @@ if __name__ == "__main__":
             r = cv.getTrackbarPos('R', 'image')
             g = cv.getTrackbarPos('G', 'image')
             b = cv.getTrackbarPos('B', 'image')
-            respl = GrabImage1(exposure_time,r*0.01,g*0.01,b*0.01)
-            # respl = GrabImage1(exposure_time, 2.0, 1.6, 2.5)          // 比较好的参数
+            # respl = GrabImage1(exposure_time,r*0.01,g*0.01,b*0.01)
+            respl = GrabImage1(exposure_time, 2.0, 1.6, 2.5)          # 比较好的参数
 
             pub1.publish(respl.MER_image)
             print(respl.MER_image.encoding) 
 
         except rospy.ServiceException as e:
             print("Service call failed:",rospy.ServiceException,e)
+
+
+    # while(not rospy.is_shutdown()):
+    #     try:
+    #         respl = GrabImage1()          # 比较好的参数
+
+    #         pub1.publish(respl.MER_image)
+    #         print(respl.MER_image.encoding) 
+
+    #     except rospy.ServiceException as e:
+    #         print("Service call failed:",rospy.ServiceException,e)

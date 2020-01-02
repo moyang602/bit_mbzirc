@@ -56,6 +56,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(FILES
   MER_srv.srv
   MER_Continues_srv.srv
+  MER_hdr.srv
   encoder_srv.srv
 )
 

@@ -84,5 +84,8 @@
   <build_depend>tf</build_depend>
   <build_export_depend>tf</build_export_depend>
   <exec_depend>tf</exec_depend>
-
+  
+  <build_depend>asr_halcon_bridge</build_depend>
+  <build_export_depend>asr_halcon_bridge</build_export_depend>
+  <exec_depend>asr_halcon_bridge</exec_depend>
 </package>
