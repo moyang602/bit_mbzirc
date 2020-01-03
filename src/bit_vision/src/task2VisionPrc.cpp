@@ -55,20 +55,11 @@ using namespace cv;
 # define GetLPose           5
 # define NotRun             0
 int algorithm = GetBrickPos;     // 当前算法
-bool data_flag = false;     // 数据置信度
+
 
 //取砖和放砖用同一个变量表示角度
 HTuple brick_angle(0);
 string brick_color = "G";
-HTuple Brick_X(0);
-HTuple Brick_Y(0);
-HTuple Brick_Z(0);
-HTuple Brick_RX(0);
-HTuple Brick_RY(0);
-HTuple Brick_RZ(0);
-HTuple Pile_X(0);
-HTuple Pile_Y(0);
-HTuple Pile_Z(0);
 HTuple L_shelf_angle(0);
 tf::StampedTransform transform_MEROnBase;
 tf::StampedTransform transform_ZEDOnBase;
@@ -836,7 +827,7 @@ void set_cam_par_data (HTuple hv_CameraParamIn, HTuple hv_ParamName, HTuple hv_P
 
 //分别把不同任务加过来
 // 1.定位矩形标志(图像来源: MER)
-void rectangle_pose_Mer(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,HTuple &hv_RX, HTuple &hv_RY, HTuple &hv_RZ)
+void rectangle_pose_MER(HObject ho_Image, double Pose[6], bool &Flag)
 {
   // Local iconic variables
   HObject  ho_GrayImage, ho_Edges, ho_EdgesRectifiedAdaptive;
@@ -902,13 +893,12 @@ void rectangle_pose_Mer(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_
           UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours1, 10, 1, "attr_keep");
           GetRectanglePose(ho_UnionContours1, hv_CamParVirtualAdaptive, 0.3, 0.17, "huber", 
               1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
-          hv_X = ((const HTuple&)hv_PoseL)[0];
-          hv_Y = ((const HTuple&)hv_PoseL)[1];
-          hv_Z = ((const HTuple&)hv_PoseL)[2];
-          ROS_INFO("Brick X = %lf",hv_X.D());
-          ROS_INFO("Brick Y = %lf",hv_Y.D());
-          ROS_INFO("Brick Z = %lf",hv_Z.D());
-          data_flag = true;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = hv_PoseL[i].D();
+          }
+          ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
+          Flag = true;
         }
 
       catch (HException &HDevExpDefaultException)
@@ -938,18 +928,24 @@ void rectangle_pose_Mer(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_
           GetRectanglePose(ho_UnionContours, hv_CamParVirtualAdaptive, 0.3, 0.17, "huber", 
               1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
           CountSeconds(&hv_Seconds_4);
-          hv_X = ((const HTuple&)hv_PoseL)[0];
-          hv_Y = ((const HTuple&)hv_PoseL)[1];
-          hv_Z = ((const HTuple&)hv_PoseL)[2];
-          ROS_INFO("Brick X = %lf",hv_X.D());
-          ROS_INFO("Brick Y = %lf",hv_Y.D());
-          ROS_INFO("Brick Z = %lf",hv_Z.D());
-          data_flag = true;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = hv_PoseL[i].D();
+          }
+          ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
+          Flag = true;
         }
 
-        catch (exception e)
+        catch (HException &exception)
         {
-          data_flag = false;
+          Flag = false;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = 0.0;
+          }
+          ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
         }
 
       } 
@@ -960,13 +956,17 @@ void rectangle_pose_Mer(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_
       ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
               (const char *)exception.ErrorMessage());
-      data_flag = false;
+      Flag = false;
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = 0.0;
+      }
   }
 
 }
 
 //使用zed定位z值
-void rectangle_pose_Zed(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z,HTuple &hv_RX, HTuple &hv_RY, HTuple &hv_RZ)
+void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
 {
   // Local iconic variables
   HObject  ho_GrayImage, ho_Edges, ho_EdgesRectifiedAdaptive;
@@ -1033,13 +1033,12 @@ void rectangle_pose_Zed(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_
           UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours1, 10, 1, "attr_keep");
           GetRectanglePose(ho_UnionContours1, hv_CamParVirtualAdaptive, 0.3, 0.17, "huber", 
               1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
-          hv_X = ((const HTuple&)hv_PoseL)[0];
-          hv_Y = ((const HTuple&)hv_PoseL)[1];
-          hv_Z = ((const HTuple&)hv_PoseL)[2];
-          ROS_INFO("Brick X = %lf",hv_X.D());
-          ROS_INFO("Brick Y = %lf",hv_Y.D());
-          ROS_INFO("Brick Z = %lf",hv_Z.D());
-          data_flag = true;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = hv_PoseL[i].D();
+          }
+          ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
+          Flag = true;
         }
 
       catch (HException &HDevExpDefaultException)
@@ -1069,18 +1068,24 @@ void rectangle_pose_Zed(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_
           GetRectanglePose(ho_UnionContours, hv_CamParVirtualAdaptive, 0.3, 0.17, "huber", 
               1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
           CountSeconds(&hv_Seconds_4);
-          hv_X = ((const HTuple&)hv_PoseL)[0];
-          hv_Y = ((const HTuple&)hv_PoseL)[1];
-          hv_Z = ((const HTuple&)hv_PoseL)[2];
-          ROS_INFO("Brick X = %lf",hv_X.D());
-          ROS_INFO("Brick Y = %lf",hv_Y.D());
-          ROS_INFO("Brick Z = %lf",hv_Z.D());
-          data_flag = true;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = hv_PoseL[i].D();
+          }
+          ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
+          Flag = true;
         }
 
-        catch (exception e)
+        catch (HException &exception)
         {
-          data_flag = false;
+          Flag = false;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = 0.0;
+          }
+          ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
         }
 
       } 
@@ -1088,16 +1093,20 @@ void rectangle_pose_Zed(HObject ho_Image,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_
   }
   catch (HException &exception)
   {
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = 0.0;
+      }
       ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
-              (const char *)exception.ProcName(),
-              (const char *)exception.ErrorMessage());
-      data_flag = false;
+          (const char *)exception.ProcName(),
+          (const char *)exception.ErrorMessage());
+      Flag = false;
   }
 
 }
 
 // 2.定位砖堆位置 图像来源:zed 双目
-void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTuple &hv_Y, HTuple &hv_Z)
+void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], bool &Flag)
 {
   HObject  ho_ClassRegions;
   HObject  ho_ClassRegions2, ho_ClassRegion, ho_ClassRegion2;
@@ -1111,15 +1120,14 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTu
   HTuple  hv_C, hv_Indices2, hv_Inverted2, hv_R2, hv_C2, hv_RelPose;
   HTuple  hv_CamParam1, hv_CamParam2;
   HTuple  hv_Dist, hv_Exception;
-
+  HTuple  hv_X, hv_Y, hv_Z;
   try
   {
+      ReadPose("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
+      ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
+      ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
 
-      ReadPose("/home/srt/test_ws/src/bit_vision/model/relpose_01.dat", &hv_RelPose);
-      ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
-      ReadCamPar("/home/srt/test_ws/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
-
-      hv_pathFile = "/home/srt/test_ws/src/bit_vision/model/new_segment_four.mlp";
+      hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
       ReadClassMlp(hv_pathFile, &hv_MLPHandle);
       //识别
       
@@ -1176,12 +1184,14 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTu
           IntersectLinesOfSight(hv_CamParam1, hv_CamParam2, hv_RelPose, hv_R, hv_C, 
               hv_R2, hv_C2, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
           
-          data_flag = true;
-
+          Flag = true;
+          Pose[0] = hv_X.D();
+          Pose[1] = hv_Y.D();
+          Pose[2] = hv_Z.D();
     }
-    catch (exception e)
+    catch (HException &exception)
     {
-      data_flag = false;
+      Flag = false;
     }
     
 
@@ -1190,13 +1200,13 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR,HTuple &hv_X, HTu
   catch (HException &HDevExpDefaultException)
   {
     HDevExpDefaultException.ToHTuple(&hv_Exception);
-    data_flag = false;
+    Flag = false;
   }
 
 }
 
 // 3.放砖角度估计
-void put_brick(HObject ho_Image1)
+void put_brick(HObject ho_Image1, double Pose[6], bool &Flag)
 {
 
   // Local iconic variables
@@ -1228,15 +1238,15 @@ void put_brick(HObject ho_Image1)
     ClassifyImageClassMlp(ho_Image1, &ho_ClassRegions, hv_MLPHandle, 0.5);
     //基于先前举起砖块时做的颜色分类结果 先选择砖块对应的区域
 
-    if (0 != (brick_color=="R"))
+    if (brick_color=="R")
     {
       hv_index = 1;
     }
-    else if (0 != (brick_color=="G"))
+    else if (brick_color=="G")
     {
       hv_index = 2;
     }
-    else if (0 != (brick_color=="B"))
+    else if (brick_color=="B")
     {
       hv_index = 3;
     }
@@ -1322,17 +1332,14 @@ void put_brick(HObject ho_Image1)
     brick_angle = hv_rot_Z_2;
     ROS_INFO("brick_angle = %lf",brick_angle.D());
     //brick_angle = hv_Phi_2;
-    Brick_X = 0.0;
-    Brick_Y = 0.0;
-    Brick_Z = 0.0;
-    data_flag = true;
+    Flag = true;
   }
   catch (HException &exception)
   {
     ROS_ERROR("33  Error #%u in %s: %s\n", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
-    data_flag = false;
+    Flag = false;
 
     return;
   }
@@ -1418,10 +1425,14 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
                    bit_vision_msgs::VisionProc::Response& res)
 {
     ROS_INFO("BrickType:[%s], VisionAlgorithm:[%d]",req.BrickType.c_str(),req.ProcAlgorithm);
-    // 设置视觉处理颜色与算法rectangle_pose
+    // 设置视觉处理颜色与算法  rectangle_pose
     brick_color = req.BrickType;
     algorithm = req.ProcAlgorithm;
-    data_flag = false;
+
+    double ZEDPose[6];  // x,y,z,rx,ry,rz(RPY)
+    double MERPose[6];
+    bool MER_flag = false;     // 数据置信度
+    bool ZED_flag = false;     // 数据置信度
 
     // Local control variables
     HTuple  hv_MSecond, hv_Second, hv_Minute, hv_Hour;
@@ -1429,30 +1440,28 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
 
     GetSystemTime(&hv_MSecond, &hv_Second, &hv_Minute, &hv_Hour, &hv_Day, &hv_YDay, &hv_Month, &hv_Year);
 
-    
-
     switch (algorithm)
     {
         case GetBrickPos:
-            //取砖块的位姿 输入为MER图像
-            rectangle_pose_Mer(ho_ImageMER,Brick_X,Brick_Y,Brick_Z,Brick_RX,Brick_RY,Brick_RZ);
-            rectangle_pose_Zed(ho_ImageMER,Brick_X,Brick_Y,Brick_Z,Brick_RX,Brick_RY,Brick_RZ);
-            WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+            //取砖块的位姿 输入为 MER 图像
+            rectangle_pose_MER(ho_ImageMER, MERPose, MER_flag);
+            rectangle_pose_ZED(ho_ImageR, ZEDPose, ZED_flag);
+            WriteImage(ho_ImageMER, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
             WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
             WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
             break;
         case GetBrickLoc:
             //定位砖堆位置 输入为zed双目
-            color_bricks_location(ho_ImageL,ho_ImageR,Pile_X,Pile_Y,Pile_Z); 
+            color_bricks_location(ho_ImageL,ho_ImageR, ZEDPose, ZED_flag); 
             WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
             WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
             break;
         case GetPutPos:
             //放砖位姿(未完善)
-            rectangle_pose_Zed(ho_ImageL,Brick_X,Brick_Y,Brick_Z,Brick_RX,Brick_RY,Brick_RZ);
+            rectangle_pose_ZED(ho_ImageL, ZEDPose, ZED_flag);
             break;
         case GetPutAngle:
-            put_brick(ho_ImageL);
+            put_brick(ho_ImageR, ZEDPose, ZED_flag);
             break;
         case GetLPose:
             //L架的角度 输入是MER图像
@@ -1462,8 +1471,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
     }
 
-    
-    if (data_flag)
+    if (ZED_flag||MER_flag)
     {
         tf::Transform transform_TargetOnBase;
 
@@ -1473,13 +1481,17 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         switch (algorithm)
         {
           case GetBrickPos:
-            transform_TargetOnMER.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
-            q.setRPY(Brick_RX.D(), Brick_RY.D(), Brick_RZ.D());
+            transform_TargetOnMER.setOrigin(tf::Vector3(MERPose[0], MERPose[1], MERPose[2]));
+            q.setRPY(MERPose[3], MERPose[4], MERPose[5]);
             transform_TargetOnMER.setRotation(q);
+            transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
+            q.setRPY(ZEDPose[3], ZEDPose[4], ZEDPose[5]);
+            transform_TargetOnZED.setRotation(q);
             transform_TargetOnBase = transform_MEROnBase*transform_TargetOnMER;
+            transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
             break;
           case GetBrickLoc:
-            transform_TargetOnZED.setOrigin(tf::Vector3(Brick_X.D(), Brick_Y.D(), Brick_Z.D()));
+            transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
             q.setRPY(0, 0, 0);
             transform_TargetOnZED.setRotation(q);
             transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
@@ -1494,7 +1506,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
         }
  
-        ROS_INFO_STREAM("Vision data:"<<Brick_X.D()<<","<<Brick_Y.D()<<","<<Brick_Z.D());
+        ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]);
 
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
@@ -1555,8 +1567,8 @@ int main(int argc, char *argv[])
         listener.lookupTransform("base_link", "zed_link", ros::Time(0), transform_ZEDOnBase);
       }
       catch (tf::TransformException ex){
-      //ROS_ERROR("%s",ex.what());
-      ros::Duration(1.0).sleep();
+        //ROS_ERROR("%s",ex.what());
+        ros::Duration(1.0).sleep();
       }
       
       //处理ROS的信息，比如订阅消息,并调用回调函数 
