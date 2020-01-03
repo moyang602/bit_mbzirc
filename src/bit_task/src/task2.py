@@ -96,13 +96,11 @@ v = 0.05*4
 a = 0.3
 
 # 可调用的视觉的接口
-GetBrickPos = 1   
-GetBrickAngle = 2
-GetPutPos = 3
-GetPutAngle = 4
-GetLPose = 5
-GetBrickPos_only = 6
-GetBrickLocation = 7
+GetBrickPos=1   
+GetBrickLoc=2
+GetPutPos=  3
+GetPutAngle=4
+GetLPose=   5
 
 SUCCESS = 1
 FAIL = 0
@@ -233,83 +231,63 @@ class pick_put_act(object):
         # r = rospy.Rate(1)
         self._result.finish_state = SUCCESS
         try: 
-            # 开始臂车运动
+            #================ 0. 准备 ===================#
             rospy.loginfo("begining")
             pose = rob.getl()
             print("Initial end pose is ", pose)
             initj = rob.getj()
             print("Initial joint angle is ", initj)
 
-            # 机械臂移动至观察砖堆准备位姿
+            #================ 1. 寻找砖堆 ================#
+            # 1.1 机械臂移动至观察砖堆准备位姿
             rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
-            # 调用激光雷达找位置，转一个角度
-            # CarMove(0,0,theta)
-            # -------------------- 找砖 --------------------- #
+
+            # 1.2 小车遍历场地， 基于视觉寻找砖堆
             '''
-            # 找砖：视觉引导，雷达微调 CarMove() tf.TransformListener.lookupTransform()
             while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLocation, "O")    # 数据是在base_link坐标系下的
+                VisionData = GetVisionData_client(GetBrickLoc, "O")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
                     theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
                     CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
-                    # 调用激光雷达检测的服务
-                    if 1:# 激光雷达检测到在范围内，并且已经到达
+                    # TODO 调用激光雷达检测的服务
+                    if 1:# TODO 激光雷达检测到在范围内，并且已经到达
                         break
                 else:
-                    # 调用激光雷达找位置，来移动
-                    CarMove(0,0,theta)
+                    # 遍历场地 TODO
+                    pass
             '''
-            CarMove(2.0,0,0,frame_id="car_link",wait=True)
-            # ----------- 到达砖堆橙色处，开始取砖 --------------#
+            #================ 2. 到达砖堆橙色处，开始取砖 ================#
             wait()
-            '''
             brickIndex = 0
             while brickIndex < goal.Num:
+                # 2.1 小车运动至期望砖堆处
                 # 调用激光雷达检测的服务  goal.bricks[brickIndex].type
-
-                for attempt in range(0,3):  # 最大尝试次数30
+                
+                # 2.2 机械臂取砖
+                for attempt in range(0,3):  # 最大尝试次数3
                     result_ = self.goGetBrick(goal.bricks[brickIndex])
                     if result_ == SUCCESS:
                         # 记录当前点为这种砖的位置
                         self.show_tell("finished !PICK! brick %d,go get next" %brickIndex)
                         brickIndex = brickIndex + 1     # 成功了就取下一块  
                         break
-                      
-            self.show_tell("Got all bricks, go to build")
-            
-            # --------------- 寻找L架 ------------------------#
-            # 机械臂移动至观察L架位姿
-            rob.movej(lookDownPos, acc=a, vel=3*v,wait=True)
-            out = 0
-            while True:         # 遍历
-                VisionData = GetVisionData_client(GetLPose, "none")
-                while VisionData.Flag > 0:
-                    while VisionData.Flag > 1:
-                        while VisionData.Flag > 2:
-                            tf_OrignOnMap = PoseCal(tf_BaseOnMap_rot,tf_BaseOnMap_trans,VisionData.Pose.orientation,VisionData.Pose.posotion):
-                            # TODO 记录
-                            out = 1
-                            break
-                        if out:
-                            break
-                        CarMove(0, 0.1, 0)
-                        VisionData = GetVisionData_client(GetLPose, "none")
-                    if out:
-                        break
-                    theta = VisionData.Pose.orientation.z        
-                    CarMove(0,0,VisionData,"car_link",wait=True)     # 首先转正
-                    CarMove(0, -0.1, 0)
-                    VisionData = GetVisionData_client(GetLPose, "none")
-                if out:
-                    break
-                # TODO 遍历运动
-                VisionData = GetVisionData_client(GetLPose, "none")
 
-            # --------------------找到L架，开始搭建 ------------#
-            
-            # 需要知道Orign On Map
-            # tf_OrignOnMap = tft.fromTranslationRotation((10,5,0),(0,0,0,1)))
-            distanceBTcarlink_brick = 0.5
+            self.show_tell("Got all bricks, go to build")
+
+            #================ 3. 到达L架 ================#
+            # 机械臂移动至观察L架位姿
+            # rob.movej(lookDownPos, acc=a, vel=3*v,wait=True)
+
+            # 3.1 移动至L架
+            # 3.1.1 如果有信息，直接运动至指定位置
+
+            # 3.1.2 如果无信息，场地遍历，寻找L架
+
+
+            '''
+
+            #================ 3. 找到L架，开始搭建 ================#
+
             brickIndex = 0
             while brickIndex < goal.Num:
                 
