@@ -29,7 +29,7 @@ from actionlib_msgs.msg import GoalStatusArray
 
 import bit_task_msgs.msg
 
-import bit_vision_msgs.srv
+from bit_vision_msgs.srv import VisionProc
 from bit_control_msgs.srv import SetHeight
 
 if sys.version_info[0] < 3:  # support python v2
@@ -39,7 +39,7 @@ do_wait = True
 #=============特征点与运动参数==========
 deg2rad = 0.017453
 # takePos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
-lookForwardPos = (-1.57, -1.57, -1.57, 0, 1.57, 0)
+lookForwardPos = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)
 lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与pickPos相同
 
 takePos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)     # Take动作开始位置
@@ -149,25 +149,27 @@ def GetVisionData_client(ProcAlgorithm, BrickType):
         get_vision_data = rospy.ServiceProxy('GetVisionData',VisionProc)
         respl = get_vision_data(ProcAlgorithm, BrickType)
         return respl.VisionData
-    except rospy.ServiceException, e:
-        print "Service GetVisionData call failed: %s"%e
+    except rospy.ServiceException as e:
+        print("Service GetVisionData call failed: %s"%e)
 
 
-def Laser_client(LaserAlgoritm):
-    rospy.wait_for_service('LaserDeal')
-    try:
-        get_vision_data = rospy.ServiceProxy('LaserDeal',VisionProc)
-        respl = get_vision_data(LaserAlgoritm)
-        return respl.VisionData
-    except rospy.ServiceException, e:
-        print "Service GetVisionData call failed: %s"%e
+# def Laser_client(LaserAlgoritm):
+#     rospy.wait_for_service('LaserDeal')
+#     try:
+#         get_vision_data = rospy.ServiceProxy('LaserDeal',VisionProc)
+#         respl = get_vision_data(LaserAlgoritm)
+#         return respl.VisionData
+#     except rospy.ServiceException, e:
+#         print "Service GetVisionData call failed: %s"%e
 
 
 def move_base_feedback(a):
     global cancel_id
-    global status
-    cancel_id = a.status_list[0].goal_id.id
-    status = a.status_list[0].status
+    global status    
+    
+    if len(a.status_list) != 0:
+        cancel_id = a.status_list[-1].goal_id
+        status = a.status_list[-1].status
 
 # 小车移动
 def CarMove(x,y,theta,frame_id="car_link",wait = False):
@@ -187,15 +189,34 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
 
     # 发布位置
     simp_goal_pub.publish(this_target)
-    # rospy.sleep(0.1)  更换为等待任务开始
-    while status != GoalStatus.ACTIVE:
-        pass
-
-    if wait:
-        while status != GoalStatus.SUCCEEDED:
-            if status == GoalStatus.ABORTED:     # TODO 如果规划器失败的处理
-                simp_goal_pub.publish(this_target)
+    rospy.sleep(0.1)    # 更换为等待任务开始
+    try:
+        while status != GoalStatus.ACTIVE:
             pass
+
+        if wait:
+            while status != GoalStatus.SUCCEEDED:
+                if status == GoalStatus.ABORTED:     # TODO 如果规划器失败的处理
+                    simp_goal_pub.publish(this_target)
+                pass
+    except Exception as e:
+        rospy.logwarn(e)
+
+
+def CarStop():
+    a = Twist()
+    simp_cancel.publish(cancel_id)
+    rospy.sleep(0.1)
+    a.linear.x = 0.0
+    a.linear.y = 0.0
+    a.linear.z = 0.0
+    a.angular.z = 0.0
+    for i in range(0,7):
+        cmdvel_pub.publish(a)
+        rospy.sleep(0.1)
+        # print("pub")
+   
+
 
 ## ================================================== ##
 ## ================================================== ##
@@ -239,11 +260,11 @@ class pick_put_act(object):
         self._result.finish_state = SUCCESS
         try: 
             #================ 0. 准备 ===================#
-            rospy.loginfo("begining")
+            rospy.loginfo("Begining!")
             pose = rob.getl()
-            print("Initial end pose is ", pose)
+            # print("Initial end pose is ", pose)
             initj = rob.getj()
-            print("Initial joint angle is ", initj)
+            # print("Initial joint angle is ", initj)
 
             #================ 1. 寻找砖堆 ================#
             # 1.1 机械臂移动至观察砖堆准备位姿
@@ -252,16 +273,22 @@ class pick_put_act(object):
             # 1.2 小车遍历场地， 基于视觉寻找砖堆
             
             while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLoc, "O")    # 数据是在base_link坐标系下的
+                VisionData = GetVisionData_client(GetBrickLoc, "G")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
-                    theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
-                    CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
-                    # TODO 调用激光雷达检测的服务
-                    if 1:# TODO 激光雷达检测到在范围内，并且已经到达
+                    print("Found Brick Dui")
+                    theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
+                    distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
+                    if distance > 5:
+                        CarMove(-VisionData.Pose.position.y,VisionData.Pose.position.x,theta,"car_link")
+                    else:
+                        CarStop()
                         break
+                    # TODO 调用激光雷达检测的服务
+                    # if 1:# TODO 激光雷达检测到在范围内，并且已经到达
+                    #     break
                 else:
+                    print("Mei Found Brick Dui")
                     # 遍历场地 TODO
-                    pass
             wait()
 
             #================ 2. 到达砖堆橙色处，开始取砖 ================#
@@ -312,7 +339,7 @@ class pick_put_act(object):
             while brickIndex < goal.Num:
                 
                 tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x,goal.bricks[brickIndex].y,0),(0,0,0,1))
-                print goal.bricks[brickIndex]
+                print(goal.bricks[brickIndex])
                 if goal.bricks[brickIndex].x == 0.0:
                     rot_ = tf.transformations.quaternion_from_euler(0,0,0)
                     tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick,0,0),rot_)      # 砖外0.5m
@@ -668,6 +695,7 @@ if __name__ == '__main__':
     simp_goal_pub = rospy.Publisher('/move_base_simple/goal',PoseStamped,queue_size=1)
     simp_goal_sub = rospy.Subscriber("move_base/status",GoalStatusArray,move_base_feedback)
     simp_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)
+    cmdvel_pub = rospy.Publisher('/cmd_vel_plan',Twist,queue_size=1)
 
     ee = EndEffector()
     normal = 0

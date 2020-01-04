@@ -1205,7 +1205,7 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
           hv_R2 = HTuple(hv_Row2[HTuple(hv_Inverted2[0])]);
           hv_C2 = HTuple(hv_Column2[HTuple(hv_Inverted2[0])]);
 
-          ROS_INFO_STREAM("Vision data:"<<hv_R.D()<<","<<hv_C.D());
+          // ROS_INFO_STREAM("Vision data:"<<hv_R.D()<<","<<hv_C.D());
         
           IntersectLinesOfSight(hv_CamParam1, hv_CamParam2, hv_RelPose, hv_R, hv_C, 
               hv_R2, hv_C2, &hv_X, &hv_Y, &hv_Z, &hv_Dist);
@@ -1217,15 +1217,21 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
     }
     catch (HException &exception)
     {
+      ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
       Flag = false;
     }
     
 
   }
   // catch (Exception) 
-  catch (HException &HDevExpDefaultException)
+  catch (HException &exception)
   {
-    HDevExpDefaultException.ToHTuple(&hv_Exception);
+    ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
+    // HDevExpDefaultException.ToHTuple(&hv_Exception);
     Flag = false;
   }
 
@@ -1515,12 +1521,16 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             // transform_TargetOnZED.setRotation(q);
             transform_TargetOnBase = transform_MEROnBase*transform_TargetOnMER;
             // transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
+            ROS_INFO_STREAM("Vision data MERPose:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
+
             break;
           case GetBrickLoc:
             transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
             q.setRPY(0, 0, 0);
             transform_TargetOnZED.setRotation(q);
             transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
+            ROS_INFO_STREAM("Vision data ZEDPose:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
+
             break;
           case GetPutPos:
             break;
@@ -1532,8 +1542,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
         }
  
-        ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
-
+        
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "base_link";
