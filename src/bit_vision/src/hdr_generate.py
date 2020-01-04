@@ -35,8 +35,8 @@ def hdr_gen(images,times):
 if __name__ == "__main__":
     pub = rospy.Publisher("Image_hdr",Image,queue_size=1)
     rospy.init_node("hdr_node",anonymous=False)
-    rospy.wait_for_service('/CameraMER_Left/GrabMERImage')
-    GrabImage = rospy.ServiceProxy('/CameraMER_Left/GrabMERImage',MER_srv)
+    rospy.wait_for_service('/CameraMER/GrabMERImage')
+    GrabImage = rospy.ServiceProxy('/CameraMER/GrabMERImage',MER_srv)
 
     bridge = CvBridge()
 
@@ -57,4 +57,5 @@ if __name__ == "__main__":
 
         except rospy.ServiceException, e:
             print "Service call failed:",rospy.ServiceException,e
+            break
             

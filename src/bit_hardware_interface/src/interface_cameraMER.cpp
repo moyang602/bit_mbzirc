@@ -20,7 +20,6 @@
 #include "halcon_image.h"
 #undef Status  
 
-
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
@@ -32,7 +31,6 @@
 #include "GxIAPI.h"
 #include "DxImageProc.h"
 #include <bit_hardware_msgs/MER_srv.h>
-#include <bit_hardware_msgs/MER_Continues_srv.h>
 #include <bit_hardware_msgs/MER_hdr.h>
 #include <iostream>
 
@@ -49,8 +47,6 @@ int64_t g_nPixelFormat = GX_PIXEL_FORMAT_BAYER_RG8; ///< 当前相机的pixelfor
 int64_t g_nColorFilter = GX_COLOR_FILTER_BAYER_RG;      ///< bayer插值的参数
 void *g_pframeInfoData = NULL;                      ///< 帧信息数据缓冲区
 size_t g_nframeInfoDataSize = 0;                    ///< 帧信息数据长度
-
-bool continues_flag = false;
 
 //----------------------------------------------------------------------------------
 /**
@@ -224,7 +220,6 @@ bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
 {
     GX_STATUS status = GX_STATUS_SUCCESS;
 
-
     ROS_INFO("The exposure_time is %lf", req.exposure_time);
     status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, req.exposure_time);
 	// 设置红色通道
@@ -237,7 +232,7 @@ bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
     status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, req.BalanceRatioBlue);
 
-    status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
+    // status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
 
     status = GXGetImage(g_hDevice, &g_frameData, 100);
 
@@ -245,8 +240,6 @@ bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
     {
         if(g_frameData.nStatus == 0)
         {
-            //printf("采集成功: 宽：%d 高：%d\n", g_frameData.nWidth, g_frameData.nHeight);
-
             //将Raw数据处理成RGB数据
             ProcessData(g_frameData.pImgBuf, 
                         g_pRaw8Buffer, 
@@ -278,44 +271,6 @@ bool GrabImage(bit_hardware_msgs::MER_srv::Request  &req,
 
 }
 
-// service_continues 回调函数，输入参数req，输出参数res
-bool GrabImage_Continues(bit_hardware_msgs::MER_Continues_srv::Request  &req,
-               		     bit_hardware_msgs::MER_Continues_srv::Response &res)
-{
-	GX_STATUS status = GX_STATUS_SUCCESS;
-	if (req.start_flag)		// 开启连续采图
-	{
-		continues_flag = true;
-		//发送停采命令
-		status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
-		//设置触发开关为OFF
-		status = GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_OFF);
-		//设置采集模式为连续采集
-		status = GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
-		// 设置自动曝光设置为 连续
-    	status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
-		//发送开采命令
-    	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
-		res.success_flag = true;
-	}
-	else					// 关闭连续采图
-	{
-		continues_flag = false;
-		//发送停采命令
-		status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
-		//设置触发开关为ON
-		status = GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_ON);
-		//设置采集模式为单帧采集
-		status = GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_SINGLE_FRAME);
-		// 设置自动曝光设置为 关闭
-    	status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF);
-		//发送开采命令
-    	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
-		res.success_flag = true;
-	}
-
-}
-
 // service 回调函数，输入参数req，输出参数res
 bool GrabImage_hdr(bit_hardware_msgs::MER_hdr::Request  &req,
                	   bit_hardware_msgs::MER_hdr::Response &res)
@@ -343,11 +298,9 @@ bool GrabImage_hdr(bit_hardware_msgs::MER_hdr::Request  &req,
 		do
 		{
 			status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, exposure_time[i]);
-			status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
 			status = GXGetImage(g_hDevice, &g_frameData, 100);
 			count++;
 		
-
 			if(status == 0)
 			{
 				if(g_frameData.nStatus == 0)
@@ -403,6 +356,7 @@ int main(int argc, char *argv[])
 	double param_BalanceRatioRed;
 	double param_BalanceRatioGreen;
 	double param_BalanceRatioBlue;
+	std::string param_CameraMode_;
 
     ros::NodeHandle private_node_handle("~");
     private_node_handle.param<std::string>("SN", param_SN_, "RW0171009017");
@@ -411,9 +365,8 @@ int main(int argc, char *argv[])
 	private_node_handle.param<double>("BalanceRatioRed", param_BalanceRatioRed, 2.0);
 	private_node_handle.param<double>("BalanceRatioGreen", param_BalanceRatioGreen, 1.6);
 	private_node_handle.param<double>("BalanceRatioBlue", param_BalanceRatioBlue, 2.5);
+	private_node_handle.param<std::string>("CameraMode", param_CameraMode_, "SINGLE");
 
-	// 设置图像消息发布
-	ros::Publisher MER_pub = nh.advertise<sensor_msgs::Image>("MER_image", 1);
 
     //-------------  MER相机处理  -----------------//
     GX_STATUS status = GX_STATUS_SUCCESS;
@@ -450,13 +403,6 @@ int main(int argc, char *argv[])
 			return 0;			
 		}
 	}
-    
-    //----------- 相机参数读取与设置 -------------//
-    //设置采集模式为单帧
-	GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_SINGLE_FRAME);
-
-    //设置触发开关为ON
-	GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_ON);
 
     //----------- 开采前准备 -------------//  
     int64_t nPayLoadSize = 0;
@@ -471,9 +417,12 @@ int main(int argc, char *argv[])
 	status = GXGetEnum(g_hDevice, GX_ENUM_PIXEL_FORMAT, &g_nPixelFormat);
     //获取相机Bayer插值参数
     status = GXGetEnum(g_hDevice, GX_ENUM_PIXEL_COLOR_FILTER, &g_nColorFilter);
-
     //设置采集速度级别  级别越大，帧率越大
 	GXSetInt(g_hDevice, GX_INT_ACQUISITION_SPEED_LEVEL, param_SpeedLevel);
+
+	//获取帧信息长度并申请帧信息数据空间
+	GXGetBufferLength(g_hDevice, GX_BUFFER_FRAME_INFORMATION, &g_nframeInfoDataSize);
+	g_pframeInfoData = malloc(g_nframeInfoDataSize);
 
     //设置AOI
 	int64_t nOffsetX = 0;
@@ -485,15 +434,11 @@ int main(int argc, char *argv[])
 	status = GXSetInt(g_hDevice, GX_INT_WIDTH, nWidth);
 	status = GXSetInt(g_hDevice, GX_INT_HEIGHT, nHeight);
 
-    //设置曝光时间
-	status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, param_ExposureTime);
-
-    // 设置自动白平衡设置为关闭
+	//----------- 设置相机参数 -------------//  
+	// 设置自动白平衡设置为关闭
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_OFF);
-	// 设置自动曝光设置为关闭
-    status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF);
 
-    // 设置红色通道
+	// 设置红色通道
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
     status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, param_BalanceRatioRed);
     // 设置绿色通道
@@ -503,33 +448,48 @@ int main(int argc, char *argv[])
     status = GXSetEnum(g_hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
     status = GXSetFloat(g_hDevice, GX_FLOAT_BALANCE_RATIO, param_BalanceRatioBlue);
 
-    //发送开采命令
-    status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
+	if(param_CameraMode_ == "SINGLE")
+	{
+		//设置触发开关为ON
+		GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_OFF);
+		//设置采集模式为单帧模式
+		GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_SINGLE_FRAME);
+		// 设置自动曝光设置为关闭
+    	status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF);
+		//设置曝光时间
+		status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, param_ExposureTime);
+	}
+	else if(param_CameraMode_ == "CONTINUOUS")
+	{
+		//设置触发开关为OFF
+    	status = GXSetEnum(g_hDevice, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_OFF);
+		//设置采集模式为连续模式
+		GXSetEnum(g_hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
+		// 设置自动曝光设置为连续自动曝光
+    	status = GXSetEnum(g_hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
+	}
 
-    //获取帧信息长度并申请帧信息数据空间
-	GXGetBufferLength(g_hDevice, GX_BUFFER_FRAME_INFORMATION, &g_nframeInfoDataSize);
-	g_pframeInfoData = malloc(g_nframeInfoDataSize);
-
+      
 	//！！！！！！！！！！  开启相机服务  ！！！！！！！！！//
-    // 开启单帧采图服务
-    ros::ServiceServer service_once = nh.advertiseService("GrabMERImage",GrabImage);
-    ROS_INFO_STREAM("Server GrabMERImage start!");
 
-	// 开启连续采图服务
-    ros::ServiceServer service_continues = nh.advertiseService("StartAutoMER",GrabImage_Continues);
-    ROS_INFO_STREAM("Server StartAutoMER start!");
-
+	// 开启单帧采图服务
+	ros::ServiceServer service_once = nh.advertiseService("GrabMERImage",GrabImage);
+	ROS_INFO_STREAM("Server GrabMERImage start!");
 	// 开启HDR采图服务
-    ros::ServiceServer service_hdr = nh.advertiseService("GrabHDRImage",GrabImage_hdr);
-    ROS_INFO_STREAM("Server GrabHDRImage start!");
+	ros::ServiceServer service_hdr = nh.advertiseService("GrabHDRImage",GrabImage_hdr);
+	ROS_INFO_STREAM("Server GrabHDRImage start!");
+
+	// 设置图像消息发布
+	ros::Publisher MER_pub = nh.advertise<sensor_msgs::Image>("MER_Continuous_image", 1);
+	
+	//发送开采命令
+    status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
 
     ros::Rate loop_rate(30); 
     while(ros::ok()) 
     { 
-
-		if (continues_flag)
+		if (param_CameraMode_ == "CONTINUOUS")
 		{
-			// status = GXSendCommand(g_hDevice, GX_COMMAND_TRIGGER_SOFTWARE);
 			status = GXGetImage(g_hDevice, &g_frameData, 100);
 			if(status == 0)	// 如果采集到数据，进行处理
 			{
@@ -556,13 +516,11 @@ int main(int argc, char *argv[])
 			}
 			
 		}
-
         //处理ROS的信息，比如订阅消息,并调用回调函数 
         ros::spinOnce(); 
         loop_rate.sleep(); 
     } 
 	
-
     //发送停采命令
 	status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_STOP);
 

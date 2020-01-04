@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
         except rospy.ServiceException as e:
             print("Service call failed:",rospy.ServiceException,e)
+            break
 
 
     # while(not rospy.is_shutdown()):
