@@ -254,11 +254,3 @@ add_dependencies(task2VisionPrc ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXP
 target_link_libraries(task2VisionPrc
   ${catkin_LIBRARIES}
 )
-
-add_executable(locate_precise_MER
-  src/locate_precise_MER.cpp
-)
-add_dependencies(locate_precise_MER ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(locate_precise_MER
-  ${catkin_LIBRARIES}
-)

@@ -67,25 +67,14 @@ src/bit_vision/bit_vision_brick_locate/model/
 
 src/bit_hardware_interface/src/record/
 
-src/bit_hardware_interface/src/ssss.jpg
-
 *.sfm
 
 *.gmc
 
 src/block_locate/src/tof640-20gm-22588426-0018-range_gray.tiff
 
-*.mlp
-
-src/bit_hardware_interface/src/camerair_arm.jpg
-
-src/bit_hardware_interface/src/camerair_car.jpg
 
 *.STL
-
-src/bit_vision/model/campar1.dat
-
-src/bit_vision/model/campar2.dat
 
 *.sm3
 

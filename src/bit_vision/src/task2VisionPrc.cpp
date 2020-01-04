@@ -44,13 +44,16 @@ using namespace std;
 using namespace HalconCpp;
 using namespace cv;
 
-# define GetBrickPos        1   
-# define GetBrickLoc        2
-# define GetPutPos          3
-# define GetPutAngle        4
-# define GetLPose           5
+# define GetBrickPoseMERO   1
+# define GetBrickPoseMERC   2  
+# define GetBrickPoseZED    3  
+# define GetBrickLoc        4
+# define GetPutPos          5
+# define GetPutAngle        6
+# define GetLPose           7
 # define NotRun             0
-int algorithm = GetBrickPos;     // 当前算法
+
+int algorithm = GetBrickPoseMERO;     // 当前算法
 
 # define Deg2Rad  0.017453292519943         
 # define Rad2Deg  57.29577951308232
@@ -824,27 +827,23 @@ void set_cam_par_data (HTuple hv_CameraParamIn, HTuple hv_ParamName, HTuple hv_P
 
 
 //分别把不同任务加过来
-// 1.定位矩形标志(图像来源: MER)
-void rectangle_pose_MER(HObject ho_Image, double Pose[6], bool &Flag)
+// 1.1 工业相机原始图像定位矩形标志
+void rectangle_pose_MERO(HObject ho_Image, double Pose[6], bool &Flag)
 {
   // Local iconic variables
-  HObject  ho_GrayImage, ho_Edges, ho_EdgesRectifiedAdaptive;
-  HObject  ho_ROI, ho_ImageRectifiedAdaptive, ho_Region1, ho_Image1;
-  HObject  ho_Image2, ho_Image3, ho_ImageH, ho_ImageS, ho_ImageV;
-  HObject  ho_Regions, ho_ConnectedRegions3, ho_SelectedRegions4;
-  HObject  ho_ObjectSelectedL, ho_RegionClosing, ho_ContourL;
-  HObject  ho_ContoursSplit, ho_SelectedEdges, ho_UnionContours1;
-  HObject  ho_UnionContours2, ho_UnionContours;
+  HObject  ho_Image1, ho_Image2, ho_Image3;
+  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_Regions, ho_RegionOpening;
+  HObject  ho_ConnectedRegions, ho_SelectedRegions, ho_ObjectSelected;
+  HObject  ho_RegionClosing, ho_Contour, ho_ContoursSplit;
+  HObject  ho_SelectedEdges, ho_UnionContours, ho_UnionContours2;
 
   // Local control variables
   HTuple  hv_RectWidth, hv_RectHeight, hv_CamParOriginal;
-  HTuple  hv_Pointer, hv_Type, hv_Width, hv_Height, hv_CamParVirtualAdaptive;
-  HTuple  hv_WidthVirtualAdaptive, hv_HeightVirtualAdaptive;
-  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_PoseL, hv_CovPoseL;
-  HTuple  hv_ErrorL, hv_X, hv_Y, hv_Z, hv_Exception, hv_NumberContourSplit;
-  HTuple  hv_Seconds_3, hv_Seconds_4, hv_NumberRegion;
+  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_Pose, hv_CovPose;
+  HTuple  hv_Error, hv_Exception;
 
-  try{
+  try
+  {
       //step1:根据颜色提取指定颜色的砖块区域
       if (brick_color=="O")
       {
@@ -867,101 +866,63 @@ void rectangle_pose_MER(HObject ho_Image, double Pose[6], bool &Flag)
         hv_RectHeight = 0.15;
       }
 
-      
       ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/camparMER.dat", &hv_CamParOriginal);
-
-      GetImagePointer1(ho_Image, &hv_Pointer, &hv_Type, &hv_Width, &hv_Height);
-      Rgb1ToGray(ho_Image, &ho_GrayImage);
-      EdgesSubPix(ho_GrayImage, &ho_Edges, "lanser2", 0.5, 20, 40);
-
-      //Change the radial distortion: mode 'adaptive'
-      ChangeRadialDistortionCamPar("adaptive", hv_CamParOriginal, 0, &hv_CamParVirtualAdaptive);
-      ChangeRadialDistortionContoursXld(ho_Edges, &ho_EdgesRectifiedAdaptive, hv_CamParOriginal, hv_CamParVirtualAdaptive);
-
-      get_cam_par_data(hv_CamParVirtualAdaptive, "image_width", &hv_WidthVirtualAdaptive);
-      get_cam_par_data(hv_CamParVirtualAdaptive, "image_height", &hv_HeightVirtualAdaptive);
-      GenRectangle1(&ho_ROI, 0, 0, hv_HeightVirtualAdaptive-1, hv_WidthVirtualAdaptive-1);
-      ChangeRadialDistortionImage(ho_GrayImage, ho_ROI, &ho_ImageRectifiedAdaptive, 
-        hv_CamParOriginal, hv_CamParVirtualAdaptive);
-      //step2: 提取ROI区域用于轮廓提取 此处用特定颜色的分割以及矩形拟合来提取区域
-      Threshold(ho_ImageRectifiedAdaptive, &ho_Region1, 190, 255);
 
       Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
       TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
-        "hsv");
+          "hsv");
       Threshold(ho_ImageS, &ho_Regions, 0, 100);
+      OpeningCircle(ho_Regions, &ho_RegionOpening, 5);
 
-      Connection(ho_Regions, &ho_ConnectedRegions3);
+      Connection(ho_RegionOpening, &ho_ConnectedRegions);
 
-      SelectShape(ho_ConnectedRegions3, &ho_SelectedRegions4, (HTuple("rectangularity").Append("area")), "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
-      CountObj(ho_SelectedRegions4, &hv_NumberRegion);
-      if (0 != (hv_NumberRegion!=0))
+      SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
+          "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
+      //对区域根据retangularity进行排序
+      RegionFeatures(ho_SelectedRegions, "rectangularity", &hv_REC);
+      TupleSortIndex(hv_REC, &hv_index);
+      TupleInverse(hv_index, &hv_indexes_REC);
+      hv_index = HTuple(hv_indexes_REC[0])+1;
+      SelectObj(ho_SelectedRegions, &ho_ObjectSelected, hv_index);
+      ClosingCircle(ho_ObjectSelected, &ho_RegionClosing, 10);
+      GenContourRegionXld(ho_RegionClosing, &ho_Contour, "border");
+      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 7, 5, 3);
+
+      try
       {
-        try
+        SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 100, 
+            2000, -1.5, 1.5);
+        UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours, 10, 1, "attr_keep");
+        GetRectanglePose(ho_UnionContours, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
+            "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+        
+        for(int i=0;i<6;i++)
         {
-          //对区域根据retangularity进行排序
-          RegionFeatures(ho_SelectedRegions4, "rectangularity", &hv_REC);
-          TupleSortIndex(hv_REC, &hv_index);
-          TupleInverse(hv_index, &hv_indexes_REC);
-          hv_index = HTuple(hv_indexes_REC[0])+1;
-          SelectObj(ho_SelectedRegions4, &ho_ObjectSelectedL, hv_index);
-          //
-          ClosingCircle(ho_ObjectSelectedL, &ho_RegionClosing, 10);
-          GenContourRegionXld(ho_RegionClosing, &ho_ContourL, "border");
-
-          SegmentContoursXld(ho_ContourL, &ho_ContoursSplit, "lines", 7, 5, 3);
-          SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 100, 
-              2000, -1.5, 1.5);
-          UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours1, 10, 1, "attr_keep");
-          //get_rectangle_pose (UnionContours1, CamParVirtualAdaptive, RectWidth, RectHeight, 'huber', 1, PoseL, CovPoseL, ErrorL)
-          GetRectanglePose(ho_UnionContours1, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
-              "huber", 1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
-
-          for(int i=0;i<6;i++)
-          {
-            Pose[i] = hv_PoseL[i].D();
-          }
-          //ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
-          Flag = true;
+          Pose[i] = hv_Pose[i].D();
         }
+        Flag = true;
 
+      }
       catch (HException &HDevExpDefaultException)
       {
         HDevExpDefaultException.ToHTuple(&hv_Exception);
         try
         {
-          //对区域根据retangularity进行排序
-          RegionFeatures(ho_SelectedRegions4, "rectangularity", &hv_REC);
-          TupleSortIndex(hv_REC, &hv_index);
-          TupleInverse(hv_index, &hv_indexes_REC);
-          hv_index = HTuple(hv_indexes_REC[0])+1;
-          SelectObj(ho_SelectedRegions4, &ho_ObjectSelectedL, hv_index);
-          //
-          ClosingCircle(ho_ObjectSelectedL, &ho_RegionClosing, 10);
-          GenContourRegionXld(ho_RegionClosing, &ho_ContourL, "border");
-          //
-          SegmentContoursXld(ho_ContourL, &ho_ContoursSplit, "lines", 7, 5, 3);
           SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 
               100, 2000, -0.5, 0.5);
-          CountObj(ho_SelectedEdges, &hv_NumberContourSplit);
           //将共线的轮廓连接起来
-          CountSeconds(&hv_Seconds_3);
           UnionCollinearContoursExtXld(ho_SelectedEdges, &ho_UnionContours2, 500, 10, 
               50, 0.7, 0, -1, 1, 1, 1, 1, 1, 0, "attr_keep");
           UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 10, 1, "attr_keep");
-          //get_rectangle_pose (UnionContours, CamParVirtualAdaptive, 0.3, 0.17, 'huber', 1, PoseL, CovPoseL, ErrorL)
-
           GetRectanglePose(ho_UnionContours, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
-              "huber", 1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
-          CountSeconds(&hv_Seconds_4);
+              "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+
           for(int i=0;i<6;i++)
           {
-            Pose[i] = hv_PoseL[i].D();
+            Pose[i] = hv_Pose[i].D();
           }
-          //ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
           Flag = true;
         }
-
         catch (HException &exception)
         {
           Flag = false;
@@ -969,139 +930,129 @@ void rectangle_pose_MER(HObject ho_Image, double Pose[6], bool &Flag)
           {
             Pose[i] = 0.0;
           }
-          ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+          ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
               (const char *)exception.ErrorMessage());
         }
-
-      } 
-    }
+      }
   }
   catch (HException &exception)
   {
-      ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
-              (const char *)exception.ProcName(),
-              (const char *)exception.ErrorMessage());
       Flag = false;
       for(int i=0;i<6;i++)
       {
         Pose[i] = 0.0;
       }
+      ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
   }
 
 }
 
-//使用zed定位z值
-void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
+// 1.2 工业相机校正后图像定位矩形标志
+void rectangle_pose_MERC(HObject ho_Image, double Pose[6], bool &Flag)
 {
   // Local iconic variables
-  HObject  ho_GrayImage, ho_Edges, ho_EdgesRectifiedAdaptive;
-  HObject  ho_ROI, ho_ImageRectifiedAdaptive, ho_Regions, ho_ConnectedRegions3;
-  HObject  ho_SelectedRegions4, ho_ObjectSelectedL, ho_RegionClosing;
-  HObject  ho_ContourL, ho_ContoursSplit, ho_SelectedEdges;
-  HObject  ho_UnionContours1, ho_UnionContours2, ho_UnionContours;
+  HObject  ho_ConnectedRegions, ho_SelectedRegions;
+  HObject  ho_ObjectSelected, ho_RegionClosing, ho_Contour;
+  HObject  ho_ContoursSplit, ho_SelectedEdges, ho_UnionContours;
+  HObject  ho_UnionContours2, ho_GrayImage, ho_Edges, ho_EdgesRectifiedAdaptive;
+  HObject  ho_ImageRectifiedAdaptive, ho_Region;
 
   // Local control variables
-  HTuple  hv_RectWidth, hv_RectHeight, hv_Pointer;
-  HTuple  hv_Type, hv_Width, hv_Height, hv_CamParOriginal;
-  HTuple  hv_CamParVirtualFixed, hv_CamParVirtualAdaptive;
-  HTuple  hv_WidthVirtualAdaptive, hv_HeightVirtualAdaptive;
-  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_PoseL, hv_CovPoseL;
-  HTuple  hv_ErrorL,hv_Exception, hv_NumberContourSplit;
-  HTuple  hv_Seconds_3, hv_Seconds_4,hv_NumberRegion;
+  HTuple  hv_RectWidth, hv_RectHeight, hv_CamParOriginal;
+  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_Pose, hv_CovPose;
+  HTuple  hv_Error, hv_Exception, hv_CamParOriginal_Corrected;
+  HTuple  hv_CamParVirtualAdaptive;
 
-  try{
+  try
+  {
       //step1:根据颜色提取指定颜色的砖块区域
-      hv_RectWidth = 0.3;
-      hv_RectHeight = 0.17;
+      if (brick_color=="O")
+      {
+        hv_RectWidth = 0.19;
+        hv_RectHeight = 0.15;
+      }
+      else if (brick_color=="B")
+      {
+        hv_RectWidth = 0.3;
+        hv_RectHeight = 0.15;
+      }
+      else if (brick_color=="G")
+      {
+        hv_RectWidth = 0.3;
+        hv_RectHeight = 0.15;
+      }
+      else if (brick_color=="R")
+      {
+        hv_RectWidth = 0.2;
+        hv_RectHeight = 0.15;
+      }
 
-      GetImagePointer1(ho_Image, &hv_Pointer, &hv_Type, &hv_Width, &hv_Height);
+      ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/camparMER.dat", &hv_CamParOriginal);
+      ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/camparMER_Corrected.dat", &hv_CamParOriginal_Corrected);
+
       Rgb1ToGray(ho_Image, &ho_GrayImage);
-      ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParOriginal);
       EdgesSubPix(ho_GrayImage, &ho_Edges, "lanser2", 0.5, 20, 40);
-      hv_CamParVirtualFixed = hv_CamParOriginal;
-      set_cam_par_data(hv_CamParVirtualFixed, "kappa", 0, &hv_CamParVirtualFixed);
       //Change the radial distortion: mode 'adaptive'
       ChangeRadialDistortionCamPar("adaptive", hv_CamParOriginal, 0, &hv_CamParVirtualAdaptive);
       ChangeRadialDistortionContoursXld(ho_Edges, &ho_EdgesRectifiedAdaptive, hv_CamParOriginal, 
           hv_CamParVirtualAdaptive);
 
-      get_cam_par_data(hv_CamParVirtualAdaptive, "image_width", &hv_WidthVirtualAdaptive);
-      get_cam_par_data(hv_CamParVirtualAdaptive, "image_height", &hv_HeightVirtualAdaptive);
-      GenRectangle1(&ho_ROI, 0, 0, hv_HeightVirtualAdaptive-1, hv_WidthVirtualAdaptive-1);
-      ChangeRadialDistortionImage(ho_GrayImage, ho_ROI, &ho_ImageRectifiedAdaptive, hv_CamParOriginal, 
-          hv_CamParVirtualAdaptive);
-      //step2: 提取ROI区域用于轮廓提取 此处用特定颜色的分割以及矩形拟合来提取区域
-      //此处改成三通道HSV
-      Threshold(ho_ImageRectifiedAdaptive, &ho_Regions, 65, 91);
-      Connection(ho_Regions, &ho_ConnectedRegions3);
-      SelectShape(ho_ConnectedRegions3, &ho_SelectedRegions4, (HTuple("rectangularity").Append("area")), 
+      //get  ImageRectifiedAdaptive
+      ChangeRadialDistortionImage(ho_GrayImage, ho_GrayImage, &ho_ImageRectifiedAdaptive, 
+          hv_CamParOriginal, hv_CamParVirtualAdaptive);
+      Threshold(ho_ImageRectifiedAdaptive, &ho_Region, 131, 255);
+      Connection(ho_Region, &ho_ConnectedRegions);
+      SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
           "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
-      CountObj(ho_SelectedRegions4, &hv_NumberRegion);
-      if (0 != (hv_NumberRegion!=0))
+
+      RegionFeatures(ho_SelectedRegions, "rectangularity", &hv_REC);
+      TupleSortIndex(hv_REC, &hv_index);
+      TupleInverse(hv_index, &hv_indexes_REC);
+      hv_index = HTuple(hv_indexes_REC[0])+1;
+      SelectObj(ho_SelectedRegions, &ho_ObjectSelected, hv_index);
+      //
+      ClosingCircle(ho_ObjectSelected, &ho_RegionClosing, 10);
+      GenContourRegionXld(ho_RegionClosing, &ho_Contour, "border");
+      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 7, 5, 3);
+
+      try
       {
-        try
+        SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 100, 
+            2000, -1.5, 1.5);
+        UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours, 10, 1, "attr_keep");
+        GetRectanglePose(ho_UnionContours, hv_CamParOriginal_Corrected, hv_RectWidth, 
+            hv_RectHeight, "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+        
+        for(int i=0;i<6;i++)
         {
-          //对区域根据retangularity进行排序
-          RegionFeatures(ho_SelectedRegions4, "rectangularity", &hv_REC);
-          TupleSortIndex(hv_REC, &hv_index);
-          TupleInverse(hv_index, &hv_indexes_REC);
-          hv_index = HTuple(hv_indexes_REC[0])+1;
-          ROS_INFO("hv_index = %lf",hv_index.D());
-          SelectObj(ho_SelectedRegions4, &ho_ObjectSelectedL, hv_index);
-          //
-          ClosingCircle(ho_ObjectSelectedL, &ho_RegionClosing, 10);
-          GenContourRegionXld(ho_RegionClosing, &ho_ContourL, "border");
-
-          SegmentContoursXld(ho_ContourL, &ho_ContoursSplit, "lines", 7, 5, 3);
-          SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 100, 
-              2000, -10, 10);
-          UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours1, 10, 1, "attr_keep");
-          GetRectanglePose(ho_UnionContours1, hv_CamParVirtualAdaptive, 0.3, 0.17, "huber", 
-              1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
-          for(int i=0;i<6;i++)
-          {
-            Pose[i] = hv_PoseL[i].D();
-          }
-          ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
-          Flag = true;
+          Pose[i] = hv_Pose[i].D();
         }
+        Flag = true;
 
+      }
       catch (HException &HDevExpDefaultException)
       {
         HDevExpDefaultException.ToHTuple(&hv_Exception);
         try
         {
-          //对区域根据retangularity进行排序
-          RegionFeatures(ho_SelectedRegions4, "rectangularity", &hv_REC);
-          TupleSortIndex(hv_REC, &hv_index);
-          TupleInverse(hv_index, &hv_indexes_REC);
-          hv_index = HTuple(hv_indexes_REC[0])+1;
-          SelectObj(ho_SelectedRegions4, &ho_ObjectSelectedL, hv_index);
-          //
-          ClosingCircle(ho_ObjectSelectedL, &ho_RegionClosing, 10);
-          GenContourRegionXld(ho_RegionClosing, &ho_ContourL, "border");
-          //
-          SegmentContoursXld(ho_ContourL, &ho_ContoursSplit, "lines", 7, 5, 3);
-          SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 100, 
-              2000, -0.5, 0.5);
-          CountObj(ho_SelectedEdges, &hv_NumberContourSplit);
+          SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 
+              100, 2000, -0.5, 0.5);
           //将共线的轮廓连接起来
-          CountSeconds(&hv_Seconds_3);
           UnionCollinearContoursExtXld(ho_SelectedEdges, &ho_UnionContours2, 500, 10, 
               50, 0.7, 0, -1, 1, 1, 1, 1, 1, 0, "attr_keep");
           UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 10, 1, "attr_keep");
-          GetRectanglePose(ho_UnionContours, hv_CamParVirtualAdaptive, 0.3, 0.17, "huber", 
-              1, &hv_PoseL, &hv_CovPoseL, &hv_ErrorL);
-          CountSeconds(&hv_Seconds_4);
+          GetRectanglePose(ho_UnionContours, hv_CamParOriginal_Corrected, hv_RectWidth, 
+              hv_RectHeight, "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+
           for(int i=0;i<6;i++)
           {
-            Pose[i] = hv_PoseL[i].D();
+            Pose[i] = hv_Pose[i].D();
           }
-          ROS_INFO("Brick Pos = %lf, %lf, %lf",Pose[0],Pose[1],Pose[2]);
           Flag = true;
         }
-
         catch (HException &exception)
         {
           Flag = false;
@@ -1109,24 +1060,145 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
           {
             Pose[i] = 0.0;
           }
-          ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+          ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
               (const char *)exception.ErrorMessage());
         }
-
-      } 
-    }
+      }
   }
   catch (HException &exception)
   {
+      Flag = false;
       for(int i=0;i<6;i++)
       {
         Pose[i] = 0.0;
       }
-      ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
-          (const char *)exception.ProcName(),
-          (const char *)exception.ErrorMessage());
+      ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
+  }
+
+}
+
+// 1.3 ZED相机校正后图像定位矩形标志
+void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
+{
+   // Local iconic variables
+  HObject  ho_Image1, ho_Image2, ho_Image3;
+  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_Regions, ho_RegionOpening;
+  HObject  ho_ConnectedRegions, ho_SelectedRegions, ho_ObjectSelected;
+  HObject  ho_RegionClosing, ho_Contour, ho_ContoursSplit;
+  HObject  ho_SelectedEdges, ho_UnionContours, ho_UnionContours2;
+
+  // Local control variables
+  HTuple  hv_RectWidth, hv_RectHeight, hv_CamParOriginal;
+  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_Pose, hv_CovPose;
+  HTuple  hv_Error, hv_Exception;
+
+  try
+  {
+      //step1:根据颜色提取指定颜色的砖块区域
+      if (brick_color=="O")
+      {
+        hv_RectWidth = 0.19;
+        hv_RectHeight = 0.15;
+      }
+      else if (brick_color=="B")
+      {
+        hv_RectWidth = 0.3;
+        hv_RectHeight = 0.15;
+      }
+      else if (brick_color=="G")
+      {
+        hv_RectWidth = 0.3;
+        hv_RectHeight = 0.15;
+      }
+      else if (brick_color=="R")
+      {
+        hv_RectWidth = 0.2;
+        hv_RectHeight = 0.15;
+      }
+
+      ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParOriginal);
+
+      Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
+      TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
+          "hsv");
+      Threshold(ho_ImageS, &ho_Regions, 0, 100);
+      OpeningCircle(ho_Regions, &ho_RegionOpening, 5);
+
+      Connection(ho_RegionOpening, &ho_ConnectedRegions);
+
+      SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
+          "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
+      //对区域根据retangularity进行排序
+      RegionFeatures(ho_SelectedRegions, "rectangularity", &hv_REC);
+      TupleSortIndex(hv_REC, &hv_index);
+      TupleInverse(hv_index, &hv_indexes_REC);
+      hv_index = HTuple(hv_indexes_REC[0])+1;
+      SelectObj(ho_SelectedRegions, &ho_ObjectSelected, hv_index);
+      ClosingCircle(ho_ObjectSelected, &ho_RegionClosing, 10);
+      GenContourRegionXld(ho_RegionClosing, &ho_Contour, "border");
+      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 7, 5, 3);
+
+      try
+      {
+        SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 100, 
+            2000, -1.5, 1.5);
+        UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours, 10, 1, "attr_keep");
+        GetRectanglePose(ho_UnionContours, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
+            "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+        
+        for(int i=0;i<6;i++)
+        {
+          Pose[i] = hv_Pose[i].D();
+        }
+        Flag = true;
+
+      }
+      catch (HException &HDevExpDefaultException)
+      {
+        HDevExpDefaultException.ToHTuple(&hv_Exception);
+        try
+        {
+          SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 
+              100, 2000, -0.5, 0.5);
+          //将共线的轮廓连接起来
+          UnionCollinearContoursExtXld(ho_SelectedEdges, &ho_UnionContours2, 500, 10, 
+              50, 0.7, 0, -1, 1, 1, 1, 1, 1, 0, "attr_keep");
+          UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 10, 1, "attr_keep");
+          GetRectanglePose(ho_UnionContours, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
+              "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = hv_Pose[i].D();
+          }
+          Flag = true;
+        }
+        catch (HException &exception)
+        {
+          Flag = false;
+          for(int i=0;i<6;i++)
+          {
+            Pose[i] = 0.0;
+          }
+          ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
+        }
+      }
+  }
+  catch (HException &exception)
+  {
       Flag = false;
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = 0.0;
+      }
+      ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+              (const char *)exception.ProcName(),
+              (const char *)exception.ErrorMessage());
   }
 
 }
@@ -1222,11 +1294,9 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
               (const char *)exception.ErrorMessage());
       Flag = false;
     }
-    
 
   }
-  // catch (Exception) 
-  catch (HException &exception)
+  catch (HException &HDevExpDefaultException)
   {
     ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
@@ -1474,19 +1544,30 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
 
     switch (algorithm)
     {
-        case GetBrickPos:
+        case GetBrickPoseMERO:
             //取砖块的位姿 输入为 MER 图像
-            rectangle_pose_MER(ho_ImageMER, MERPose, MER_flag);
-            // rectangle_pose_ZED(ho_ImageR, ZEDPose, ZED_flag);
-            WriteImage(ho_ImageMER, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
-            // WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
-            // WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+            rectangle_pose_MERO(ho_ImageMER, MERPose, MER_flag);
+            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
+            break;
+        case GetBrickPoseMERC:
+            //取砖块的位姿 输入为 MER 图像
+            rectangle_pose_MERC(ho_ImageMER, MERPose, MER_flag);
+            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
+            break;
+        case GetBrickPoseZED:
+            //取砖块的位姿 输入为 ZED 图像
+            rectangle_pose_ZED(ho_ImageR, ZEDPose, ZED_flag);
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         case GetBrickLoc:
             //定位砖堆位置 输入为zed双目
             color_bricks_location(ho_ImageL,ho_ImageR, ZEDPose, ZED_flag); 
-            WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
-            WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+            WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         case GetPutPos:
             //放砖位姿(未完善)
@@ -1512,17 +1593,25 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         tf::Quaternion q;
         switch (algorithm)
         {
-          case GetBrickPos:
+          case GetBrickPoseMERO:
             transform_TargetOnMER.setOrigin(tf::Vector3(MERPose[0]-0.005, MERPose[1]-0.0059, MERPose[2]));
             q.setRPY(MERPose[3]*Deg2Rad, MERPose[4]*Deg2Rad, MERPose[5]*Deg2Rad);
             transform_TargetOnMER.setRotation(q);
-            // transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
-            // q.setRPY(ZEDPose[3], ZEDPose[4], ZEDPose[5]);
-            // transform_TargetOnZED.setRotation(q);
             transform_TargetOnBase = transform_MEROnBase*transform_TargetOnMER;
-            // transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
             ROS_INFO_STREAM("Vision data MERPose:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
 
+            break;
+          case GetBrickPoseMERC:
+            transform_TargetOnMER.setOrigin(tf::Vector3(MERPose[0]-0.000, MERPose[1]-0.000, MERPose[2]-0.000));
+            q.setRPY(MERPose[3]*Deg2Rad, MERPose[4]*Deg2Rad, MERPose[5]*Deg2Rad);
+            transform_TargetOnMER.setRotation(q);
+            transform_TargetOnBase = transform_MEROnBase*transform_TargetOnMER;
+            break;
+          case GetBrickPoseZED:
+            transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0]-0.000, ZEDPose[1]-0.000, ZEDPose[2]));
+            q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
+            transform_TargetOnZED.setRotation(q);
+            transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
             break;
           case GetBrickLoc:
             transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
@@ -1541,8 +1630,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
           default:
             break;
         }
- 
-        
+
         // 返回目标在末端电磁铁坐标系下的位姿
         res.VisionData.header.stamp = ros::Time().now();
         res.VisionData.header.frame_id = "base_link";
@@ -1578,6 +1666,7 @@ int main(int argc, char *argv[])
 {
   ros::init(argc, argv, "Task2_Vision_node");
 
+  // Local control variables
   ros::NodeHandle nh; 
   //可能需要根据不同任务来切换相机,接受不同节点消息
   message_filters::Subscriber<sensor_msgs::Image> subleft(nh,"/zed/zed_node/left/image_rect_color",1); 
@@ -1604,7 +1693,6 @@ int main(int argc, char *argv[])
         listener.lookupTransform("base_link", "zed_link", ros::Time(0), transform_ZEDOnBase);
       }
       catch (tf::TransformException ex){
-        //ROS_ERROR("%s",ex.what());
         ros::Duration(1.0).sleep();
       }
       
