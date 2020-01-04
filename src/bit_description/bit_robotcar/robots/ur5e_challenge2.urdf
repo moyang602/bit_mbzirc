@@ -265,7 +265,7 @@
     </inertial>
   </link>
   <joint name="MER_joint" type="fixed">
-    <origin xyz="0.0695 -0.022 0.143" rpy="-1.57079 0.0 0.0"/>
+    <origin xyz="0.0695 0.0025628 0.143" rpy="-1.57079 0.0 0.0"/>
     <parent link="grasping_frame"/>
     <child link="MER_link"/>
   </joint>

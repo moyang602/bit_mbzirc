@@ -705,7 +705,7 @@ private:
             tf::Transform transform;
             transform.setOrigin(tf::Vector3(tool_vector_actual[0], tool_vector_actual[1], tool_vector_actual[2]));
             transform.setRotation(quat);
-            br.sendTransform(tf::StampedTransform(transform, joint_msg.header.stamp, base_frame_, tool_frame_));
+            //br.sendTransform(tf::StampedTransform(transform, joint_msg.header.stamp, base_frame_, tool_frame_));
 
             //Publish tool velocity
             std::vector<double> tcp_speed =
