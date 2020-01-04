@@ -53,7 +53,7 @@ buildPos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)      # 
 pickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # 取砖准备位姿 [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]
 
 RGB = (
-    [ 0.3, 0.42, 0.2, pi, 0, 0]    # 红4
+    [ 0.3, 0.42, 0.2, pi, 0, 0],    # 红4
     [-0.3, 0.42, 0.2, pi, 0, 0],   # 红3
     [ 0.3, 0.22, 0.2, pi, 0, 0],   # 红2
     [-0.3, 0.22, 0.2, pi, 0, 0],   # 红1
@@ -71,21 +71,21 @@ ORG = (
 )
 tolerance = 0.02    # 米
 RGB_load = (
-    [ 0.3, 0.37 + tolerance, 0.2, pi, 0, 0],   # 红2
-    [-0.3, 0.37 + tolerance, 0.2, pi, 0, 0],   # 红1
-    [ 0.3, 0.57 + 2*tolerance, 0.2, pi, 0, 0],   # 红4
-    [-0.3, 0.57 + 2*tolerance, 0.2, pi, 0, 0],   # 红3
-    [ 0.3 + 0.5*tolerance, 0.37 + tolerance, 0.4, pi, 0, 0],   # 绿2
-    [-0.3 - 0.5*tolerance, 0.37 + tolerance, 0.4, pi, 0, 0],   # 绿1
-    [ 0.0, 0.57 + 2*tolerance, 0.4, pi, 0, 0],   # 兰1
+    [ 0.3 + 0.07, 0.37 + tolerance, 0.2, pi, 0, 0],   # 红2
+    [-0.3 + 0.07, 0.37 + tolerance, 0.2, pi, 0, 0],   # 红1
+    [ 0.3 + 0.07, 0.57 + 2*tolerance, 0.2, pi, 0, 0],   # 红4
+    [-0.3 + 0.07, 0.57 + 2*tolerance, 0.2, pi, 0, 0],   # 红3
+    [ 0.3 + 0.07 + 0.5*tolerance, 0.37 + tolerance, 0.4, pi, 0, 0],   # 绿2
+    [-0.3 + 0.07 - 0.5*tolerance, 0.37 + tolerance, 0.4, pi, 0, 0],   # 绿1
+    [ 0.0 + 0.07, 0.57 + 2*tolerance, 0.4, pi, 0, 0],   # 兰1
 )
 ORG_load = (
-    [0.0, 0.37 + tolerance, 0.2, pi, 0, 0],
-    [0.0, 0.57 + 2*tolerance, 0.2, pi, 0, 0],
-    [0.0, 0.37 + tolerance, 0.4, pi, 0, 0],
-    [0.0, 0.57 + 2*tolerance, 0.4, pi, 0, 0],
-    [0.0, 0.37 + tolerance, 0.6, pi, 0, 0],
-    [0.0, 0.57 + 2*tolerance, 0.6, pi, 0, 0],
+    [0.0 +0.07, 0.37 + tolerance, 0.2, pi, 0, 0],
+    [0.0 +0.07, 0.57 + 2*tolerance, 0.2, pi, 0, 0],
+    [0.0 +0.07, 0.37 + tolerance, 0.4, pi, 0, 0],
+    [0.0 +0.07, 0.57 + 2*tolerance, 0.4, pi, 0, 0],
+    [0.0 +0.07, 0.37 + tolerance, 0.6, pi, 0, 0],
+    [0.0 +0.07, 0.57 + 2*tolerance, 0.6, pi, 0, 0],
 )
 
 global floorHeight_base     # 使用时直接将期望值加上这个值就可以发给机械臂
@@ -120,6 +120,7 @@ global ee
 global cancel_id
 global status
 FinishFlag = 0
+
 
 def forcecallback(data):
     '''ur_force Callback Function'''
@@ -218,6 +219,11 @@ class pick_put_act(object):
         self._as.start()
         rospy.loginfo("%s server ready! ", name)
 
+        global tft
+        tft = tf.TransformerROS()
+        global tf_OrignOnMap 
+        tf_OrignOnMap = tft.fromTranslationRotation((0,0,0),(0,0,0,1))  # 开启的时候初始化为单位阵，直到找到之后更新之
+        
         rospy.wait_for_service('Setheight')
         set_height = rospy.ServiceProxy('Setheight',SetHeight)
 
@@ -226,7 +232,8 @@ class pick_put_act(object):
         self._feedback.task_feedback = info
         self._as.publish_feedback(self._feedback)
 
-    def execute_cb(self, goal):
+    def execute_cb(self, _goal):
+        goal = _goal.goal_task
         # helper variables
         # r = rospy.Rate(1)
         self._result.finish_state = SUCCESS
@@ -243,7 +250,7 @@ class pick_put_act(object):
             rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
             # 1.2 小车遍历场地， 基于视觉寻找砖堆
-            '''
+            
             while True:         # Todo 避免进入死循环
                 VisionData = GetVisionData_client(GetBrickLoc, "O")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
@@ -255,7 +262,8 @@ class pick_put_act(object):
                 else:
                     # 遍历场地 TODO
                     pass
-            '''
+            wait()
+
             #================ 2. 到达砖堆橙色处，开始取砖 ================#
             wait()
             brickIndex = 0
@@ -279,34 +287,50 @@ class pick_put_act(object):
             # rob.movej(lookDownPos, acc=a, vel=3*v,wait=True)
 
             # 3.1 移动至L架
-            # 3.1.1 如果有信息，直接运动至指定位置
 
             # 3.1.2 如果无信息，场地遍历，寻找L架
+            if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
+                print("There is no L location, try to find by myself")
+                wait()
+                while True:         # Todo 避免进入死循环
+                    VisionData = GetVisionData_client(GetLPose, "O")    # 数据是在base_link坐标系下的
+                    if VisionData.Flag:     # 能够看到
+                        theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
+                        CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
+                    else:
+                        # 遍历场地 TODO
+                        pass
 
-
-            '''
+            # 3.1.1 如果有信息，直接运动至指定位置
+            else:   
+                rospy.loginfo("There !EXSISTS! L location, move to it")
+                wait()
 
             #================ 3. 找到L架，开始搭建 ================#
 
             brickIndex = 0
             while brickIndex < goal.Num:
                 
-                tf_BrickOnOrign = tft.fromTranslationRotation((goal[brickIndex].x,goal[brickIndex].y,0),(0,0,0,1))
-                # print goal[brickIndex]
-                if goal[brickIndex].x == 0.0:
+                tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x,goal.bricks[brickIndex].y,0),(0,0,0,1))
+                print goal.bricks[brickIndex]
+                if goal.bricks[brickIndex].x == 0.0:
                     rot_ = tf.transformations.quaternion_from_euler(0,0,0)
                     tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick,0,0),rot_)      # 砖外0.5m
-                elif goal[brickIndex].y == 0.0:
+                elif goal.bricks[brickIndex].y == 0.0:
                     rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
                     tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
+                else:
+                    self.show_tell("WRONG TASK INDEX, Check the plan!")
+                    # TODO 序列出现问题的处理
+
                 target_tf = np.dot(np.dot(tf_OrignOnMap , tf_BrickOnOrign ), tf_CarOnBrick)
                 target_rot = tf.transformations.quaternion_from_matrix(target_tf)
                 target_trans = tf.transformations.translation_from_matrix(target_tf)
 
                 # 动态配置
-                CarMove(target_trans[0],target_trans[1],Rotation[3],frame_id="map",wait = True )
+                # CarMove(target_trans[0],target_trans[1],Rotation[3],frame_id="map",wait = True )
                 self.show_tell("Got the %d brick place"% brickIndex)
-
+               
                 for attempt in range(0,3):  # 最大尝试次数3
                     result_ = self.buildWall(goal.bricks[brickIndex])
                     if result_ == SUCCESS:
@@ -315,10 +339,10 @@ class pick_put_act(object):
                         brickIndex = brickIndex + 1     # 成功了就取下一块 
                         break 
             self.show_tell("Build all bricks")
+
             global FinishFlag
             FinishFlag = 1
 
-            '''
 
         except Exception as e:
             print("error", e)
@@ -469,7 +493,7 @@ class pick_put_act(object):
 
             rob.movej(onCarStartPos,acc=a, vel=v,wait=True)    #同时到达相机搜索砖块位置
             
-            if: goal.type == "O":
+            if goal.type == "O":
                 delta = ORG[num]
                 delta[2] += 0.35 + CarHeight_base
                 rob.movel(delta, acc=a, vel=v,wait=True)   # 摄像机对准铁片
@@ -487,7 +511,7 @@ class pick_put_act(object):
                         # 工作空间判断 ok TODO 验证
                         if y > 0.2 and y < 0.70 \
                             and x < 0.35 and x>-0.35 \
-                            and VisionData.Pose.position.z + CarHeight_base >0.1 \ 
+                            and VisionData.Pose.position.z + CarHeight_base >0.1 \
                             and VisionData.Pose.position.z + CarHeight_base <0.7:
                             break
 
@@ -553,7 +577,7 @@ class pick_put_act(object):
 
             rob.movexs("movej",[putPos,onCarStartPos,onCarReadyPos],acc=a, vel=1.2*v,radius = 0.1, wait=True)    # 提升准备位置
 
-            if: goal.type == "O":
+            if goal.type == "O":
                 delta = ORG_load[num]
                 if num in (0,2,4):
                     delta[2] += 0.05 + CarHeight_base
@@ -660,6 +684,7 @@ if __name__ == '__main__':
 
             pick_put_act("ugv_building")     # rospy.get_name())
             
+            # rospy.spin()
             # TF 计算
             listener = tf.TransformListener()
             while not FinishFlag:
