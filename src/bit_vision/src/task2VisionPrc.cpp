@@ -19,21 +19,17 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
-#include "HalconCpp.h"
 #include <string>
 #include <iostream>
 #include <stdlib.h>
-#include "ros/ros.h"
 #include <sstream>
 #include <math.h>
 #include "halcon_image.h"
-#include "sensor_msgs/Image.h"
 #include "std_msgs/Empty.h"
 #include "tf/transform_broadcaster.h"
-#include "bit_vision_msgs/VisionProc.h"
+#include <bit_vision_msgs/VisionProc.h>
 #include <opencv2/core/core.hpp>
 
-#include <iostream>
 #undef Success  
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
