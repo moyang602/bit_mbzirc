@@ -1254,7 +1254,7 @@ void put_brick(HObject ho_Image1, double Pose[6], bool &Flag)
   try
   {
     //读入训练好的分割模型
-    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/box_segment_mlp_retrain.mlp";
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
     ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", 
         &hv_CameraParam);
