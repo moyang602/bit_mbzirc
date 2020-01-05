@@ -165,53 +165,65 @@ void fire_position_StereoEye(HObject ho_ImageL, HObject ho_ImageR, HTuple &fire_
 }
 
 //单目定位
-void fire_position_HandEye(HObject ho_Image, double &delta_x, double &delta_y, bool &data_flag)
+void fire_position_HandEye(HObject ho_Image, bool &data_flag, double &delta_x, double &delta_y, double &FArea)
 {
-   // Local iconic variables
-  HObject  ho_GrayImage1, ho_Region1;
-  HObject  ho_RegionOpening1, ho_RegionClosing1, ho_RegionFillUp1;
-  HObject  ho_ConnectedRegions1, ho_SelectedRegions1, ho_Cross1;
+  // Local iconic variables
+  HObject  ho_GrayImage, ho_Region, ho_RegionOpening;
+  HObject  ho_RegionClosing, ho_RegionFillUp, ho_ConnectedRegions;
+  HObject  ho_SelectedRegions, ho_ObjectSelected, ho_Cross;
 
   // Local control variables
-  HTuple  hv_Width, hv_Height, hv_WindowHandle1;
-  HTuple  hv_WindowHandle2, hv_Number1, hv_Area1, hv_Row1;
-  HTuple  hv_Column1;
+  HTuple  hv_Width, hv_Height, hv_WindowHandle;
+  HTuple  hv_Number, hv_Value, hv_Indices, hv_Inverted, hv_index;
+  HTuple  hv_Area, hv_Row, hv_Column;
 
   try
   {
-    Rgb1ToGray(ho_Image, &ho_GrayImage1);
+    Rgb1ToGray(ho_Image, &ho_GrayImage);
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
 
-    Threshold(ho_GrayImage1, &ho_Region1, 100, 255);
-    OpeningCircle(ho_Region1, &ho_RegionOpening1, 1.5);
-    ClosingCircle(ho_RegionOpening1, &ho_RegionClosing1, 1.5);
-    FillUp(ho_RegionClosing1, &ho_RegionFillUp1);
-    Connection(ho_RegionFillUp1, &ho_ConnectedRegions1);
-    SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions1, "area", "and", 5, 2000);
-    CountObj(ho_SelectedRegions1, &hv_Number1);
+    Threshold(ho_GrayImage, &ho_Region, 100, 255);
+    OpeningCircle(ho_Region, &ho_RegionOpening, 1.5);
+    ClosingCircle(ho_RegionOpening, &ho_RegionClosing, 1.5);
+    FillUp(ho_RegionClosing, &ho_RegionFillUp);
+    Connection(ho_RegionFillUp, &ho_ConnectedRegions);
+    SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, "area", "and", 800, 2000);
+    CountObj(ho_SelectedRegions, &hv_Number);
 
-    if (0 != (hv_Number1==1))
+    if (0 != (hv_Number>=1))
     {
-      AreaCenter(ho_SelectedRegions1, &hv_Area1, &hv_Row1, &hv_Column1);
+      RegionFeatures(ho_SelectedRegions, "area", &hv_Value);
+      TupleSortIndex(hv_Value, &hv_Indices);
+      TupleInverse(hv_Indices, &hv_Inverted);
+      hv_index = HTuple(hv_Inverted[0])+1;
+      SelectObj(ho_SelectedRegions, &ho_ObjectSelected, hv_index);
+
+      AreaCenter(ho_ObjectSelected, &hv_Area, &hv_Row, &hv_Column);
+      
       data_flag = true;
-      delta_x = 384/2 - hv_Column1.D();
-      delta_y = 288/2 - hv_Row1.D();
+      delta_x = hv_Width.D()/2 - hv_Column.D();
+      delta_y = hv_Height.D()/2 - hv_Row.D();
+      FArea = hv_Area.D();
+      
     }
     else
     {
       data_flag = false;
       delta_x = 0.0;
       delta_y = 0.0;
+      FArea = 0.0;
 
     }
   }
   catch (HException &exception)
   {
-    ROS_ERROR("44  Error #%u in %s: %s\n", exception.ErrorCode(),
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
     data_flag = false;
     delta_x = 0.0;
     delta_y = 0.0;
+    FArea = 0.0;
   }
     
   return;
@@ -233,8 +245,6 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
 {
   ROS_INFO("VisionAlgorithm:[%d]",req.cameraUsed);
 
-  bool data_flag = false;     // 数据置信度
-
   // Local control variables
   HTuple  hv_MSecond, hv_Second, hv_Minute, hv_Hour;
   HTuple  hv_Day, hv_YDay, hv_Month, hv_Year;
@@ -246,30 +256,33 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
     HTuple fire_X(0);
     HTuple fire_Y(0);
     HTuple fire_Z(0);
+    double FireArea = 0;
     double delta_x = 0;
     double delta_y = 0;
+    bool Flag = false;     // 数据置信度
     switch (req.cameraUsed)
     {
       case HandEye:
-        fire_position_HandEye(ho_ImageL, delta_x, delta_y, data_flag);
-        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        fire_position_HandEye(ho_ImageL, Flag, delta_x, delta_y, FireArea);
+        WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
         break;
       case StereoEye:
-        fire_position_StereoEye(ho_ImageL,ho_ImageR, fire_X, fire_Y, fire_Z, data_flag);
-        WriteImage(ho_ImageL, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
-        WriteImage(ho_ImageR, "jpeg", 0, ((((("/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/R"+hv_Month)+hv_Day)+hv_Hour)+hv_Minute)+hv_Second)+".jpg");
+        fire_position_StereoEye(ho_ImageL, ho_ImageR, fire_X, fire_Y, fire_Z, Flag);
+        WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+        WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
         break;
       default:
         break;
     }
     
-    if (data_flag)
+    if (Flag)
     {
-      ROS_INFO_STREAM("Vision data:"<<delta_x<<","<<delta_y);
+      ROS_INFO_STREAM("Fire data:"<<FireArea<<","<<delta_x<<","<<delta_y);
       res.flag = true;
       res.FirePos.header.stamp = ros::Time().now();
-      res.FirePos.header.frame_id = "IRL_link";
+      res.FirePos.header.frame_id = "infrared_link";
 
+      res.FireArea = FireArea;
       res.FirePos.point.x = delta_x;
       res.FirePos.point.y = delta_y;
       res.FirePos.point.z = 0;
@@ -278,8 +291,9 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
     {
       res.flag = false;
       res.FirePos.header.stamp = ros::Time().now();
-      res.FirePos.header.frame_id = "IRL_link";
+      res.FirePos.header.frame_id = "infrared_link";
 
+      res.FireArea = 0.0;
       res.FirePos.point.x = 0.0;
       res.FirePos.point.y = 0.0;
       res.FirePos.point.z = 0.0;
@@ -287,44 +301,11 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
   }
   catch (HException &exception)
   {
-    ROS_ERROR("44  Error #%u in %s: %s\n", exception.ErrorCode(),
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
     
   }
-  // if (data_flag)
-  // {
-    
-  //   ROS_INFO_STREAM("Vision data:"<<fire_X.D()<<","<<fire_Y.D()<<","<<fire_Z.D());
-
-  //   tf::Transform transform_TargetOnIRL;
-  //   transform_TargetOnIRL.setOrigin(tf::Vector3(fire_X.D(), fire_Y.D(), fire_Z.D()));
-  //   tf::Quaternion q;
-  //   q.setRPY(0, 0, 0);
-  //   transform_TargetOnIRL.setRotation(q);
-
-  //   tf::Transform transform_TargetOnBase = transform_IRLOnBase*transform_TargetOnIRL;
-
-  //   ROS_INFO_STREAM("Vision data:"<<fire_X.D()<<","<<fire_Y.D()<<","<<fire_Z.D());
-
-  //   res.flag = true;
-  //   res.FirePos.header.stamp = ros::Time().now();
-  //   res.FirePos.header.frame_id = "base_link";
-
-  //   res.FirePos.point.x = transform_TargetOnBase.getOrigin().x();
-  //   res.FirePos.point.y = transform_TargetOnBase.getOrigin().y();
-  //   res.FirePos.point.z = transform_TargetOnBase.getOrigin().z();
-  // }
-  // else
-  // {
-  //   res.flag = false;
-  //   res.FirePos.header.stamp = ros::Time().now();
-  //   res.FirePos.header.frame_id = "base_link";
-
-  //   res.FirePos.point.x = 0.0;
-  //   res.FirePos.point.y = 0.0;
-  //   res.FirePos.point.z = 0.0;
-  // }
 }
 
 int main(int argc, char *argv[])
@@ -350,9 +331,9 @@ int main(int argc, char *argv[])
   
   while(ros::ok()) 
   { 
-      // 获取 IRL_link 在 base_link下的坐标
+      // 获取 infrared_link 在 base_link下的坐标
       try{
-      listener.lookupTransform("base_link", "IRL_link", ros::Time(0), transform_IRLOnBase);
+      listener.lookupTransform("base_link", "infrared_link", ros::Time(0), transform_IRLOnBase);
       }
       catch (tf::TransformException ex){
       //ROS_ERROR("%s",ex.what());

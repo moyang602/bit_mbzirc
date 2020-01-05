@@ -151,9 +151,7 @@ int main (int argc, char** argv)
 
 
                 }
-                
-
-                
+               
         }
         catch (serial::IOException& e)
         {

@@ -1,4 +1,5 @@
 uint8 cameraUsed
 ---
 bool flag
+float64  FireArea
 geometry_msgs/PointStamped FirePos

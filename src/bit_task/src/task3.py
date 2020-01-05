@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 import rospy
+import sys
 import urx
 import math
 import tf
@@ -123,6 +124,7 @@ def FightFire():
         rospy.loginfo("Fire pos has been found")
     else:
         rospy.logwarn("Timeout, can't find Fire pos")
+        return
     
     #--------- 机械臂移动直到火源在图像中心线 -------#
     rospy.sleep(0.5)
@@ -175,15 +177,13 @@ def FightFire():
             break
     rospy.loginfo("car has reached the fire")
 
-
     #----- 5. 机械臂变为竖直向下状态 -------#
     pose = rob.getl()
     pose[3] = 0
     pose[4] = -pi
     pose[5] = 0
     rob.movel(pose, acc=a, vel=1*v, wait=True,relative=False)
-
-    
+   
     #----- 6. 控制机械臂水平移动，对准火源 -------#
     rospy.sleep(0.5)
     while True:
@@ -202,7 +202,7 @@ def FightFire():
     pose = rob.getl()
     xmove = -0.55 - pose[1]
     CarMove(xmove, 0.0, 0.0*deg2rad, wait = True)
-    '''
+
     #----- 7. 开始灭火-------#
     
     # 操作末端 开始喷水
@@ -212,7 +212,6 @@ def FightFire():
     pub_ee.publish(ee)
     rospy.sleep(1.0)
     
-
     # 喷5s水
     rospy.sleep(15.0)
 
@@ -225,46 +224,58 @@ def FightFire():
 
     # 等待水停止
     rospy.sleep(10.0)
-    '''
      
     #----- 8. 机械臂复原-------#
     rob.movej(FindFirePos,acc=a, vel=2*v,wait=True)
     
 
-
 if __name__ == '__main__':
 
     rospy.init_node('task3_node', anonymous=False)
 
-    try:
-        #---------- 0. 初始化 --------------#
-        # UR 机器人
-        rob = urx.Robot("192.168.50.60", use_rt = True)
-        rospy.loginfo('UR controller connected')
-        rob.set_tcp((0, 0, 0, 0, 0, 0))             # 设置工具中心 Todo
-        rob.set_payload(0.0, (0.0, 0.0, 0.0))       # 设置末端负载 Todo
+    #---------- 0. 初始化 --------------#
+    normal = 0
+    while(not rospy.is_shutdown()):
+        try:
+            # UR 机器人
+            rob = urx.Robot("192.168.50.60", use_rt = True)
+            normal = 1
+            rospy.loginfo('UR controller connected')
+            rob.set_tcp((0, 0, 0, 0, 0, 0))             # 设置工具中心 Todo
+            rob.set_payload(0.0, (0.0, 0.0, 0.0))       # 设置末端负载 Todo
+        except Exception as e:
+            rospy.logerr('error: %s', e)
+            rospy.sleep(1)
+        finally:
+            if normal == 1:
+                break
 
-        # 小车移动相关话题初始化
-        goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
-        goal_sub = rospy.Subscriber('move_base/status', GoalStatusArray, move_base_feedback)
-        goal_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)
+    if normal == 0:
+        rospy.logerr('UR controller cannot connected')
+        sys.exit(0)
 
-        # 末端执行器
-        EndEffector_pub = rospy.Publisher('endeffCmd',EndEffector, queue_size=1)
+    # 小车移动相关话题初始化
+    goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
+    goal_sub = rospy.Subscriber('move_base/status', GoalStatusArray, move_base_feedback)
+    goal_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)     
+    # 末端执行器
+    EndEffector_pub = rospy.Publisher('endeffCmd',EndEffector, queue_size=1)
+    
+    #---------- 1. 机器人移动至门口附近 -------------#
+    MoveToBuilding()
 
-        #---------- 1. 机器人移动至门口附近 -------------#
-        MoveToBuilding()
 
-        #---------- 2. 机器人寻找门口进入室内 -------------#
-        GoIntoDoor()
+    #---------- 2. 机器人寻找门口进入室内 -------------#
+    GoIntoDoor()
 
-        #---------- 3. 机器人室内移动寻找火源 -------------#
-        FightFire()
-        
-    except Exception as e:
-        rospy.logerr('error: %s', e)  
-    finally:
-        rob.stop()
-        rob.close()
-        rospy.loginfo('Task3 finished!')
-        pass
+
+    #---------- 3. 机器人室内移动寻找火源 -------------#
+    FightFire()
+
+
+    #---------- 4. 程序结束 -------------#
+    rob.stop()
+    rob.close()
+    rospy.loginfo('Task3 finished!')
+    
+    
