@@ -30,6 +30,7 @@ from actionlib_msgs.msg import GoalStatusArray
 import bit_task_msgs.msg
 
 from bit_vision_msgs.srv import VisionProc
+from bit_vision_msgs.srv import LaserProc
 from bit_control_msgs.srv import SetHeight
 
 if sys.version_info[0] < 3:  # support python v2
@@ -153,14 +154,14 @@ def GetVisionData_client(ProcAlgorithm, BrickType):
         print("Service GetVisionData call failed: %s"%e)
 
 
-# def Laser_client(LaserAlgoritm):
-#     rospy.wait_for_service('LaserDeal')
-#     try:
-#         get_vision_data = rospy.ServiceProxy('LaserDeal',VisionProc)
-#         respl = get_vision_data(LaserAlgoritm)
-#         return respl.VisionData
-#     except rospy.ServiceException, e:
-#         print "Service GetVisionData call failed: %s"%e
+def Laser_client(BrickType):
+    rospy.wait_for_service('LaserDeal')
+    try:
+        get_laser_data = rospy.ServiceProxy('LaserProc',LaserProc)
+        respl = get_laser_data(0, BrickType)
+        return respl.VisionData
+    except rospy.ServiceException as e:
+        print "Service GetVisionData call failed: %s"%e
 
 
 def move_base_feedback(a):
@@ -216,7 +217,6 @@ def CarStop():
         rospy.sleep(0.1)
         # print("pub")
    
-
 
 ## ================================================== ##
 ## ================================================== ##
@@ -283,9 +283,14 @@ class pick_put_act(object):
                     else:
                         CarStop()
                         break
-                    # TODO 调用激光雷达检测的服务
-                    # if 1:# TODO 激光雷达检测到在范围内，并且已经到达
-                    #     break
+
+                    while True:     # 激光雷达接手
+                        LasetData = Laser_client("G")       # 调用激光雷达检测的服务
+                        if LasetData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
+                            rpy = tf.transformations.euler_from_quaternion(LasetData.Pose.orientation)
+                            CarMove(LasetData.Pose.position.x, LasetData.Pose.position.y,rpy[3],frame_id=LasetData.header.frame_id) 
+                        else:
+                            break
                 else:
                     print("Mei Found Brick Dui")
                     # 遍历场地 TODO
