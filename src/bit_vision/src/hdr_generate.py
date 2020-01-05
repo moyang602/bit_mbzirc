@@ -1,14 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #coding=utf-8
-import sys
 import rospy
 from bit_hardware_msgs.srv import *
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
+
 import math
-import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from cv_bridge import CvBridge
+# from cv_bridge.boost.cv_bridge_boost import CvBridge
+
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+import cv2 as cv
 
 def hdr_gen(images,times):
 
@@ -33,7 +37,7 @@ def hdr_gen(images,times):
 
 
 if __name__ == "__main__":
-    pub = rospy.Publisher("Image_hdr",Image,queue_size=1)
+    pub = rospy.Publisher("HDRImage",Image,queue_size=1)
     rospy.init_node("hdr_node",anonymous=False)
     rospy.wait_for_service('/CameraMER/GrabMERImage')
     GrabImage = rospy.ServiceProxy('/CameraMER/GrabMERImage',MER_srv)
@@ -48,6 +52,10 @@ if __name__ == "__main__":
 
             for ti in time:
                 respl = GrabImage(ti,2.0,1.6,2.5)
+
+                ##########################################
+                # 暂时未解决python3兼容问题
+                ##########################################
                 cv_image = bridge.imgmsg_to_cv2(respl.MER_image, desired_encoding="passthrough")
                 img.append(cv_image)
                 #pub.publish(bridge.cv2_to_imgmsg(cv_image,'rgb8'))
@@ -55,7 +63,7 @@ if __name__ == "__main__":
             hdr_image = hdr_gen(img,times)
             pub.publish(bridge.cv2_to_imgmsg(hdr_image,"rgb8"))
 
-        except rospy.ServiceException, e:
-            print "Service call failed:",rospy.ServiceException,e
-            break
+        except rospy.ServiceException as e:
+            print("Service call failed:",rospy.ServiceException,e)
+            
             

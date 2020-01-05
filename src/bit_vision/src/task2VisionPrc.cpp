@@ -1296,12 +1296,11 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
     }
 
   }
-  catch (HException &HDevExpDefaultException)
+  catch (HException &exception)
   {
     ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
               (const char *)exception.ErrorMessage());
-    // HDevExpDefaultException.ToHTuple(&hv_Exception);
     Flag = false;
   }
 
@@ -1675,7 +1674,7 @@ int main(int argc, char *argv[])
   message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subleft, subRight,5);
   sync.registerCallback(boost::bind(&callback, _1, _2));
 
-  ros::Subscriber subMER  = nh.subscribe("/CameraMER/Image", 1, callback_MER);
+  ros::Subscriber subMER  = nh.subscribe("/CameraMER/SingleImage", 1, callback_MER);  // /CameraMER/SingleImage /CameraMER/HDRImage /CameraMER/ContinuousImage 
 
   ros::ServiceServer service = nh.advertiseService("GetVisionData",GetVisionData);
 

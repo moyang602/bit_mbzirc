@@ -298,6 +298,7 @@ bool GrabImage_hdr(bit_hardware_msgs::MER_hdr::Request  &req,
 		do
 		{
 			status = GXSetFloat(g_hDevice, GX_FLOAT_EXPOSURE_TIME, exposure_time[i]);
+			ros::Duration(0.05).sleep();
 			status = GXGetImage(g_hDevice, &g_frameData, 100);
 			count++;
 		
@@ -388,7 +389,7 @@ int main(int argc, char *argv[])
         // 通过序列号打开相机
         GX_OPEN_PARAM openParam;
 
-        openParam.accessMode = GX_ACCESS_EXCLUSIVE;     ///< 独占方式
+        openParam.accessMode = GX_ACCESS_CONTROL;     	///< 控制模式
         openParam.openMode = GX_OPEN_SN;                ///< 通过SN打开
         openParam.pszContent = (char*)param_SN_.c_str();
 
@@ -480,7 +481,7 @@ int main(int argc, char *argv[])
 	ROS_INFO_STREAM("Server GrabHDRImage start!");
 
 	// 设置图像消息发布
-	ros::Publisher MER_pub = nh.advertise<sensor_msgs::Image>("MER_Continuous_image", 1);
+	ros::Publisher MER_pub = nh.advertise<sensor_msgs::Image>("ContinuousImage", 1);
 	
 	//发送开采命令
     status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
