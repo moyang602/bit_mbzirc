@@ -1,6 +1,6 @@
 <launch>
   <!--打开相机1-->
-  <node name="CameraMER" pkg="bit_hardware_interface" type="interface_cameraMER" output="screen" respawn="false">
+  <node name="CameraMER" pkg="bit_hardware_interface" type="interface_cameraMER" respawn="false"> <!--output="screen" -->
     <param name="SN"       value="RW0171009017"/>  
     <param name="ExposureTime"   value="10000"/>
     <param name="SpeedLevel"   value="3"/>
