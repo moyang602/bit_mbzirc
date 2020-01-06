@@ -98,8 +98,8 @@ int main(int argc, char *argv[])
 
     /* 读取建筑蓝图 下发指令*/
     vector<vector<double>> Task;
-    vector<string> brick_in_car{"B","G","G","R","R","R","R"};
-    for (size_t i = 0; i < 7; i++)
+    vector<string> brick_in_car{"R","R","R","R","G","G","B"};
+    for (size_t i = 2; i < 7; i++)
     {
         if (i<2)
         {
