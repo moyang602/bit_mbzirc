@@ -48,6 +48,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(FILES
   heightNow.msg
   EndEffector.msg
+  PushState.msg
 )
 
 ## Generate services in the 'srv' folder

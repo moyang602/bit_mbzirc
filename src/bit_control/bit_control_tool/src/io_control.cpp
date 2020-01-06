@@ -6,6 +6,7 @@
 #include<geometry_msgs/Twist.h>
 #include<bit_control_msgs/heightNow.h>
 #include<bit_control_msgs/EndEffector.h>
+#include<bit_control_msgs/PushState.h>
 #include<bit_control_msgs/SetHeight.h>
 #include "tf/transform_broadcaster.h"
 
@@ -66,6 +67,24 @@ void write_callback_ee(const bit_control_msgs::EndEffector & endeffCmd)
     //ser.write(msg->data);   //发送串口数据 
 } 
 
+void write_callback_push(const bit_control_msgs::PushState & a) 
+{
+    uint8_t cmd[8] = {'\0'};
+    cmd[0] = 0xa0;
+    ROS_INFO("SetPush: "); 
+    if ( a.PushState > 0 ){
+        cmd[1] = 0x22;
+        ROS_INFO("Push: in"); 
+    }else if ( a.PushState == 0){
+        cmd[1] = 0x11;
+        ROS_INFO("Push: back"); 
+    }
+    cmd[2] = 0x00;
+    cmd[3] = 0x55;
+    ser.write(cmd,4);
+}
+ 
+
 bool setHeight(bit_control_msgs::SetHeight::Request&  req,
                    bit_control_msgs::SetHeight::Response& res)
 {
@@ -97,6 +116,7 @@ int main (int argc, char** argv)
     
    //订阅主题，并配置回调函数 
     ros::Subscriber endeff_sub = nh.subscribe("endeffCmd", 1000, write_callback_ee); 
+    ros::Subscriber Push_sub = nh.subscribe("PushCmd", 1000, write_callback_push); 
     //发布主题 
     ros::Publisher endeff_pub = nh.advertise<bit_control_msgs::EndEffector>("endeffState", 1000); 
 

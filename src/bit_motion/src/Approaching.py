@@ -64,16 +64,17 @@ def scan_callback(msg):
     # lines = st.probabilistic_hough_line(image, threshold=10, line_length=40,line_gap=20)
 
 
-def LaserProcHandle(req, res = LaserProcResponse()):
+def LaserProcHandle(req):
+    res = LaserProcResponse()
     pos = Pose()
 
     if req.BrickType == "O":
         need = 1.8
-    elif:req.BrickType == "R":
+    elif req.BrickType == "R":
         need = 0.3
-    elif:req.BrickType == "G":
+    elif req.BrickType == "G":
         need = 0.6
-    elif:req.BrickType == "B":
+    elif req.BrickType == "B":
         need = 1.2
     else:
         rospy.logwarn("LaserProc ERROR: WRONG BRICK TYPE")
@@ -90,7 +91,7 @@ def LaserProcHandle(req, res = LaserProcResponse()):
             res.VisionData.header.stamp = rospy.get_time()
             res.VisionData.header.frame_id = "velodyne"
             for l in range(len(leng)):
-                if math.fabs(leng[l] - need) < needTolerance
+                if math.fabs(leng[l] - need) < needTolerance:
                     rospy.loginfo("Found need line: %f" % need)    
                     targetx = xy_M[l][0]*resolution - imagesize*resolution - DistanceBTCarlink2Brick * math.sin(-turnangle) 
                     targety = xy_M[l][1]*resolution - imagesize*resolution + DistanceBTCarlink2Brick * math.cos(-turnangle) 
@@ -139,7 +140,7 @@ if __name__ == '__main__':
         plt.cla()
 
         #显示检测出的线条
-        ax2.imshow(image, plt.cm.gray)
+        # ax2.imshow(image, plt.cm.gray)
         row1, col1 = image.shape
         ax2.axis((0, col1, row1, 0))
         ax2.set_title('Detected lines')
@@ -221,7 +222,7 @@ if __name__ == '__main__':
                     ax2.plot((x_0, x_1),(y_0, y_1))
                 
             except:
-                print("no result in Line:%d"%)
+                print("no result in Line")
             
             good = 0
             # 遍历所有找到的直线段的长度，从中点的记录中计算目标

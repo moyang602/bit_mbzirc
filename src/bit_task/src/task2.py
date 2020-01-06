@@ -15,8 +15,9 @@ import actionlib
 import urx
 import tf
 
-from bit_control_msgs.msg import EndEffector
-from bit_control_msgs.msg import heightNow
+from bit_control_msgs.msg import *
+# from bit_control_msgs.msg import PushState
+# from bit_control_msgs.msg import heightNow
 
 from geometry_msgs.msg import WrenchStamped
 from geometry_msgs.msg import PoseStamped
@@ -118,6 +119,7 @@ OFF = 0
 global rob
 global force 
 global ee
+global push
 global cancel_id
 global status
 FinishFlag = 0
@@ -161,7 +163,7 @@ def Laser_client(BrickType):
         respl = get_laser_data(0, BrickType)
         return respl.VisionData
     except rospy.ServiceException as e:
-        print "Service GetVisionData call failed: %s"%e
+        print("Service GetVisionData call failed: %s"%e)
 
 
 def move_base_feedback(a):
@@ -273,7 +275,7 @@ class pick_put_act(object):
             # 1.2 小车遍历场地， 基于视觉寻找砖堆
             
             while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLoc, "G")    # 数据是在base_link坐标系下的
+                VisionData = GetVisionData_client(GetBrickLoc, "B")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
                     print("Found Brick Dui")
                     theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
@@ -285,7 +287,7 @@ class pick_put_act(object):
                         break
 
                     while True:     # 激光雷达接手
-                        LasetData = Laser_client("G")       # 调用激光雷达检测的服务
+                        LasetData = Laser_client("B")       # 调用激光雷达检测的服务
                         if LasetData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
                             rpy = tf.transformations.euler_from_quaternion(LasetData.Pose.orientation)
                             CarMove(LasetData.Pose.position.x, LasetData.Pose.position.y,rpy[3],frame_id=LasetData.header.frame_id) 
@@ -312,6 +314,8 @@ class pick_put_act(object):
                         brickIndex = brickIndex + 1     # 成功了就取下一块  
                         break
 
+            push.PushState = 100
+            pub_push.publish(push)
             self.show_tell("Got all bricks, go to build")
 
             #================ 3. 到达L架 ================#
@@ -693,6 +697,7 @@ if __name__ == '__main__':
 
     rospy.init_node('pickputAction', anonymous = False)
     pub_ee = rospy.Publisher('endeffCmd',EndEffector,queue_size=1)
+    pub_push = rospy.Publisher('PushCmd',PushState,queue_size=1)
     rospy.Subscriber("/wrench", WrenchStamped, forcecallback)
     rospy.Subscriber("/heightNow", heightNow, heightcallback)
 
@@ -703,8 +708,11 @@ if __name__ == '__main__':
     cmdvel_pub = rospy.Publisher('/cmd_vel_plan',Twist,queue_size=1)
 
     ee = EndEffector()
+    push = PushState()
     normal = 0
   
+    rospy.sleep(1.0)
+    
     while(not rospy.is_shutdown()):
         try :
             global rob
@@ -715,7 +723,7 @@ if __name__ == '__main__':
             rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
             rob.set_payload(0.76, (0.011, -0.042, 0.003))
 
-            pick_put_act("ugv_building")     # rospy.get_name())
+            # pick_put_act("ugv_building")     # rospy.get_name())
             
             # rospy.spin()
             # TF 计算
