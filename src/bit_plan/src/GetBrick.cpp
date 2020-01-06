@@ -6,18 +6,16 @@ vector<vector<double>> BrickPlan::get_specified_layer_of_wall_1(vector<string> b
 	//wall_1指定层的砖块排布，接下来的问题就是找到specified_layer_in_wall与brick_in_car的对应关系
 	vector<string> specified_layer_in_wall = wall_1[layer];
 	//考虑车上的每一块砖
-	for (int i=0;i<brick_in_car.size();i++)
+	for (int i = 0; i < brick_in_car.size(); i++)
 	{
-		double x = 0, y = 0, z = 0.2*layer+0.2;//layer从0-4，
+		double x = 0, y = 0, z = 0.2*layer + 0.2;//layer从0-4，
 		double x_offset = 0;//x方向的偏移量
 		//在墙体上找对应的砖块
-		for (int j=0;j<specified_layer_in_wall.size();j++)
+		for (int j = 0; j < specified_layer_in_wall.size(); j++)
 		{
 			//找到对应颜色的砖
-			if (specified_layer_in_wall[j]==brick_in_car[i])
+			if (specified_layer_in_wall[j] == brick_in_car[i])
 			{
-				//墙体这个位置置N，以免影响下次判断，改变的是局部变量，不影响this->wall_1
-				specified_layer_in_wall[j] = "N";//N is Null
 				//根据砖块颜色计算x
 				switch (specified_layer_in_wall[j][0])
 				{
@@ -35,10 +33,13 @@ vector<vector<double>> BrickPlan::get_specified_layer_of_wall_1(vector<string> b
 				}
 				vector<double> current_brick{ x,y,z };
 				res.push_back(current_brick);
+				//墙体这个位置置N，以免影响下次判断，改变的是局部变量，不影响this->wall_1
+				specified_layer_in_wall[j] = "N";//N is Null
+				break;//跳出这个循环，开始找第二块砖
 			}
 			else {
 				//没找到对应颜色的，x_offset增加对应距离
-				switch (specified_layer_in_wall[j][0])
+				switch (wall_1[layer][j][0])
 				{
 				case 'R':
 					x_offset += 0.3;
@@ -99,7 +100,8 @@ BrickPlan::BrickPlan()
 	};
 	wall_1 = first_tempt;//只初始化wall_1，wall_2是固定的
 
-	vector<string> rgb_bricks{ "B","R","G","R","G","R","R" };
+	vector<string> second_tempt{ "R","R","R","R","B","G","G"};
+	rgb_brick_in_car = second_tempt;
 }
 
 BrickPlan::~BrickPlan()

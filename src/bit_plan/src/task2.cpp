@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            Task = brickplan.get_specified_layer_of_wall_1(brick_in_car, i);
+            Task = brickplan.get_specified_layer_of_wall_1(brick_in_car, i-2);
         }
 
         for (size_t j = 0; j < Task.size(); j++)
