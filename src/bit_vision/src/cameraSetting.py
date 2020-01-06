@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #coding=utf-8
 
 import rospy
@@ -6,7 +6,7 @@ from bit_hardware_msgs.srv import *
 from sensor_msgs.msg import Image
 import math
 import sys
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+# sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2 as cv
 
 def nothing(test):

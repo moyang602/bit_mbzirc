@@ -22,10 +22,10 @@ class opts(object):
                                   '2: show the network output features'
                                   '3: use matplot to display' # useful when lunching training with ipython notebook
                                   '4: save all visualizations to disk')
-    self.parser.add_argument('--demo', default='/home/moyang/workspace/CenterNetV2/test_L',
+    self.parser.add_argument('--demo', default='/home/ugvcontrol/workspace/test_L',
                              help='path to image/ image folders/ video. '
                                   'or "webcam"')
-    self.parser.add_argument('--load_model', default='/home/moyang/workspace/CenterNetV2/exp/model_last_010401.pth',
+    self.parser.add_argument('--load_model', default='/home/ugvcontrol/bit_mbzirc/src/bit_centernet/exp/model_last_010401.pth',
                              help='path to pretrained model')
     self.parser.add_argument('--resume', action='store_true',
                              help='resume an experiment. '
