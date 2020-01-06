@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(bit_vision_msgs)
+project(bit_centernet)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,9 +8,9 @@ project(bit_vision_msgs)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(
-  catkin REQUIRED COMPONENTS 
-  message_generation 
-  geometry_msgs
+    catkin REQUIRED COMPONENTS 
+    rospy 
+    bit_vision_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -38,10 +38,7 @@ find_package(
 ##     * add a exec_depend tag for "message_runtime"
 ## * In this file (CMakeLists.txt):
 ##   * add "message_generation" and every package in MSG_DEP_SET to
-find_package(
-  catkin REQUIRED COMPONENTS
-  message_generation
-)
+##     find_package(catkin REQUIRED COMPONENTS ...)
 ##   * add "message_runtime" and every package in MSG_DEP_SET to
 ##     catkin_package(CATKIN_DEPENDS ...)
 ##   * uncomment the add_*_files sections below as needed
@@ -50,24 +47,18 @@ find_package(
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  PositionInfo.msg
-  LocateInfo.msg
-  BuildingStatus.msg
-  Task2_Vision_msg.msg
-)
+# add_message_files(
+#   FILES
+#   Message1.msg
+#   Message2.msg
+# )
 
 ## Generate services in the 'srv' folder
-add_service_files(FILES
-  BrickPosition.srv
-  BrickLocate.srv
-  FirePosition.srv
-  VisionProc.srv
-  LaserProc.srv
-  L_detection_srv.srv
-  L_KPS_srv.srv
-)
+# add_service_files(
+#   FILES
+#   Service1.srv
+#   Service2.srv
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -77,11 +68,10 @@ add_service_files(FILES
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs  # Or other packages containing msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -113,10 +103,8 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  CATKIN_DEPENDS
-  message_runtime
 #  INCLUDE_DIRS include
-#  LIBRARIES bit_vision_msgs
+#  LIBRARIES bit_centernet
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
@@ -134,7 +122,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/bit_vision_msgs.cpp
+#   src/${PROJECT_NAME}/bit_centernet.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -145,7 +133,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/bit_vision_msgs_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/bit_centernet_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -209,7 +197,7 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_bit_vision_msgs.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_bit_centernet.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
