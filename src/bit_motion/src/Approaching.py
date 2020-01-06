@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #coding:utf-8
 
 import rospy, time
@@ -180,6 +180,7 @@ if __name__ == '__main__':
 
             # 开始直线遍历，阈值为LineLikeThreshold
             if a* resolution > ThinkLineLength:
+                
                 startpoint = startAngle
                 endpoint = startAngle
                 segment = []
@@ -187,13 +188,13 @@ if __name__ == '__main__':
                 
                 # 遍历直线上的激光雷达数据
                 for i in range( startAngle , endAngle, dir):
-
+                    
                     # 得到距离差
                     delta_dist= math.fabs(ranges[i % horizion_num] * math.cos(pi -  i*delta_angle - turnangle)) - dist_center
 
                     # 进行二值化
                     d_dist = math.fabs(delta_dist) < LineLikeThreshold
-
+                    
                     # 检测上升沿和下降沿，上升沿开始，下降沿停止，取出一段直线，存在segment中
                     if d_dist == True:
                         if lastDist == False:
@@ -207,8 +208,10 @@ if __name__ == '__main__':
 
             leng = []
             xy_M = []
+            print(segment)
             try:        # 如果有结果的话
                 for seg in segment:
+                    print("inangle")
                     d0 = ranges[seg[0] % horizion_num] * math.sin(pi - seg[0]* delta_angle - turnangle)
                     d1 = ranges[seg[1] % horizion_num] * math.sin(pi - seg[1]* delta_angle - turnangle)
                     leng.append(math.fabs(d0 - d1))
