@@ -63,7 +63,8 @@ HTuple brick_angle(0);
 string brick_color = "G";
 HTuple L_shelf_angle(0);
 tf::StampedTransform transform_MEROnBase;
-tf::StampedTransform transform_ZEDOnBase;
+tf::StampedTransform transform_ZEDLOnBase;
+tf::StampedTransform transform_ZEDROnBase;
 
 void get_cam_par_data (HTuple hv_CameraParam, HTuple hv_ParamName, HTuple *hv_ParamValue);
 // Chapter: Calibration / Camera Parameters
@@ -1601,22 +1602,22 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
 
             break;
           case GetBrickPoseMERC:
-            transform_TargetOnMER.setOrigin(tf::Vector3(MERPose[0]-0.000, MERPose[1]-0.000, MERPose[2]-0.000));
+            transform_TargetOnMER.setOrigin(tf::Vector3(MERPose[0]+ 0.000, MERPose[1]-0.000, MERPose[2]-0.000));
             q.setRPY(MERPose[3]*Deg2Rad, MERPose[4]*Deg2Rad, MERPose[5]*Deg2Rad);
             transform_TargetOnMER.setRotation(q);
             transform_TargetOnBase = transform_MEROnBase*transform_TargetOnMER;
             break;
           case GetBrickPoseZED:
-            transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0]-0.000, ZEDPose[1]-0.000, ZEDPose[2]));
+            transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0]+0.003, ZEDPose[1] + 0.0035, ZEDPose[2] + 0.01 ));
             q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
             transform_TargetOnZED.setRotation(q);
-            transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
+            transform_TargetOnBase = transform_ZEDROnBase*transform_TargetOnZED;
             break;
           case GetBrickLoc:
             transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
             q.setRPY(0, 0, 0);
             transform_TargetOnZED.setRotation(q);
-            transform_TargetOnBase = transform_ZEDOnBase*transform_TargetOnZED;
+            transform_TargetOnBase = transform_ZEDLOnBase*transform_TargetOnZED;
             ROS_INFO_STREAM("Vision data ZEDPose:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
 
             break;
@@ -1674,7 +1675,7 @@ int main(int argc, char *argv[])
   message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(subleft, subRight,5);
   sync.registerCallback(boost::bind(&callback, _1, _2));
 
-  ros::Subscriber subMER  = nh.subscribe("/CameraMER/SingleImage", 1, callback_MER);  // /CameraMER/SingleImage /CameraMER/HDRImage /CameraMER/ContinuousImage 
+  ros::Subscriber subMER  = nh.subscribe("/CameraMER/ContinuousImage", 1, callback_MER);  // /CameraMER/SingleImage /CameraMER/HDRImage /CameraMER/ContinuousImage 
 
   ros::ServiceServer service = nh.advertiseService("GetVisionData",GetVisionData);
 
@@ -1686,10 +1687,11 @@ int main(int argc, char *argv[])
   
   while(ros::ok()) 
   { 
-      // 获取 MER_link, zed_link 在 base_link下的坐标 
+      // 获取 MER_link, zed_linkL, zed_linkR 在 base_link下的坐标 
       try{
         listener.lookupTransform("base_link", "MER_link", ros::Time(0), transform_MEROnBase);
-        listener.lookupTransform("base_link", "zed_link", ros::Time(0), transform_ZEDOnBase);
+        listener.lookupTransform("base_link", "zed_linkL", ros::Time(0), transform_ZEDLOnBase);
+        listener.lookupTransform("base_link", "zed_linkR", ros::Time(0), transform_ZEDROnBase);
       }
       catch (tf::TransformException ex){
         ros::Duration(1.0).sleep();

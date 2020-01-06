@@ -289,12 +289,12 @@
     </visual>
   </link>
 
-  <joint name="zed_joint" type="fixed">
+  <joint name="zed_jointL" type="fixed">
     <parent link="grasping_frame"/>
-    <child link="zed_link"/>
+    <child link="zed_linkL"/>
     <origin xyz="-0.0465 0.0015 0.142 " rpy="-1.57079 0.0 0.0"/>
   </joint>
-  <link name="zed_link">
+  <link name="zed_linkL">
     <inertial>
       <mass value="0.1879"/>
       <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
@@ -312,6 +312,30 @@
     </visual>
   </link>
 
+  <joint name="zed_jointR" type="fixed">
+    <parent link="grasping_frame"/>
+    <child link="zed_linkR"/>
+    <origin xyz="0.0165 0.0015 0.142 " rpy="-1.57079 0.0 0.0"/>
+  </joint>
+  <link name="zed_linkR">
+    <inertial>
+      <mass value="0.1879"/>
+      <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
+      <inertia ixx="0.0171364731454" ixy="0.0" ixz="0.0" iyy="0.0171364731454" iyz="0.0" izz="0.033822"/>
+    </inertial>
+    <visual name="">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry>
+          <sphere radius="0.01"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.0 1.0 0.0 1.0"/>
+        <texture filename=""/>
+      </material>
+    </visual>
+  </link>
+
+  
   <transmission name="shoulder_pan_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="shoulder_pan_joint">

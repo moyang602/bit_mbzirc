@@ -22,7 +22,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     <arg name="node_name"            default="zed_node" />
     <arg name="camera_model"         default="zedm" /> <!-- 'zed' or 'zedm' -->
-    <arg name="publish_urdf"         default="true" />
+    <arg name="publish_urdf"         default="false" />
 
     <group ns="zed">
         <include file="$(find zed_wrapper)/launch/zed_camera.launch">

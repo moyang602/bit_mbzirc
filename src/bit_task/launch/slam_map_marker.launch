@@ -1,9 +1,0 @@
-<launch>
-
-  <!--bringup remoter-->  
-  <include file="$(find bit_task)/launch/slam_map.launch" />
-
-   <!-- Run cruise node -->
-  <node pkg="wpb_home_tutorials" type="wpb_home_cruise" name="wpb_home_cruise" output="screen"/>
-
-</launch>

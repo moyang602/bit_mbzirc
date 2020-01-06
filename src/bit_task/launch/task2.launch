@@ -1,20 +1,16 @@
 <launch>
 
+
+  <include file="$(find bit_task)/launch/vision_task2.launch" />
+
   <!--bringup robot-->  
   <include file="$(find bit_task)/launch/slam_map.launch" />
 
-
   <!--运行模型显示节点-->
-  <!--<include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />-->
+  <include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />
 
   <!--bringup zed-->  
-  <include file="$(find bit_task)/launch/zed_mer.launch" />
 
-  <!--运行图像hdr处理节点-->
-  <!--<node pkg="bit_hardware_interface" type="hdr_generate.py" name="gen_hdrImage" respawn="true" />-->
-  <!--运行视觉算法节点-->
-  <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" respawn="true" />
-  <!--<node pkg="bit_vision" type="locate_precise_MER" name="MERVisionPrc" respawn="true" />-->
   
   <!--运行协同规划节点
   <node pkg="bit_plan" type="task2" name="task2" respawn="false" />-->

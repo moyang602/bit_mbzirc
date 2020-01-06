@@ -30,7 +30,7 @@
  <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
 
   <!--运行模型显示节点-->
-  <include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />
+  <!--<include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />-->
   
   <!--display-->
   <node name="rviz" pkg="rviz" type="rviz"/>
@@ -39,6 +39,7 @@
   <node pkg="bit_control_chassis" name="tele_key" type="tele_key.py" output="screen"  launch-prefix="gnome-terminal -e"/>
 
   <!--bringup velodyne laser raddar-->
+
   <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch" />
 
   <!--filter velodyne laser raddar-->

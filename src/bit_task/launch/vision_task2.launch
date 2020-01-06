@@ -1,0 +1,15 @@
+<launch>
+
+  <!--bringup zed-->  
+  <include file="$(find zed_wrapper)/launch/zedm.launch" />
+  <!--<include file="$(find bit_hardware_interface)/launch/CameraMER.launch" />-->
+  <!--运行图像hdr处理节点-->
+  <!--<node pkg="bit_vision" type="SingleImage.py" name="SingleImage" respawn="true" />-->
+  
+  <!--运行视觉算法节点-->
+  <node pkg="bit_vision" type="task2VisionPrc" name="task2VisionPrc" output="screen" respawn="true" />
+
+  <!--运行视觉算法节点-->
+  <!--<node pkg="bit_centernet" type="L_keypoint_detection.py" name="L_keypoint_detection" respawn="true" />-->
+
+</launch>
