@@ -243,14 +243,17 @@
       <inertia ixx="9.89041005217e-05" ixy="0.0" ixz="0.0" iyy="9.89041005217e-05" iyz="0.0" izz="0.0001321171875"/>
     </inertial>
   </link>
+
   <joint name="grasping_frame_joint" type="fixed">
     <parent link="wrist_3_link"/>
     <child link ="grasping_frame"/>
-    <origin xyz="0 0.09237 0" rpy="0 0 0"/>
+    <origin xyz="0.0 0.12737 0.0" rpy="-1.570796 0 0"/>    
   </joint>
+
   <link name="grasping_frame">
   <!-- this link refers to end effector.  -->
     <visual>
+      <origin rpy="1.570796 0 0" xyz="0.0 0.0 -0.035"/>      
       <geometry>
         <mesh filename="package://bit_robotcar/meshes/ur5e/visual/endEffector_challenge2.dae"/>
       </geometry>
@@ -260,12 +263,13 @@
     </visual>
     <inertial>
       <mass value="0.1879"/>
-      <origin rpy="0 0 0" xyz="0.0 162.25 0.0"/>
+      <origin rpy="0 0 0" xyz="0.0 0.16225 0.0"/>
       <inertia ixx="0.0171364731454" ixy="0.0" ixz="0.0" iyy="0.0171364731454" iyz="0.0" izz="0.033822"/>
     </inertial>
   </link>
+
   <joint name="MER_joint" type="fixed">
-    <origin xyz="0.0695 0.0025628 0.143" rpy="-1.57079 0.0 0.0"/>
+    <origin xyz="0.0695 -0.143 -0.0324372" rpy="0.0 0.0 0.0"/>
     <parent link="grasping_frame"/>
     <child link="MER_link"/>
   </joint>
@@ -292,7 +296,7 @@
   <joint name="zed_jointL" type="fixed">
     <parent link="grasping_frame"/>
     <child link="zed_linkL"/>
-    <origin xyz="-0.0465 0.0015 0.142 " rpy="-1.57079 0.0 0.0"/>
+    <origin xyz="-0.0465 -0.142 -0.0335 " rpy="0.0 0.0 0.0"/>
   </joint>
   <link name="zed_linkL">
     <inertial>
@@ -315,7 +319,7 @@
   <joint name="zed_jointR" type="fixed">
     <parent link="grasping_frame"/>
     <child link="zed_linkR"/>
-    <origin xyz="0.0165 0.0015 0.142 " rpy="-1.57079 0.0 0.0"/>
+    <origin xyz="0.0165 -0.142 -0.0335 " rpy="0.0 0.0 0.0"/>
   </joint>
   <link name="zed_linkR">
     <inertial>
