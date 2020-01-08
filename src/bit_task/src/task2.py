@@ -263,16 +263,13 @@ class pick_put_act(object):
 
     def execute_cb(self, _goal):
         goal = _goal.goal_task
-        # helper variables
-        # r = rospy.Rate(1)
+        
         self._result.finish_state = SUCCESS
         try: 
             #================ 0. 准备 ===================#
             rospy.loginfo("Begining!")
             pose = rob.getl()
-            # print("Initial end pose is ", pose)
             initj = rob.getj()
-            # print("Initial joint angle is ", initj)
 
             #================ 1. 寻找砖堆 ================#
             # 1.1 机械臂移动至观察砖堆准备位姿
@@ -280,47 +277,46 @@ class pick_put_act(object):
 
             # 1.2 小车遍历场地， 基于视觉寻找砖堆
             
-            # while True:         # Todo 避免进入死循环
-            #     VisionData = GetVisionData_client(GetBrickLoc, "B")    # 数据是在base_link坐标系下的
-            #     if VisionData.Flag:     # 能够看到
-            #         print("Found Brick Dui")
-            #         theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
-            #         distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
-            #         if distance > 5:
-            #             CarMove(-VisionData.Pose.position.y,VisionData.Pose.position.x,theta,"car_link")
-            #         else:
-            #             CarStop()
-            #             break
+            while True:         # Todo 避免进入死循环
+                VisionData = GetVisionData_client(GetBrickLoc, "G")    # 数据是在base_link坐标系下的
+                if VisionData.Flag:     # 能够看到
+                    rospy.loginfo("Found Brick Dui")
+                    theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
+                    distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
+                    if distance > 5:
+                        CarMove(-VisionData.Pose.position.y,VisionData.Pose.position.x,theta,"car_link")
+                    else:
+                        CarStop()
+                        break
 
-            #         while True:     # 激光雷达接手
-            #             LasetData = Laser_client("B")       # 调用激光雷达检测的服务
-            #             if LasetData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
-            #                 rpy = tf.transformations.euler_from_quaternion(LasetData.Pose.orientation)
-            #                 CarMove(LasetData.Pose.position.x, LasetData.Pose.position.y,rpy[3],frame_id=LasetData.header.frame_id) 
-            #             else:
-            #                 break
-            #     else:
-            #         print("Mei Found Brick Dui")
-            #         # 遍历场地 TODO
-            # wait()
-
+                    while True:     # 激光雷达接手
+                        LasetData = Laser_client("G")       # 调用激光雷达检测的服务
+                        if LasetData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
+                            rpy = tf.transformations.euler_from_quaternion(LasetData.Pose.orientation)
+                            CarMove(LasetData.Pose.position.x, LasetData.Pose.position.y,rpy[3],frame_id=LasetData.header.frame_id) 
+                        else:
+                            break
+                else:
+                    rospy.loginfo("Mei Found Brick Dui")
+                    # 遍历场地 TODO
+            wait()
+            self.show_tell("Arrived Bricks Position!")
             #================ 2. 到达砖堆橙色处，开始取砖 ================#
-            # wait()
-            # print(goal)
-            # wait()
-            # brickIndex = 0
-            # while brickIndex < goal.Num:
-            #     # 2.1 小车运动至期望砖堆处
-            #     # 调用激光雷达检测的服务  goal.bricks[brickIndex].type
-                
-            #     # 2.2 机械臂取砖
-            #     for attempt in range(0,3):  # 最大尝试次数3
-            #         result_ = self.goGetBrick(goal.bricks[brickIndex])
-            #         if result_ == SUCCESS:
-            #             # 记录当前点为这种砖的位置
-            #             self.show_tell("finished !PICK! brick %d,go get next" %brickIndex)
-            #             brickIndex = brickIndex + 1     # 成功了就取下一块  
-            #             break
+            
+            brickIndex = 0
+            while brickIndex < goal.Num:
+                # 2.1 小车运动至期望砖堆处
+                # 调用激光雷达检测的服务  goal.bricks[brickIndex].type
+                # 或者直接移动
+                        
+                # 2.2 机械臂取砖
+                for attempt in range(0,3):  # 最大尝试次数3
+                    result_ = self.goGetBrick(goal.bricks[brickIndex])
+                    if result_ == SUCCESS:
+                        # 记录当前点为这种砖的位置
+                        self.show_tell("finished !PICK! brick %d,go get next" %brickIndex)
+                        brickIndex = brickIndex + 1     # 成功了就取下一块  
+                        break
 
             # self.Push(ON)
             # self.show_tell("Got all bricks, go to build")
@@ -333,17 +329,17 @@ class pick_put_act(object):
             # 3.1 移动至L架
 
             # 3.1.2 如果无信息，场地遍历，寻找L架
-            # if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
-            #     print("There is no L location, try to find by myself")
-            #     wait()
-            #     while True:         # Todo 避免进入死循环
-            #         VisionData = GetVisionData_client(GetLPose, "O")    # 数据是在base_link坐标系下的
-            #         if VisionData.Flag:     # 能够看到
-            #             theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
-            #             CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
-            #         else:
-            #             # 遍历场地 TODO
-            #             pass
+            if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
+                rospy.loginfo("There is !NO! L location, try to find by myself")
+                wait()
+                while True:         # Todo 避免进入死循环
+                    VisionData = GetVisionData_client(GetLPose, "O")    # 数据是在base_link坐标系下的
+                    if VisionData.Flag:     # 能够看到
+                        theta = math.atan(VisionData.Pose.position.x,-VisionData.Pose.position.y)
+                        CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
+                    else:
+                        # 遍历场地 TODO
+                        pass
 
             # # 3.1.1 如果有信息，直接运动至指定位置
             # else:   
@@ -355,17 +351,17 @@ class pick_put_act(object):
             brickIndex = goal.Num - 1
             while brickIndex >= 0:
                 
-                # tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x,goal.bricks[brickIndex].y,0),(0,0,0,1))
-                # print(goal.bricks[brickIndex])
-                # if goal.bricks[brickIndex].x == 0.0:
-                #     rot_ = tf.transformations.quaternion_from_euler(0,0,0)
-                #     tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick,0,0),rot_)      # 砖外0.5m
-                # elif goal.bricks[brickIndex].y == 0.0:
-                #     rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
-                #     tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
-                # else:
-                #     self.show_tell("WRONG TASK INDEX, Check the plan!")
-                #     # TODO 序列出现问题的处理
+                tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x,goal.bricks[brickIndex].y,0),(0,0,0,1))
+                rospy.loginfo(goal.bricks[brickIndex])
+                if goal.bricks[brickIndex].x == 0.0:
+                    rot_ = tf.transformations.quaternion_from_euler(0,0,0)
+                    tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick,0,0),rot_)      # 砖外0.5m
+                elif goal.bricks[brickIndex].y == 0.0:
+                    rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
+                    tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
+                else:
+                    self.show_tell("WRONG TASK INDEX, Check the plan!")
+                    # TODO 序列出现问题的处理
 
                 # target_tf = np.dot(np.dot(tf_OrignOnMap , tf_BrickOnOrign ), tf_CarOnBrick)
                 # target_rot = tf.transformations.quaternion_from_matrix(target_tf)
