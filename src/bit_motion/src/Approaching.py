@@ -82,35 +82,41 @@ def LaserProcHandle(req):
         res.VisionData.header.stamp = rospy.get_time()
         return res
 
-    if dist_center > InRangeDistance:
-        res.VisionData.Flag = 0
-        res.VisionData.header.stamp = rospy.get_time()
-    else:
-        if FindReady == 1:
-            res.VisionData.Flag = 1
-            res.VisionData.header.stamp = rospy.get_time()
-            res.VisionData.header.frame_id = "velodyne"
-            for l in range(len(leng)):
-                if math.fabs(leng[l] - need) < needTolerance:
-                    rospy.loginfo("Found need line: %f" % need)    
-                    targetx = xy_M[l][0]*resolution - imagesize*resolution - DistanceBTCarlink2Brick * math.sin(-turnangle) 
-                    targety = xy_M[l][1]*resolution - imagesize*resolution + DistanceBTCarlink2Brick * math.cos(-turnangle) 
-                    
-                    pos.position.x = -targety
-                    pos.position.y = targetx
-                    ori = tf.transformations.quaternion_from_euler(0,0,-turnangle)
-                    pos.orientation.x = ori[0]
-                    pos.orientation.y = ori[1]
-                    pos.orientation.z = ori[2]
-                    pos.orientation.w = ori[3]
-
-                    res.VisionData.Pose = pos
-                    break
-        else:
+    try:
+        if dist_center > InRangeDistance:
             res.VisionData.Flag = 0
             res.VisionData.header.stamp = rospy.get_time()
-        
-    return res
+        else:
+            if FindReady == 1:
+                rospy.logwarn(len(leng))
+                res.VisionData.Flag = 1
+                res.VisionData.header.stamp = rospy.get_time()
+                res.VisionData.header.frame_id = "velodyne"
+                for l in range(len(leng)):
+                    if math.fabs(leng[l] - need) < needTolerance:
+                        rospy.loginfo("Found need line: %f" % need)    
+                        rospy.logwarn([len(leng),l,len(xy_M)]) 
+                        targetx = use_xy_M[l][0]*resolution - imagesize*resolution - DistanceBTCarlink2Brick * math.sin(-use_turnangle) 
+                        targety = use_xy_M[l][1]*resolution - imagesize*resolution + DistanceBTCarlink2Brick * math.cos(-use_turnangle) 
+                        
+                        pos.position.x = -targety
+                        pos.position.y = targetx
+                        ori = tf.transformations.quaternion_from_euler(0,0,-turnangle)
+                        pos.orientation.x = ori[0]
+                        pos.orientation.y = ori[1]
+                        pos.orientation.z = ori[2]
+                        pos.orientation.w = ori[3]
+
+                        res.VisionData.Pose = pos
+                        break
+            else:
+                res.VisionData.Flag = 0
+                res.VisionData.header.stamp = rospy.get_time()
+    except:
+        res.VisionData.Flag = 0
+        res.VisionData.header.stamp = rospy.get_time()
+    finally:
+        return res
                 
 
 if __name__ == '__main__':
@@ -228,6 +234,8 @@ if __name__ == '__main__':
                 print("no result in Line")
             
             good = 0
+            print(len(leng))
+
             # 遍历所有找到的直线段的长度，从中点的记录中计算目标
             for l in range(len(leng)):
                 if math.fabs(leng[l] - 1.8) < needTolerance\
@@ -237,6 +245,8 @@ if __name__ == '__main__':
                    good += 1
 
             if good >= 2:
+                use_xy_M = xy_M
+                use_turnangle = turnangle
                 FindReady = 1
                 break
             else:

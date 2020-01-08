@@ -222,6 +222,14 @@ def CarStop():
         cmdvel_pub.publish(a)
         rospy.sleep(0.1)
         # print("pub")
+
+def Orientation2Numpy(orientation):
+    ori = []
+    ori.append(orientation.x)
+    ori.append(orientation.y)
+    ori.append(orientation.z)
+    ori.append(orientation.w)
+    return ori
    
 
 ## ================================================== ##
@@ -292,7 +300,8 @@ class pick_put_act(object):
                     while True:     # 激光雷达接手
                         LasetData = Laser_client("G")       # 调用激光雷达检测的服务
                         if LasetData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
-                            rpy = tf.transformations.euler_from_quaternion(LasetData.Pose.orientation)
+                        rospy.logwarn("Got Laser ")
+                            rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LasetData.Pose.orientation))
                             CarMove(LasetData.Pose.position.x, LasetData.Pose.position.y,rpy[3],frame_id=LasetData.header.frame_id) 
                         else:
                             break
@@ -459,13 +468,8 @@ class pick_put_act(object):
             
         self.show_tell("In the workspace，Ready to pick")
 
-        temp_rpy = []
-        temp_rpy.append(VisionData.Pose.orientation.x)
-        temp_rpy.append(VisionData.Pose.orientation.y)
-        temp_rpy.append(VisionData.Pose.orientation.z)
-        temp_rpy.append(VisionData.Pose.orientation.w)
         # 得到识别结果,旋转角度
-        rpy = tf.transformations.euler_from_quaternion(temp_rpy)
+        rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(VisionData.Pose.orientation))
 
         turn = pi+rpy[2]
         if turn > pi:
