@@ -82,6 +82,7 @@ void write_callback_push(const bit_control_msgs::PushState & a)
     cmd[2] = 0x00;
     cmd[3] = 0x55;
     ser.write(cmd,4);
+    ROS_ERROR("Send");
 }
  
 
@@ -145,12 +146,26 @@ int main (int argc, char** argv)
     //检测串口是否已经打开，并给出提示信息 
     if(ser.isOpen()) 
     { 
-        ROS_INFO_STREAM("Serial Port"<<param_port_path_<<"initialized"); 
+        ROS_INFO_STREAM("Serial Port:"<<param_port_path_<<" initialized"); 
     } 
     else 
     { 
         return -1; 
     } 
+
+    // uint8_t cmd[8] = {'\0'};
+    // cmd[0] = 0xa0;
+    // cmd[1] = 0x11;
+    // cmd[2] = 0x00;
+    // cmd[3] = 0x55;
+    // ser.write(cmd,4);
+
+    // cmd[0] = 0xa0;
+    // cmd[1] = 0xdd;
+    // cmd[2] = 0x00;
+    // cmd[3] = 0x55;
+    // ser.write(cmd,4);
+
 
     //指定循环的频率 
     ros::Rate loop_rate(5000); 

@@ -27,7 +27,7 @@
   <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 
   <!--发布静态的tf-->
- <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.628 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
+ <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.450 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
 
   <!--运行模型显示节点-->
   <!--<include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />-->
