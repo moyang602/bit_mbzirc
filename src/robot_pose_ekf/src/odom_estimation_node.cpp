@@ -129,7 +129,7 @@ namespace estimation
 
     if (gps_used_){
       ROS_DEBUG("GPS sensor can be used");
-      gps_sub_ = nh.subscribe("gps", 10, &OdomEstimationNode::gpsCallback, this);
+      gps_sub_ = nh.subscribe("gps_odom", 10, &OdomEstimationNode::gpsCallback, this);
     }
     else ROS_DEBUG("GPS sensor will NOT be used");
 
