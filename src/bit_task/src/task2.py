@@ -34,6 +34,7 @@ import bit_task_msgs.msg
 from bit_vision_msgs.srv import VisionProc
 from bit_vision_msgs.srv import LaserProc
 from bit_control_msgs.srv import SetHeight
+from kinematics import *
 
 if sys.version_info[0] < 3:  # support python v2
     input = raw_input
@@ -231,6 +232,14 @@ def Orientation2Numpy(orientation):
     ori.append(orientation.w)
     return ori
    
+def SafeCheck(targetPose, currentAngle):
+    if targetPose[1] > -0.35:   # 太靠近小车前沿
+        return False, -0.55-targetPose[1]
+    
+    targetAngle = inv_kin(targetPose, currentAngle)
+    if fabs(targetAngle[2])<5*deg2rad   # 太远，机械臂伸直了
+        return False, -0.55-targetPose[1]
+
 
 ## ================================================== ##
 ## ================================================== ##

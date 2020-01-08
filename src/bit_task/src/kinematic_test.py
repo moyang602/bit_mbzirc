@@ -1,10 +1,7 @@
 from kinematics import *
 
-
-print "Unit: radian"
-
-current_joint = [-123, -111, 13, 21, 67, 83]
-
+current_joint = [-12, -75, 54, 67, 34, -53]
+print current_joint
 pose =  fwd_kin(current_joint, i_unit='d', o_unit='ros')
 
-print inv_kin(pose, current_joint, o_unit='d')
+print inv_kin(pose, current_joint, i_unit='d', o_unit='d')
