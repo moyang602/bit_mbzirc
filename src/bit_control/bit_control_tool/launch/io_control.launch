@@ -1,6 +1,6 @@
 <launch>
 
-  <node name="io_control" pkg="bit_control_tool" type="io_control" output="screen" respawn="false">
+  <node name="io_control" pkg="bit_control_tool" type="io_control" respawn="false">
   <!-- output="screen"-->
   <param name="port"       value="/dev/io_dev"/>  
   <param name="baudrate"   value="9600"/>

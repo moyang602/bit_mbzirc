@@ -161,7 +161,7 @@ def GetVisionData_client(ProcAlgorithm, BrickType):
 
 
 def Laser_client(BrickType):
-    rospy.wait_for_service('LaserDeal')
+    rospy.wait_for_service('LaserProc')
     try:
         get_laser_data = rospy.ServiceProxy('LaserProc',LaserProc)
         respl = get_laser_data(0, BrickType)
@@ -284,9 +284,9 @@ class pick_put_act(object):
             rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
             # 1.2 小车遍历场地， 基于视觉寻找砖堆
-            
+            out = 0
             while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLoc, "G")    # 数据是在base_link坐标系下的
+                VisionData = GetVisionData_client(GetBrickLoc, "R")    # 数据是在base_link坐标系下的
                 if VisionData.Flag:     # 能够看到
                     rospy.loginfo("Found Brick Dui")
                     theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
@@ -295,19 +295,21 @@ class pick_put_act(object):
                         CarMove(-VisionData.Pose.position.y,VisionData.Pose.position.x,theta,"car_link")
                     else:
                         CarStop()
-                        break
 
                     while True:     # 激光雷达接手
-                        LasetData = Laser_client("G")       # 调用激光雷达检测的服务
-                        if LasetData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
-                        rospy.logwarn("Got Laser ")
-                            rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LasetData.Pose.orientation))
-                            CarMove(LasetData.Pose.position.x, LasetData.Pose.position.y,rpy[3],frame_id=LasetData.header.frame_id) 
-                        else:
+                        LaserData = Laser_client("R")       # 调用激光雷达检测的服务
+                        if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
+                            out = 1
                             break
                 else:
                     rospy.loginfo("Mei Found Brick Dui")
                     # 遍历场地 TODO
+                if out :
+                    break
+            rospy.logwarn("Got Laser ")
+            rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
+            CarMove(LaserData.Pose.position.x, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True) 
+            CarStop()
             wait()
             self.show_tell("Arrived Bricks Position!")
             #================ 2. 到达砖堆橙色处，开始取砖 ================#

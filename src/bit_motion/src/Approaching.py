@@ -8,7 +8,7 @@ from math import pi
 import math
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Pose
-from bit_vision_msgs.srv import LaserProc
+from bit_vision_msgs.srv import *
 
 
 import skimage.transform as st
@@ -27,7 +27,7 @@ resolution = 0.05                           # 地图分辨率，单位：米
 InRangeDistance = 6.0                       # 激光雷达可以接手的距离
 LineLikeThreshold = 0.07                    # 在遍历直线时认为是直线的阈值
 DistanceBTCarlink2Brick = 0.6 + 0.628       # 0.628为激光雷达到car_link的距离
-needTolerance = 0.2                         # 认为是需要的线段长度的阈值，+-，单位：米 
+needTolerance = 0.05                         # 认为是需要的线段长度的阈值，+-，单位：米 
 ThinkLineLength = 0.3                       # 认为霍夫变换的结果是一条直线的最小长度，单位：米
 
 def scan_callback(msg):
@@ -79,18 +79,18 @@ def LaserProcHandle(req):
     else:
         rospy.logwarn("LaserProc ERROR: WRONG BRICK TYPE")
         res.VisionData.Flag = 0
-        res.VisionData.header.stamp = rospy.get_time()
+        res.VisionData.header.stamp = rospy.Time.now()
         return res
 
     try:
         if dist_center > InRangeDistance:
             res.VisionData.Flag = 0
-            res.VisionData.header.stamp = rospy.get_time()
+            res.VisionData.header.stamp = rospy.Time.now()
         else:
             if FindReady == 1:
                 rospy.logwarn(len(leng))
                 res.VisionData.Flag = 1
-                res.VisionData.header.stamp = rospy.get_time()
+                res.VisionData.header.stamp = rospy.Time.now()
                 res.VisionData.header.frame_id = "velodyne"
                 for l in range(len(leng)):
                     if math.fabs(leng[l] - need) < needTolerance:
@@ -111,10 +111,10 @@ def LaserProcHandle(req):
                         break
             else:
                 res.VisionData.Flag = 0
-                res.VisionData.header.stamp = rospy.get_time()
+                res.VisionData.header.stamp = rospy.Time.now()
     except:
         res.VisionData.Flag = 0
-        res.VisionData.header.stamp = rospy.get_time()
+        res.VisionData.header.stamp = rospy.Time.now()
     finally:
         return res
                 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         plt.cla()
 
         #显示检测出的线条
-        # ax2.imshow(image, plt.cm.gray)
+        ax2.imshow(image, plt.cm.gray)
         row1, col1 = image.shape
         ax2.axis((0, col1, row1, 0))
         ax2.set_title('Detected lines')
@@ -194,7 +194,8 @@ if __name__ == '__main__':
                 
                 # 遍历直线上的激光雷达数据
                 for i in range( startAngle , endAngle, dir):
-                    
+                    if math.fabs(turnangle) > 70*pi/180.0:
+                        continue
                     # 得到距离差
                     delta_dist= math.fabs(ranges[i % horizion_num] * math.cos(pi -  i*delta_angle - turnangle)) - dist_center
 
@@ -214,10 +215,8 @@ if __name__ == '__main__':
 
             leng = []
             xy_M = []
-            print(segment)
             try:        # 如果有结果的话
                 for seg in segment:
-                    print("inangle")
                     d0 = ranges[seg[0] % horizion_num] * math.sin(pi - seg[0]* delta_angle - turnangle)
                     d1 = ranges[seg[1] % horizion_num] * math.sin(pi - seg[1]* delta_angle - turnangle)
                     leng.append(math.fabs(d0 - d1))
@@ -234,7 +233,6 @@ if __name__ == '__main__':
                 print("no result in Line")
             
             good = 0
-            print(len(leng))
 
             # 遍历所有找到的直线段的长度，从中点的记录中计算目标
             for l in range(len(leng)):
@@ -244,6 +242,7 @@ if __name__ == '__main__':
                    or math.fabs(leng[l] - 0.3) < needTolerance:
                    good += 1
 
+            print(len(leng),good)
             if good >= 2:
                 use_xy_M = xy_M
                 use_turnangle = turnangle
