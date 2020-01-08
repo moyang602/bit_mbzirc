@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__author__ = "Ching-Yen Weng"
-__version__ = "1.0.1"
-__maintainer__ = "Ching-Yen Weng"
-__email__ = "wengchingyen@gmail.com"
-__status__ = "Prototype"
+__author__ = "Yang Mo"
+__maintainer__ = "Yang Mo"
+__email__ = "moyang602@163.com"
 
 import numpy as np
 import tf.transformations as tf
@@ -22,9 +20,10 @@ from geometry_msgs.msg import Pose, Quaternion
 # Select the robot type.
 # UR10 for 'UR10'
 # UR5 for 'UR5'
+# UR5e for 'UR5e'
 # UR3 for 'UR3'
 
-ROBOT = 'UR5'
+ROBOT = 'UR5e'
 
 
 # DH Parameter
@@ -59,17 +58,32 @@ elif ROBOT == 'UR5':
 
 elif ROBOT == 'UR5e':
 
+    # SDH
     # d (unit: mm)
-    d1 = 0.089159 
+    d1 = 0.163 
     d2 = d3 = 0
-    d4 = 0.10915
-    d5 = 0.09465
-    d6 = 0.0823
+    d4 = 0.134      #0.138-0.131+0.127
+    d5 = 0.1        #0.09465    # 0.1
+    d6 = 0.12737
 
     # a (unit: mm)
     a1 = a4 = a5 = a6 = 0
     a2 = -0.425
-    a3 = -0.39225
+    a3 = -0.392     #-0.39225   # -0.392
+
+    # # MDH
+    # # d (unit: mm)
+    # d1 = 0.163 
+    # d2 = 0.138
+    # d3 = -0.131
+    # d4 = 0.127
+    # d5 = 0.09465  # 0.1
+    # d6 = 0.12737
+
+    # # a (unit: mm)
+    # a1 = a2 = a5 = a6 = 0
+    # a3 = -0.425
+    # a4 = -0.39225 # -0.392
 
 elif ROBOT == 'UR3':
 
@@ -89,9 +103,8 @@ elif ROBOT == 'UR3':
 # Do not remove these
 d = np.array([d1, d2, d3, d4, d5, d6]) # unit: mm
 a = np.array([a1, a2, a3, a4, a5, a6]) # unit: mm
-alpha = np.array([pi/2, 0, 0, pi/2, -pi/2, 0]) # unit: radian
-
-
+# alpha = np.array([0.0, pi/2, 0.0, 0.0, pi/2, -pi/2]) # unit: radian   MDH
+alpha = np.array([pi/2, 0, 0, pi/2, -pi/2, 0]) # unit: radian   SDH
 # Auxiliary Functions
 
 def ur2ros(ur_pose):
@@ -169,6 +182,27 @@ def np2ros(np_pose):
 
     return ros_pose
 
+def np2rpy(np_pose):
+    """Transform pose from np.array format to RPY Pose format.
+    Args:
+        np_pose: A pose in np.array format (type: np.array)
+    Returns:
+        An HTM (type: Pose).
+    """
+    pose = [0,0,0,0,0,0]
+
+    pose[0] = np_pose[0, 3]
+    pose[1] = np_pose[1, 3]
+    pose[2] = np_pose[2, 3]
+
+    rpy = tf.euler_from_matrix(np_pose)
+    
+    pose[3] = rpy[0]
+    pose[4] = rpy[1]
+    pose[5] = rpy[2]
+
+    return pose
+
 
 def select(q_sols, q_d, w=[1]*6):
     """Select the optimal solutions among a set of feasible joint value 
@@ -213,19 +247,20 @@ def HTM(i, theta):
     Rot_x[1, 2] = -sin(alpha[i])
     Rot_x[2, 1] = sin(alpha[i])
 
-    A_i = Rot_z * Trans_z * Trans_x * Rot_x
-	    
+    # A_i = Rot_x * Trans_x * Trans_z * Rot_z     # MDH
+    A_i = Rot_z * Trans_z * Trans_x * Rot_x   # SDH    
+    
     return A_i
 
 
 # Forward Kinematics
 
-def fwd_kin(theta, i_unit='r', o_unit='n'):
+def fwd_kin(theta, i_unit='r', o_unit='mat'):
     """Solve the HTM based on a list of joint values.
     Args:
         theta: A list of joint values. (unit: radian)
         i_unit: Output format. 'r' for radian; 'd' for degree.
-        o_unit: Output format. 'n' for np.array; 'p' for ROS Pose.
+        o_unit: Output format. 'mat' for np.array; 'ros' for ROS Pose; 'rpy' for RPY Pose.
     Returns:
         The HTM of end-effector joint w.r.t. base joint
     """
@@ -234,14 +269,16 @@ def fwd_kin(theta, i_unit='r', o_unit='n'):
 
     if i_unit == 'd':
         theta = [radians(i) for i in theta]
-    
+
     for i in range(6):
         T_06 *= HTM(i, theta)
 
-    if o_unit == 'n':
+    if o_unit == 'mat':
         return T_06
-    elif o_unit == 'p':
+    elif o_unit == 'ros':
         return np2ros(T_06)
+    elif o_unit == 'rpy':
+        return np2rpy(T_06)
 
 
 # Inverse Kinematics
@@ -264,67 +301,109 @@ def inv_kin(p, q_d, i_unit='r', o_unit='r'):
     elif type(p) == list: # UR format
         T_06 = ros2np(ur2ros(p))
 
+    # print T_06
     if i_unit == 'd':
         q_d = [radians(i) for i in q_d]
 
     # Initialization of a set of feasible solutions
     theta = np.zeros((8, 6))
- 
+
+    error = [0, 0, 0, 0, 0, 0]
+
+    nx=T_06[0,0]
+    ny=T_06[1,0]
+    nz=T_06[2,0]
+    
+    ox=T_06[0,1]
+    oy=T_06[1,1]
+    oz=T_06[2,1]
+    
+    ax=T_06[0,2]
+    ay=T_06[1,2]
+    az=T_06[2,2]
+    
+    px=T_06[0,3]
+    py=T_06[1,3]
+    pz=T_06[2,3]
+    
+
+
     # theta1
-    P_05 = T_06[0:3, 3] - d6 * T_06[0:3, 2]
-    phi1 = atan2(P_05[1], P_05[0])
-    phi2 = acos(d4 / sqrt(P_05[0] ** 2 + P_05[1] ** 2))
-    theta1 = [pi / 2 + phi1 + phi2, pi / 2 + phi1 - phi2]
-    theta[0:4, 0] = theta1[0]
-    theta[4:8, 0] = theta1[1]
-  
+    m = d6*ay - py 
+    n = d6*ax - px
+    tmp = sqrt(m**2+n**2-d4**2)
+    if m**2+n**2-d4**2>=0:
+        theta1 = [atan2(m,n)-atan2(d4,tmp),atan2(m,n)-atan2(d4,-tmp)]    # m^2+n^2-d4^2>0
+        theta[0:4, 0] = theta1[0]
+        theta[4:8, 0] = theta1[1]   
+    else:
+        return error
+
+
     # theta5
-    P_06 = T_06[0:3, 3]
     theta5 = []
     for i in range(2):
-        theta5.append(acos((P_06[0] * sin(theta1[i]) - P_06[1] * cos(theta1[i]) - d4) / d6))
-    for i in range(2):
-        theta[2*i, 4] = theta5[0]
-        theta[2*i+1, 4] = -theta5[0]
-        theta[2*i+4, 4] = theta5[1]
-        theta[2*i+5, 4] = -theta5[1]
-  
-    # theta6
-    T_60 = np.linalg.inv(T_06)
-    theta6 = []
-    for i in range(2):
-        for j in range(2):
-            s1 = sin(theta1[i])
-            c1 = cos(theta1[i])
-            s5 = sin(theta5[j])
-            theta6.append(atan2((-T_60[1, 0] * s1 + T_60[1, 1] * c1) / s5, (T_60[0, 0] * s1 - T_60[0, 1] * c1) / s5))
-    for i in range(2):
-        theta[i, 5] = theta6[0]
-        theta[i+2, 5] = theta6[1]
-        theta[i+4, 5] = theta6[2]
-        theta[i+6, 5] = theta6[3]
+        if ax*sin(theta1[i]) - ay*cos(theta1[i])<=1:
+            value = acos(ax*sin(theta1[i]) - ay*cos(theta1[i])) #ax*s1-ay*c1<1
+            theta5.append(value)
+            theta5.append(-value)
+        else:
+            return error
+    for i in range(4):
+        theta[2*i, 4] = theta5[i]
+        theta[2*i+1, 4] = theta5[i]
 
-    # theta3, theta2, theta4
-    for i in range(8):  
-        # theta3
-        T_46 = HTM(4, theta[i]) * HTM(5, theta[i])
-        T_14 = np.linalg.inv(HTM(0, theta[i])) * T_06 * np.linalg.inv(T_46)
-        P_13 = T_14 * np.array([[0, -d4, 0, 1]]).T - np.array([[0, 0, 0, 1]]).T
-        if i in [0, 2, 4, 6]:
-            theta[i, 2] = -cmath.acos((np.linalg.norm(P_13) ** 2 - a2 ** 2 - a3 ** 2) / (2 * a2 * a3)).real
-            theta[i+1, 2] = -theta[i, 2]
-        # theta2
-        theta[i, 1] = -atan2(P_13[1], -P_13[0]) + asin(a3 * sin(theta[i, 2]) / np.linalg.norm(P_13))
-        # theta4
-        T_13 = HTM(1, theta[i]) * HTM(2, theta[i])
-        T_34 = np.linalg.inv(T_13) * T_14
-        theta[i, 3] = atan2(T_34[1, 0], T_34[0, 0])       
+
+    # theta6
+    for i in range(8):
+        s1 = sin(theta[i,0])
+        c1 = cos(theta[i,0])
+        s5 = sin(theta[i,4])
+        m = nx*s1-ny*c1
+        n = ox*s1-oy*c1
+        if fabs(s5)>1e-5:
+            theta6 = atan2(m,n)-atan2(s5,0)         # s5 != 0
+            theta[i,5] = theta6
+        else:
+            return error
+
+
+    # theta3                        
+    for i in range(4):
+        s6 = sin(theta[2*i,5])
+        c6 = cos(theta[2*i,5])
+        c1 = cos(theta[2*i,0])
+        s1 = sin(theta[2*i,0])
+        m = d5*(s6*(nx*c1+ny*s1)+c6*(ox*c1+oy*s1))-d6*(ax*c1+ay*s1)+px*c1+py*s1
+        n = pz-d1-az*d6+d5*(oz*c6+nz*s6)
+        if m**2 +n**2 <= (a2+a3)**2:
+            theta[2*i,2] = acos((m**2+n**2-a2**2-a3**2)/(2*a2*a3))                      #m^2 + n^2<(a2+a3)^2
+            theta[2*i+1,2] = -acos((m**2+n**2-a2**2-a3**2)/(2*a2*a3))
+        else:
+            return error
+        for j in range(2):
+            # theta2
+            s2=((a3*cos(theta[2*i+j,2])+a2)*n-a3*sin(theta[2*i+j,2])*m)/(a2**2+a3**2+2*a2*a3*cos(theta[2*i+j,2])) 
+            c2=(m+a3*sin(theta[2*i+j,2])*s2)/(a3*cos(theta[2*i+j,2])+a2)
+            theta[2*i+j,1] = atan2(s2,c2)
+
+    # theta4
+    for i in range(8):
+        m = -sin(theta[i,5])*(nx*cos(theta[i,0])+ny*sin(theta[i,0]))-cos(theta[i,5])*(ox*cos(theta[i,0])+oy*sin(theta[i,0]))
+        n = oz*cos(theta[i,5])+nz*sin(theta[i,5])
+        theta[i,3]=atan2(m,n)-theta[i,1]-theta[i,2]
+
+    for i in range(8):
+        for j in range(6):
+            while theta[i,j] > pi:
+                theta[i,j] -= 2*pi
+            while theta[i,j] <-pi:
+                theta[i,j] += 2*pi
 
     theta = theta.tolist()
 
     # Select the most close solution
     q_sol = select(theta, q_d)
-
     # Output format
     if o_unit == 'r': # (unit: radian)
         return q_sol

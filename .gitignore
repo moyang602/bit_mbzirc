@@ -84,3 +84,5 @@ src/bit_hardware_interface/include/xml/Release
 src/bit_vision/image/
 
 *.png
+
+bit_hardware_interface.tar.xz
