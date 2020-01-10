@@ -360,13 +360,13 @@ int main(int argc, char *argv[])
 	std::string param_CameraMode_;
 
     ros::NodeHandle private_node_handle("~");
-    private_node_handle.param<std::string>("SN", param_SN_, "RW0171009017");
+    private_node_handle.param<std::string>("SN", param_SN_, "KE0160050020");
     private_node_handle.param<int>("ExposureTime", param_ExposureTime, 10000);
 	private_node_handle.param<int>("SpeedLevel", param_SpeedLevel, 3);
 	private_node_handle.param<double>("BalanceRatioRed", param_BalanceRatioRed, 2.0);
 	private_node_handle.param<double>("BalanceRatioGreen", param_BalanceRatioGreen, 1.6);
 	private_node_handle.param<double>("BalanceRatioBlue", param_BalanceRatioBlue, 2.5);
-	private_node_handle.param<std::string>("CameraMode", param_CameraMode_, "SINGLE");
+	private_node_handle.param<std::string>("CameraMode", param_CameraMode_, "CONTINUOUS");
 
 
     //-------------  MER相机处理  -----------------//
@@ -428,8 +428,8 @@ int main(int argc, char *argv[])
     //设置AOI
 	int64_t nOffsetX = 0;
 	int64_t nOffsetY = 0;
-	int64_t nWidth   = 1292;
-	int64_t nHeight  = 964;
+	int64_t nWidth   = 1280;
+	int64_t nHeight  = 1024;
 	status = GXSetInt(g_hDevice, GX_INT_OFFSET_X, nOffsetX);
 	status = GXSetInt(g_hDevice, GX_INT_OFFSET_Y, nOffsetY);
 	status = GXSetInt(g_hDevice, GX_INT_WIDTH, nWidth);
@@ -486,7 +486,7 @@ int main(int argc, char *argv[])
 	//发送开采命令
     status = GXSendCommand(g_hDevice, GX_COMMAND_ACQUISITION_START);
 
-    ros::Rate loop_rate(30); 
+    ros::Rate loop_rate(50); 
     while(ros::ok()) 
     { 
 		if (param_CameraMode_ == "CONTINUOUS")

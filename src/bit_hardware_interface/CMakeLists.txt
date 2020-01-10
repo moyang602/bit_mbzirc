@@ -276,7 +276,6 @@ add_executable(interface_cameraMER
 add_dependencies(interface_cameraMER ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(interface_cameraMER
   ${catkin_LIBRARIES}
-  dhgentl
   gxiapi
   dximageproc
 )
