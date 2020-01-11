@@ -1218,13 +1218,13 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
       Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
       TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
           "hsv");
-      Threshold(ho_ImageS, &ho_Regions, 0, 100);
+      Threshold(ho_ImageS, &ho_Regions, 0, 50);
       OpeningCircle(ho_Regions, &ho_RegionOpening, 5);
 
       Connection(ho_RegionOpening, &ho_ConnectedRegions);
 
       SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
-          "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
+          "and", (HTuple(0.8).Append(1000)), (HTuple(1).Append(1000000)));
       //对区域根据retangularity进行排序
       RegionFeatures(ho_SelectedRegions, "rectangularity", &hv_REC);
       TupleSortIndex(hv_REC, &hv_index);
@@ -1233,7 +1233,7 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
       SelectObj(ho_SelectedRegions, &ho_ObjectSelected, hv_index);
       ClosingCircle(ho_ObjectSelected, &ho_RegionClosing, 10);
       GenContourRegionXld(ho_RegionClosing, &ho_Contour, "border");
-      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 7, 5, 3);
+      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 5, 8, 3);
 
       try
       {
@@ -1256,11 +1256,11 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
         try
         {
           SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 
-              100, 2000, -0.5, 0.5);
+              125, 2000, -0.5, 0.5);
           //将共线的轮廓连接起来
           UnionCollinearContoursExtXld(ho_SelectedEdges, &ho_UnionContours2, 500, 10, 
               50, 0.7, 0, -1, 1, 1, 1, 1, 1, 0, "attr_keep");
-          UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 10, 1, "attr_keep");
+          UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 1000, 1, "attr_keep");
           GetRectanglePose(ho_UnionContours, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
               "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
 
@@ -1317,25 +1317,26 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
   HObject  ho_ImageReducedRight, ho_RightRegions, ho_ObjectSelectedRight;
   HObject  ho_Cross, ho_ResultContour, ho_Contour, ho_ROIContour;
   HObject  ho_ClosedContours, ho_RegionROI, ho_ContoursROI;
-  HObject  ho_ContoursSelected;
+  HObject  ho_ContoursSelected, ho_Rectangle2;
 
   // Local control variables
   HTuple  hv_pathFile, hv_MLPHandle, hv_CamParOriginal;
-  HTuple  hv_ImageFiles, hv_Brick_color, hv_Index;
-  HTuple  hv_pose, hv_RectWidth, hv_RectHeight, hv_color_index;
-  HTuple  hv_RowSelect, hv_ColumnSelect, hv_PhiSelect, hv_Length1Select;
-  HTuple  hv_Length2Select, hv_Number, hv_REC, hv_index, hv_indexes_REC;
-  HTuple  hv_Row2, hv_Column2, hv_Phi1, hv_Length11, hv_Length21;
-  HTuple  hv_NumberOrange, hv_Row, hv_Column, hv_Phi, hv_Length1;
-  HTuple  hv_Length2, hv_AreaAnchor, hv_AreaLeft, hv_Row1;
-  HTuple  hv_Column1, hv_AreaRight, hv_CenterY, hv_CenterX;
-  HTuple  hv_Len1, hv_Len2, hv_Area, hv_VertexesY, hv_VertexesX;
-  HTuple  hv_Width, hv_Height, hv_MetrologyHandle, hv_LineRow1;
-  HTuple  hv_LineColumn1, hv_LineRow2, hv_LineColumn2, hv_Tolerance;
-  HTuple  hv_Index1, hv_RowBegin, hv_ColBegin, hv_RowEnd;
+  HTuple  hv_ImageFiles, hv_Brick_color, hv_coord_label, hv_Index;
+  HTuple  hv_pose, hv_Width, hv_Height, hv_RectWidth, hv_RectHeight;
+  HTuple  hv_color_index, hv_RowSelect, hv_ColumnSelect, hv_PhiSelect;
+  HTuple  hv_Length1Select, hv_Length2Select, hv_Number, hv_REC_row;
+  HTuple  hv_REC_column, hv_weight, hv_Index1, hv_index, hv_Row2;
+  HTuple  hv_Column2, hv_Phi1, hv_Length11, hv_Length21, hv_NumberOrange;
+  HTuple  hv_Row, hv_Column, hv_Phi, hv_Length1, hv_Length2;
+  HTuple  hv_AreaAnchor, hv_AreaLeft, hv_Row1, hv_Column1;
+  HTuple  hv_AreaRight, hv_CenterY, hv_CenterX, hv_Len1, hv_Len2;
+  HTuple  hv_Area, hv_VertexesY, hv_VertexesX, hv_MetrologyHandle;
+  HTuple  hv_LineRow1, hv_LineColumn1, hv_LineRow2, hv_LineColumn2;
+  HTuple  hv_Tolerance, hv_RowBegin, hv_ColBegin, hv_RowEnd;
   HTuple  hv_ColEnd, hv_Nr, hv_Nc, hv_Dist, hv_J, hv_IsOverlapping;
   HTuple  hv_Rows, hv_Columns, hv_Pose, hv_CovPose, hv_Error;
-  HTuple  hv_Exception;
+  HTuple  hv_Exception, hv_Row3, hv_Column3, hv_Phi2, hv_Length12;
+  HTuple  hv_Length22;
 
   try
   {
@@ -1371,6 +1372,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       hv_color_index = 1;
     }
 
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
     //颜色分类
     ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
     SelectObj(ho_ClassRegions, &ho_ColorObjectSelected, hv_color_index);
@@ -1419,6 +1421,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     Connection(ho_RegionUnion, &ho_ConnectedRegions);
 
     Intersection(ho_RectangleSelect, ho_ConnectedRegions, &ho_ConnectedRegions);
+    Connection(ho_ConnectedRegions, &ho_ConnectedRegions);
     CountObj(ho_ConnectedRegions, &hv_Number);
 
     //判断合并后的结果是否为空
@@ -1435,12 +1438,19 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     else
     {
       //如果含有多个,自己定义选择
-      RegionFeatures(ho_ConnectedRegions, "row", &hv_REC);
-      TupleSortIndex(hv_REC, &hv_index);
-      TupleInverse(hv_index, &hv_indexes_REC);
-      hv_index = HTuple(hv_indexes_REC[0])+1;
-      SelectObj(ho_ConnectedRegions, &ho_ObjectSelected, hv_index);
-      ho_ObjectROI_2 = ho_ObjectSelected;
+      RegionFeatures(ho_ConnectedRegions, "row", &hv_REC_row);
+      RegionFeatures(ho_ConnectedRegions, "column", &hv_REC_column);
+      hv_weight = HTuple();
+      {
+      HTuple end_val92 = hv_Number-1;
+      HTuple step_val92 = 1;
+      for (hv_Index1=0; hv_Index1.Continue(end_val92, step_val92); hv_Index1 += step_val92)
+      {
+        hv_weight[hv_Index1] = ((hv_Height-HTuple(hv_REC_row[hv_Index1]))*(hv_Height-HTuple(hv_REC_row[hv_Index1])))+(((hv_Width/2)-HTuple(hv_REC_column[hv_Index1]))*((hv_Width/2)-HTuple(hv_REC_column[hv_Index1])));
+      }
+      }
+      TupleSortIndex(hv_weight, &hv_index);
+      SelectObj(ho_ConnectedRegions, &ho_ObjectSelected, HTuple(hv_index[0])+1);
       //only one region selected
     }
 
@@ -1470,14 +1480,18 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       AreaCenter(ho_Rectangle, &hv_AreaAnchor, &hv_Row, &hv_Column);
 
       //Left region
-      GenRectangle2(&ho_RectangleLeft, hv_Row, hv_Column-(2.5*hv_Length2), hv_Phi, hv_Length1, hv_Length2);
+      GenRectangle2(&ho_RectangleLeft, hv_Row-((2*hv_Length1)*((-hv_Phi).TupleSin())), 
+          hv_Column-((2*hv_Length1)*((-hv_Phi).TupleCos())), hv_Phi, hv_Length1, 
+          hv_Length2);
       ReduceDomain(ho_Image, ho_RectangleLeft, &ho_ImageReducedLeft);
       ClassifyImageClassMlp(ho_ImageReducedLeft, &ho_LeftRegions, hv_MLPHandle, 0.9);
       SelectObj(ho_LeftRegions, &ho_ObjectSelectedLeft, 4);
       AreaCenter(ho_ObjectSelectedLeft, &hv_AreaLeft, &hv_Row1, &hv_Column1);
 
       //Right Region
-      GenRectangle2(&ho_RectangleRight, hv_Row, hv_Column+(2.5*hv_Length2), hv_Phi, hv_Length1, hv_Length2);
+      GenRectangle2(&ho_RectangleRight, hv_Row+((2*hv_Length1)*((-hv_Phi).TupleSin())), 
+          hv_Column+((2*hv_Length1)*((-hv_Phi).TupleCos())), hv_Phi, hv_Length1, 
+          hv_Length2);
       ReduceDomain(ho_Image, ho_RectangleRight, &ho_ImageReducedRight);
       ClassifyImageClassMlp(ho_ImageReducedRight, &ho_RightRegions, hv_MLPHandle, 0.9);
       SelectObj(ho_RightRegions, &ho_ObjectSelectedRight, 4);
@@ -1500,74 +1514,73 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       }
       ho_ObjectSelected = ho_RegionIntersection;
     }
-
-    SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, &hv_Len2);
-
-    AreaCenter(ho_ObjectSelected, &hv_Area, &hv_Row, &hv_Column);
-
-    GenRectangle2(&ho_Rectangle, hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2);
-    get_rectangle2_points(hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2, &hv_VertexesY, &hv_VertexesX);
-    GenCrossContourXld(&ho_Cross, hv_VertexesY, hv_VertexesX, 60, hv_Phi);
-
-    GetImageSize(ho_Image, &hv_Width, &hv_Height);
-    CreateMetrologyModel(&hv_MetrologyHandle);
-    SetMetrologyModelImageSize(hv_MetrologyHandle, hv_Width, hv_Height);
-
-    hv_LineRow1.Clear();
-    hv_LineRow1.Append(HTuple(hv_VertexesY[0]));
-    hv_LineRow1.Append(HTuple(hv_VertexesY[1]));
-    hv_LineRow1.Append(HTuple(hv_VertexesY[2]));
-    hv_LineRow1.Append(HTuple(hv_VertexesY[3]));
-    hv_LineColumn1.Clear();
-    hv_LineColumn1.Append(HTuple(hv_VertexesX[0]));
-    hv_LineColumn1.Append(HTuple(hv_VertexesX[1]));
-    hv_LineColumn1.Append(HTuple(hv_VertexesX[2]));
-    hv_LineColumn1.Append(HTuple(hv_VertexesX[3]));
-    hv_LineRow2.Clear();
-    hv_LineRow2.Append(HTuple(hv_VertexesY[1]));
-    hv_LineRow2.Append(HTuple(hv_VertexesY[2]));
-    hv_LineRow2.Append(HTuple(hv_VertexesY[3]));
-    hv_LineRow2.Append(HTuple(hv_VertexesY[0]));
-    hv_LineColumn2.Clear();
-    hv_LineColumn2.Append(HTuple(hv_VertexesX[1]));
-    hv_LineColumn2.Append(HTuple(hv_VertexesX[2]));
-    hv_LineColumn2.Append(HTuple(hv_VertexesX[3]));
-    hv_LineColumn2.Append(HTuple(hv_VertexesX[0]));
-
-    hv_Tolerance = 50;
-
-    AddMetrologyObjectLineMeasure(hv_MetrologyHandle, hv_LineRow1, hv_LineColumn1,hv_LineRow2, hv_LineColumn2, hv_Tolerance, 50, 1.5, 15, HTuple(), HTuple(), &hv_Index1);
-    SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "num_instances", 1);
-    SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "measure_select", "first");
-    SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "min_score", .7);
-
-    ApplyMetrologyModel(ho_Saturation, hv_MetrologyHandle);
-
-    //Access results
-    GetMetrologyObjectResultContour(&ho_ResultContour, hv_MetrologyHandle, "all", "all", 1.5);
-    GetMetrologyObjectMeasures(&ho_Contour, hv_MetrologyHandle, "all", "all", &hv_Row1, &hv_Column1);
-    GenCrossContourXld(&ho_Cross, hv_Row1, hv_Column1, 16, 0.785398);
-
-    FitLineContourXld(ho_ResultContour, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
-    //Find intersection points [Rows, Columns]
-    for (hv_J=0; hv_J<=3; hv_J+=1)
-    {
-      IntersectionLines(HTuple(hv_RowBegin[hv_J]), HTuple(hv_ColBegin[hv_J]), HTuple(hv_RowEnd[hv_J]), 
-                        HTuple(hv_ColEnd[hv_J]), HTuple(hv_RowBegin[(hv_J+1)%4]), HTuple(hv_ColBegin[(hv_J+1)%4]), 
-                        HTuple(hv_RowEnd[(hv_J+1)%4]), HTuple(hv_ColEnd[(hv_J+1)%4]), &hv_Row, &hv_Column, &hv_IsOverlapping);
-      GenCrossContourXld(&ho_Cross, hv_Row, hv_Column, 60, 0.785398);
-      hv_Rows[hv_J] = hv_Row;
-      hv_Columns[hv_J] = hv_Column;
-    }
-
-    GenContourPolygonXld(&ho_ROIContour, hv_Rows, hv_Columns);
-    CloseContoursXld(ho_ROIContour, &ho_ClosedContours);
-
-    GenRegionContourXld(ho_ClosedContours, &ho_RegionROI, "filled");
-    GenContourRegionXld(ho_RegionROI, &ho_ContoursROI, "border");
-
+    
     try
     {
+      SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, &hv_Len2);
+
+      AreaCenter(ho_ObjectSelected, &hv_Area, &hv_Row, &hv_Column);
+
+      GenRectangle2(&ho_Rectangle, hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2);
+      get_rectangle2_points(hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2, &hv_VertexesY, &hv_VertexesX);
+      GenCrossContourXld(&ho_Cross, hv_VertexesY, hv_VertexesX, 60, hv_Phi);
+
+      CreateMetrologyModel(&hv_MetrologyHandle);
+      SetMetrologyModelImageSize(hv_MetrologyHandle, hv_Width, hv_Height);
+
+      hv_LineRow1.Clear();
+      hv_LineRow1.Append(HTuple(hv_VertexesY[0]));
+      hv_LineRow1.Append(HTuple(hv_VertexesY[1]));
+      hv_LineRow1.Append(HTuple(hv_VertexesY[2]));
+      hv_LineRow1.Append(HTuple(hv_VertexesY[3]));
+      hv_LineColumn1.Clear();
+      hv_LineColumn1.Append(HTuple(hv_VertexesX[0]));
+      hv_LineColumn1.Append(HTuple(hv_VertexesX[1]));
+      hv_LineColumn1.Append(HTuple(hv_VertexesX[2]));
+      hv_LineColumn1.Append(HTuple(hv_VertexesX[3]));
+      hv_LineRow2.Clear();
+      hv_LineRow2.Append(HTuple(hv_VertexesY[1]));
+      hv_LineRow2.Append(HTuple(hv_VertexesY[2]));
+      hv_LineRow2.Append(HTuple(hv_VertexesY[3]));
+      hv_LineRow2.Append(HTuple(hv_VertexesY[0]));
+      hv_LineColumn2.Clear();
+      hv_LineColumn2.Append(HTuple(hv_VertexesX[1]));
+      hv_LineColumn2.Append(HTuple(hv_VertexesX[2]));
+      hv_LineColumn2.Append(HTuple(hv_VertexesX[3]));
+      hv_LineColumn2.Append(HTuple(hv_VertexesX[0]));
+
+      hv_Tolerance = 50;
+
+      AddMetrologyObjectLineMeasure(hv_MetrologyHandle, hv_LineRow1, hv_LineColumn1,hv_LineRow2, hv_LineColumn2, hv_Tolerance, 50, 1.5, 5, HTuple(), HTuple(), &hv_Index1);
+      SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "num_instances", 1);
+      SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "measure_select", "first");
+      SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "min_score", .7);
+
+      ApplyMetrologyModel(ho_Saturation, hv_MetrologyHandle);
+
+      //Access results
+      GetMetrologyObjectResultContour(&ho_ResultContour, hv_MetrologyHandle, "all", "all", 1.5);
+      GetMetrologyObjectMeasures(&ho_Contour, hv_MetrologyHandle, "all", "all", &hv_Row1, &hv_Column1);
+      GenCrossContourXld(&ho_Cross, hv_Row1, hv_Column1, 16, 0.785398);
+
+      FitLineContourXld(ho_ResultContour, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+      //Find intersection points [Rows, Columns]
+      for (hv_J=0; hv_J<=3; hv_J+=1)
+      {
+        IntersectionLines(HTuple(hv_RowBegin[hv_J]), HTuple(hv_ColBegin[hv_J]), HTuple(hv_RowEnd[hv_J]), 
+                          HTuple(hv_ColEnd[hv_J]), HTuple(hv_RowBegin[(hv_J+1)%4]), HTuple(hv_ColBegin[(hv_J+1)%4]), 
+                          HTuple(hv_RowEnd[(hv_J+1)%4]), HTuple(hv_ColEnd[(hv_J+1)%4]), &hv_Row, &hv_Column, &hv_IsOverlapping);
+        GenCrossContourXld(&ho_Cross, hv_Row, hv_Column, 60, 0.785398);
+        hv_Rows[hv_J] = hv_Row;
+        hv_Columns[hv_J] = hv_Column;
+      }
+
+      GenContourPolygonXld(&ho_ROIContour, hv_Rows, hv_Columns);
+      CloseContoursXld(ho_ROIContour, &ho_ClosedContours);
+
+      GenRegionContourXld(ho_ClosedContours, &ho_RegionROI, "filled");
+      GenContourRegionXld(ho_RegionROI, &ho_ContoursROI, "border");
+
       GetRectanglePose(ho_ContoursROI, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
       for(int i=0;i<6;i++)
       {
@@ -1575,10 +1588,15 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       }
       Flag = true;
     }
-    catch (HException &HDevExpDefaultException)
+    catch (HException &exception)
     {
-      HDevExpDefaultException.ToHTuple(&hv_Exception);
-      GenContourRegionXld(ho_ObjectROI_2, &ho_ContoursSelected, "border");
+      ROS_WARN("First method can't find, #%u in %s: %s\n", exception.ErrorCode(),
+        (const char *)exception.ProcName(),
+        (const char *)exception.ErrorMessage());
+      SmallestRectangle2(ho_ObjectSelected, &hv_Row3, &hv_Column3, &hv_Phi2, &hv_Length12, 
+          &hv_Length22);
+      GenRectangle2(&ho_Rectangle2, hv_Row3, hv_Column3, hv_Phi2, hv_Length12, hv_Length22);
+      GenContourRegionXld(ho_Rectangle2, &ho_ContoursSelected, "border");
       GetRectanglePose(ho_ContoursSelected, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
           "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
       for(int i=0;i<6;i++)
@@ -1587,8 +1605,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       }
       Flag = true;
     }
-}
-  // catch (Exception) 
+  }
   catch (HException &exception)
   {
     Flag = false;
@@ -1600,7 +1617,6 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
         (const char *)exception.ProcName(),
         (const char *)exception.ErrorMessage());
   }
-
 
 }
 
@@ -1947,33 +1963,33 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
     {
         case GetBrickPoseMERO:
             //取砖块的位姿 输入为 MER 图像
+            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/image/MER/Before/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_MERO(ho_ImageMER, MERPose, MER_flag);
-            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
             break;
         case GetBrickPoseMERC:
             //取砖块的位姿 输入为 MER 图像
+            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/image/MER/After/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_MERC(ho_ImageMER, MERPose, MER_flag);
-            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
             break;
         case GetBrickPoseZED:
             //取砖块的位姿 输入为 ZED 图像
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/Pose/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_ZED(ho_ImageR, ZEDPose, ZED_flag);
-            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         case GetBrickPoseZEDNew:
             //取砖块的位姿 输入为 ZED 图像 新方法
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/Pose/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_ZED_new(ho_ImageR, ZEDPose, ZED_flag, OrangeIndex);
-            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]<<", Index:"<<OrangeIndex);
             break;
         case GetBrickLoc:
             //定位砖堆位置 输入为zed双目
+            WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/image/ZED/Locate/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/Locate/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             color_bricks_location(ho_ImageL,ho_ImageR, ZEDPose, ZED_flag); 
-            WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
-            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         case GetPutPos:
@@ -2016,6 +2032,12 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
           case GetBrickPoseZED:
             transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0]+0.003, ZEDPose[1] + 0.0035, ZEDPose[2] + 0.01 ));
+            q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
+            transform_TargetOnZED.setRotation(q);
+            transform_TargetOnBase = transform_ZEDROnBase*transform_TargetOnZED;
+            break;
+          case GetBrickPoseZEDNew:
+            transform_TargetOnZED.setOrigin(tf::Vector3(ZEDPose[0]+0.000, ZEDPose[1] + 0.000, ZEDPose[2] + 0.00));
             q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
             transform_TargetOnZED.setRotation(q);
             transform_TargetOnBase = transform_ZEDROnBase*transform_TargetOnZED;
