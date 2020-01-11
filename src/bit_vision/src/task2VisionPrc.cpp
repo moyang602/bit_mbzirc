@@ -1218,13 +1218,13 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
       Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
       TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
           "hsv");
-      Threshold(ho_ImageS, &ho_Regions, 0, 50);
+      Threshold(ho_ImageS, &ho_Regions, 0, 100);
       OpeningCircle(ho_Regions, &ho_RegionOpening, 5);
 
       Connection(ho_RegionOpening, &ho_ConnectedRegions);
 
       SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
-          "and", (HTuple(0.8).Append(1000)), (HTuple(1).Append(1000000)));
+          "and", (HTuple(0.85).Append(10000)), (HTuple(1).Append(100000000)));
       //对区域根据retangularity进行排序
       RegionFeatures(ho_SelectedRegions, "rectangularity", &hv_REC);
       TupleSortIndex(hv_REC, &hv_index);
@@ -1233,7 +1233,7 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
       SelectObj(ho_SelectedRegions, &ho_ObjectSelected, hv_index);
       ClosingCircle(ho_ObjectSelected, &ho_RegionClosing, 10);
       GenContourRegionXld(ho_RegionClosing, &ho_Contour, "border");
-      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 5, 8, 3);
+      SegmentContoursXld(ho_Contour, &ho_ContoursSplit, "lines", 7, 5, 3);
 
       try
       {
@@ -1256,11 +1256,11 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
         try
         {
           SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 
-              125, 2000, -0.5, 0.5);
+              100, 2000, -0.5, 0.5);
           //将共线的轮廓连接起来
           UnionCollinearContoursExtXld(ho_SelectedEdges, &ho_UnionContours2, 500, 10, 
               50, 0.7, 0, -1, 1, 1, 1, 1, 1, 0, "attr_keep");
-          UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 1000, 1, "attr_keep");
+          UnionAdjacentContoursXld(ho_UnionContours2, &ho_UnionContours, 10, 1, "attr_keep");
           GetRectanglePose(ho_UnionContours, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
               "huber", 1, &hv_Pose, &hv_CovPose, &hv_Error);
 
@@ -1947,20 +1947,20 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
     {
         case GetBrickPoseMERO:
             //取砖块的位姿 输入为 MER 图像
-            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/image/MER/Before/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_MERO(ho_ImageMER, MERPose, MER_flag);
+            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
             break;
         case GetBrickPoseMERC:
             //取砖块的位姿 输入为 MER 图像
-            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/image/MER/After/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_MERC(ho_ImageMER, MERPose, MER_flag);
+            WriteImage(ho_ImageMER, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/MER/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<MERPose[0]<<","<<MERPose[1]<<","<<MERPose[2]<<","<<MERPose[3]<<","<<MERPose[4]<<","<<MERPose[5]);
             break;
         case GetBrickPoseZED:
             //取砖块的位姿 输入为 ZED 图像
-            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/Pose/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_ZED(ho_ImageR, ZEDPose, ZED_flag);
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         case GetBrickPoseZEDNew:
@@ -1971,19 +1971,10 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
         case GetBrickLoc:
             //定位砖堆位置 输入为zed双目
-            try{
-              WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/image/ZED/Locate/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
-              WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/Locate/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
-              color_bricks_location(ho_ImageL,ho_ImageR, ZEDPose, ZED_flag); 
-              ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
-            }
-            catch (HException &exception)
-            {
-              ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
-                      (const char *)exception.ProcName(),
-                      (const char *)exception.ErrorMessage());
-            }
-            
+            color_bricks_location(ho_ImageL,ho_ImageR, ZEDPose, ZED_flag); 
+            WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         case GetPutPos:
             //放砖位姿(未完善)

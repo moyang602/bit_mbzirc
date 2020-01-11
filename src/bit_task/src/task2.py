@@ -106,11 +106,13 @@ a = 0.3
 GetBrickPoseMERO =1
 GetBrickPoseMERC =2  
 GetBrickPoseZED = 3  
-GetBrickLoc =  4
-GetPutPos =    5
-GetPutAngle =  6
-GetLPose =     7
+GetBrickPoseZEDNew  = 4
+GetBrickLoc =  5
+GetPutPos =    6
+GetPutAngle =  7
+GetLPose =     8
 NotRun =       0
+
 
 SUCCESS = 1
 FAIL = 0
