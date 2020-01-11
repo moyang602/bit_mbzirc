@@ -24,9 +24,9 @@ global InRangeDistance,LineLikeThreshold,DistanceBTCarlink2Brick,needTolerance,T
 
 Map_size = 10                               # 激光雷达画的图的大小，单位：米
 resolution = 0.05                           # 地图分辨率，单位：米
-InRangeDistance = 6.0                       # 激光雷达可以接手的距离
+InRangeDistance = 3.0                       # 激光雷达可以接手的距离
 LineLikeThreshold = 0.07                    # 在遍历直线时认为是直线的阈值
-DistanceBTCarlink2Brick = 0.6 + 0.628       # 0.628为激光雷达到car_link的距离
+DistanceBTCarlink2Brick = 0.55 + 0.628       # 0.628为激光雷达到car_link的距离
 needTolerance = 0.05                         # 认为是需要的线段长度的阈值，+-，单位：米 
 ThinkLineLength = 0.3                       # 认为霍夫变换的结果是一条直线的最小长度，单位：米
 
@@ -92,6 +92,7 @@ def LaserProcHandle(req):
                 res.VisionData.Flag = 1
                 res.VisionData.header.stamp = rospy.Time.now()
                 res.VisionData.header.frame_id = "velodyne"
+                resultok = 0
                 for l in range(len(leng)):
                     if math.fabs(leng[l] - need) < needTolerance:
                         rospy.loginfo("Found need line: %f" % need)    
@@ -108,7 +109,12 @@ def LaserProcHandle(req):
                         pos.orientation.w = ori[3]
 
                         res.VisionData.Pose = pos
+                        resultok = 1
                         break
+                if resultok ==0:
+                    res.VisionData.Flag = 0
+                    res.VisionData.header.stamp = rospy.Time.now()
+
             else:
                 res.VisionData.Flag = 0
                 res.VisionData.header.stamp = rospy.Time.now()

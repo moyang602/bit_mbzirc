@@ -264,12 +264,12 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
     {
       case HandEye:
         fire_position_HandEye(ho_ImageL, Flag, delta_x, delta_y, FireArea);
-        WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+        WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/image/IR/"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
         break;
       case StereoEye:
         fire_position_StereoEye(ho_ImageL, ho_ImageR, fire_X, fire_Y, fire_Z, Flag);
-        WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
-        WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/IR/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+        WriteImage(ho_ImageL, "jpeg", 0, "/home/ugvcontrol/image/IR/L"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+        WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/IR/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
         break;
       default:
         break;

@@ -15,6 +15,8 @@ import actionlib
 import urx
 import tf
 import traceback
+# from tf import TransformerROS
+
 
 from bit_control_msgs.msg import *
 # from bit_control_msgs.msg import PushState
@@ -34,7 +36,7 @@ import bit_task_msgs.msg
 from bit_vision_msgs.srv import VisionProc
 from bit_vision_msgs.srv import LaserProc
 from bit_control_msgs.srv import SetHeight
-from kinematics import *
+from kinematics import inv_kin
 
 if sys.version_info[0] < 3:  # support python v2
     input = raw_input
@@ -49,12 +51,13 @@ lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与pickPos�
 takePos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)     # Take动作开始位置
 onCarStartPos = list(np.array([-232.52,-66.49,-62.19,-141.32,90.30,34.13])*deg2rad) # 车上操作位置1
 
-putPos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)      # Put动作开始位置
+putPos = list(np.array([-90.0,-100.77,-30.8,-138.41,90.0,0.0])*deg2rad)      # Put动作开始位置
+onCarReadyPos_inter = list(np.array([-148.49, -100.77,-30.8,-138.41,90.0,0.0])*deg2rad) # 车上操作位置2
 onCarReadyPos = list(np.array([-249.93,-86.05,-53.04,-130.93,90.36,19.77])*deg2rad) # 车上操作位置2
 
 buildPos = list(np.array([-90.0,-96.0,-42.84,-131.15,90.0,0.0])*deg2rad)      # Build动作开始位置
 
-pickPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # 取砖准备位姿 [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]
+pickPos = list(np.array([-90.0,-84.47,-25.55,-144.71,90.0,0.0])*deg2rad) #(-1.571, -1.396, -1.745, -1.396, 1.571, 0.0) # 取砖准备位姿 [-90.0, -80.0, -100.0, -80.0, 90.0, 0.0]
 
 RGB = (
     [ 0.3, 0.42, 0.2, pi, 0, 0],    # 红4
@@ -133,8 +136,10 @@ FinishFlag = 0
 def forcecallback(data):
     '''ur_force Callback Function'''
     global force
-    force = data.wrench.force.x**2 + data.wrench.force.y**2 + data.wrench.force.z**2
-    force = force ** 0.5
+    try:
+        force = data.wrench.force
+    except:
+        pass
 
 def heightcallback(data):
     '''ur_force Callback Function'''
@@ -205,8 +210,9 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
         if wait:
             while status != GoalStatus.SUCCEEDED:
                 if status == GoalStatus.ABORTED:     # TODO 如果规划器失败的处理
-                    simp_goal_pub.publish(this_target)
-                pass
+                    rospy.logwarn("aborted")
+                    # simp_goal_pub.publish(this_target)
+    
     except Exception as e:
         rospy.logwarn(e)
 
@@ -219,7 +225,7 @@ def CarStop():
     a.linear.y = 0.0
     a.linear.z = 0.0
     a.angular.z = 0.0
-    for i in range(0,7):
+    for i in range(0,5):
         cmdvel_pub.publish(a)
         rospy.sleep(0.1)
         # print("pub")
@@ -233,12 +239,27 @@ def Orientation2Numpy(orientation):
     return ori
    
 def SafeCheck(targetPose, currentAngle):
-    if targetPose[1] > -0.35:   # 太靠近小车前沿
-        return False, -0.55-targetPose[1]
+
+    if targetPose.position.x >0.540 or targetPose.position.x < -0.550:        # 左右
+        return False
+
+    if targetPose.position.y > -0.460:   # 太靠近小车前沿
+        return False
+
+    dist = (targetPose.position.x**2 + targetPose.position.y**2 + targetPose.position.z**2 )**0.5
+    if dist > 0.9:
+        return False
     
-    targetAngle = inv_kin(targetPose, currentAngle)
-    if fabs(targetAngle[2])<5*deg2rad   # 太远，机械臂伸直了
-        return False, -0.55-targetPose[1]
+    # print("out")
+    # targetAngle = inv_kin(targetPose, currentAngle)
+    # print 'currentAngle:',currentAngle
+    # print 'targetAngle:',targetAngle
+    # print 'targetPose:',targetPose
+    # if math.fabs(targetAngle[2])<5*deg2rad :  # 太远，机械臂伸直了
+    #     return False
+
+    # print("out2")
+    return True
 
 
 ## ================================================== ##
@@ -272,6 +293,7 @@ class pick_put_act(object):
         rospy.wait_for_service('Setheight')
         global set_height
         set_height = rospy.ServiceProxy('Setheight',SetHeight)
+        
 
     def show_tell(self, info):
         rospy.loginfo(info)
@@ -282,54 +304,59 @@ class pick_put_act(object):
         goal = _goal.goal_task
         
         self._result.finish_state = SUCCESS
+        print(goal)
+        wait()
         try: 
             #================ 0. 准备 ===================#
             rospy.loginfo("Begining!")
             pose = rob.getl()
             initj = rob.getj()
 
-            #================ 1. 寻找砖堆 ================#
-            # 1.1 机械臂移动至观察砖堆准备位姿
-            rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
+            # #================ 1. 寻找砖堆 ================#
+            # # 1.1 机械臂移动至观察砖堆准备位姿
+            # rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
-            # 1.2 小车遍历场地， 基于视觉寻找砖堆
-            out = 0
-            while True:         # Todo 避免进入死循环
-                VisionData = GetVisionData_client(GetBrickLoc, "R")    # 数据是在base_link坐标系下的
-                if VisionData.Flag:     # 能够看到
-                    rospy.loginfo("Found Brick Dui")
-                    theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
-                    distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
-                    if distance > 5:
-                        CarMove(-VisionData.Pose.position.y,VisionData.Pose.position.x,theta,"car_link")
-                    else:
-                        CarStop()
+            # # 1.2 小车遍历场地， 基于视觉寻找砖堆
+            # out = 0
+            # while True:         # Todo 避免进入死循环
+            #     VisionData = GetVisionData_client(GetBrickLoc, "R")    # 数据是在base_link坐标系下的
+            #     if VisionData.Flag:     # 能够看到
+            #         rospy.loginfo("Found Brick Dui")
+            #         theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
+            #         distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
+            #         rospy.logwarn(distance)
+            #         if distance > 3:
+            #             CarMove(-VisionData.Pose.position.y-0.5, VisionData.Pose.position.x,theta,"car_link")
+            #         else:
+            #             CarStop()
 
-                    while True:     # 激光雷达接手
-                        LaserData = Laser_client("R")       # 调用激光雷达检测的服务
-                        if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
-                            out = 1
-                            break
-                else:
-                    rospy.loginfo("Mei Found Brick Dui")
-                    # 遍历场地 TODO
-                if out :
-                    break
-            rospy.logwarn("Got Laser ")
-            rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
-            CarMove(LaserData.Pose.position.x, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True) 
-            CarStop()
-            wait()
-            self.show_tell("Arrived Bricks Position!")
+            #         while True:     # 激光雷达接手
+            #             LaserData = Laser_client("R")       # 调用激光雷达检测的服务
+            #             if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
+            #                 # CarStop()
+            #                 out = 1
+            #                 break
+            #     else:
+            #         rospy.loginfo("Mei Found Brick Dui")
+            #         # 遍历场地 TODO
+            #     if out :
+            #         break
+            # rospy.logwarn("Got Laser ")
+            # rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
+            # CarMove(LaserData.Pose.position.x, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True)
+            # # wait()
+            # self.show_tell("Arrived Bricks Position!")
             #================ 2. 到达砖堆橙色处，开始取砖 ================#
             
             brickIndex = 0
+            last_type = goal.bricks[brickIndex].type
             while brickIndex < goal.Num:
                 # 2.1 小车运动至期望砖堆处
+                rospy.loginfo("ReLaser!")
                 # 调用激光雷达检测的服务  goal.bricks[brickIndex].type
                 # 或者直接移动
-                        
-                # 2.2 机械臂取砖
+                
+                # # 2.2 机械臂取砖
                 for attempt in range(0,3):  # 最大尝试次数3
                     result_ = self.goGetBrick(goal.bricks[brickIndex])
                     if result_ == SUCCESS:
@@ -337,7 +364,23 @@ class pick_put_act(object):
                         self.show_tell("finished !PICK! brick %d,go get next" %brickIndex)
                         brickIndex = brickIndex + 1     # 成功了就取下一块  
                         break
+                # brickIndex = brickIndex + 1     # 成功了就取下一块  
 
+                if goal.bricks[brickIndex].type != last_type:
+                    CarMove(-2.0, 0, 0, frame_id="car_link", wait = True)
+                    while True:     # 激光雷达接手
+                        LaserData = Laser_client(goal.bricks[brickIndex].type)       # 调用激光雷达检测的服务
+                        if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
+                            rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
+                            CarMove(0, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True) 
+                            rospy.sleep(1.0)
+                            CarMove(LaserData.Pose.position.x, 0, 0,frame_id=LaserData.header.frame_id,wait = True) 
+                            break
+
+                last_type = goal.bricks[brickIndex].type
+                rospy.loginfo("Finished %d"%brickIndex)
+                wait()
+                
             # self.Push(ON)
             # self.show_tell("Got all bricks, go to build")
             # wait()
@@ -434,22 +477,29 @@ class pick_put_act(object):
             VisionData = GetVisionData_client(GetBrickPoseZED, goal.type)
             if VisionData.Flag:
                 self.show_tell("Got BrickPos results from Vision")
+                rospy.loginfo(VisionData.Pose)
                 # 判断是否在工作空间，不是则动车  
-                x = VisionData.Pose.position.x
-                y = VisionData.Pose.position.y
-                dist = (x**2 + y**2)**0.5
-
-                print(x,y,dist)
-                
-                if dist>0.765 or dist<0.45 or x>0.3 or x<-0.3 or y > -0.2: # 待测试
+                if not SafeCheck(VisionData.Pose, rob.getj()):
                     self.show_tell("Brick position is out of workspace")
                     wait()
-                    # 动车，再次调用激光雷达的动作
+
+                    # 得到识别结果,旋转角度
+                    rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(VisionData.Pose.orientation))
+                    turn = pi+rpy[2]
+                    if turn > pi:
+                        turn -= 2*pi
+                    elif turn < -pi:
+                        turn += 2*pi
+
+                    rospy.logwarn(-0.55-VisionData.Pose.position.y)
+                    CarMove(-0.55-VisionData.Pose.position.y, VisionData.Pose.position.x, turn, frame_id="car_link",wait= True)
                 else:   # 在工作空间，可以抓取
                     break
             
         self.show_tell("In the workspace，Ready to pick")
 
+        print(VisionData.Pose.position)
+        wait()
         pose =[0]*6
         # 得到识别结果，平移到相机正对砖块上方0.35m（待确定）处
         pose[0] = VisionData.Pose.position.x + 0.023     #使ZED正对砖块中心  0.023为zedR与magnet偏移
@@ -492,13 +542,17 @@ class pick_put_act(object):
 
         self.show_tell("Arrived brick up 0.1m position pependicular to brick")
 
-        self.forceDown(0.3)             # 伪力控下落 0.3m
+        self.forceDown(0.3, "T")             # 伪力控下落 0.3m
         self.turnEndEffect(ON)          # 操作末端
-        rob.translate((0,0,0.3), acc=a, vel=v, wait=True)       # 先提起，后转正
+
+        pose = rob.getl()
+        pose[1] = -0.4389
+        pose[2] = 1.03 + floorHeight_base
+        rob.movel(pose, acc=0.5*a, vel=2*v, wait=True)          # 先提起，后转正
 
         # 抬升到抓取准备的位置
-        rob.movej(putPos,acc=a, vel=2.0*v,wait=True)
-        self.show_tell("Got brick and arrived Ready-Put position" )
+        # rob.movejs([onCarReadyPos_inter, ], acc=a, vel=2.0*v,wait=True)
+        self.show_tell("Got brick and Move to Ready-Put position" )
 
         if goal.type in ("R","G","B","O"):
             self.putOneBrickOnCar(goal, False)
@@ -547,7 +601,7 @@ class pick_put_act(object):
         pose[5] = 0
         rob.movel(pose, acc=a, vel=v, wait=True)
 
-        self.forceDown(0.15)
+        self.forceDown(0.15, goal.type)
         self.turnEndEffect(OFF)
 
         rob.movej(pickPos,acc=a, vel=3*v,wait=True)
@@ -596,9 +650,9 @@ class pick_put_act(object):
                         y = VisionData.Pose.position.y
                         z = VisionData.Pose.position.z
 
-                        # 工作空间判断 ok TODO 验证
-                        if y > 0.2 and y < 0.70\
-                            and x < 0.35 and x>-0.35 \
+                        # 工作空间判断 ok 验证
+                        if y > 0.334 and y < 0.580\
+                            and x < 0.409 and x>-0.410 \
                             and (z + CarHeight_base ) >0.1\
                             and (z + CarHeight_base ) <0.7:
                             break
@@ -663,11 +717,12 @@ class pick_put_act(object):
                     set_height(320)
                     rospy.sleep(1.0)
             elif goal.type in ("R","G","B"):
-                print("OK")
                 set_height(320)     # 升降台的高度到达 320mm
+
+                print("OK")
                 # rospy.sleep(1.0)
 
-            rob.movejs([putPos,onCarReadyPos],acc=a, vel=3.0*v,radius = 0.1, wait=True)    # 提升准备位置 onCarStartPos
+            rob.movexs("movej",[onCarReadyPos_inter, onCarReadyPos],acc=1*a, vel=2*v,radius = 0.1,wait=True)    # 提升准备位置 onCarStartPos
 
             if goal.type == "O":
                 delta = ORG_load[num]
@@ -679,7 +734,7 @@ class pick_put_act(object):
                     temp = list(delta)
                     temp[2] -= 0.2
                     rob.movels([delta,temp], acc=a, vel=v,radius = 0.03, wait=True)   #磁体对准铁片
-                self.forceDown(0.1, 25)         # 伪力控下落
+                self.forceDown(0.1, "O")         # 伪力控下落
             elif goal.type in ("R","G","B"):    #颜色类型 R/G/B
                 delta = RGB_load[num]
                 
@@ -692,7 +747,7 @@ class pick_put_act(object):
                     temp = list(delta)
                     temp[2] -= 0.2
                     rob.movels([delta,temp], acc=a, vel=v,radius = 0.03, wait=True)   #磁体对准铁片
-                self.forceDown(0.1)         # 伪力控下落
+                self.forceDown(0.1, goal.type)         # 伪力控下落
 
             self.turnEndEffect(OFF)      # 操作末端
     
@@ -710,16 +765,36 @@ class pick_put_act(object):
 
 
 
-    def forceDown(self,distance,forcelimit = 15):
-        rob.movel([0.0, 0.0, -distance, 0.0, 0.0, 0.0], acc=a, vel=v*0.1, wait=False, relative=True)     # 相对运动
+    def forceDown(self, distance, type_ = "T", forcelimit = 15):
+        
+        if type_ == "O":
+            offset = -20
+        elif type_ == "R":
+            offset = -10
+        elif type_ == "G":
+            offset = -10
+        elif type_ == "B":
+            offset = -15
+        elif type_ == "T":
+            offset = 0
+        else:
+            offset = 0
 
+        force_now = force.x**2 + force.y**2 + (force.z - offset)**2
+        force_now = force_now ** 0.5
+        
         _force_prenvent_wrongdata_ = 0
-        while force < forcelimit:
+
+        rob.movel([0.0, 0.0, -distance, 0.0, 0.0, 0.0], acc=a, vel=v*0.1, wait=False, relative=True)     # 相对运动
+        while force_now < forcelimit:
+
+            force_now = force.x**2 + force.y**2 + (force.z - offset)**2
+            force_now = force_now ** 0.5
             _force_prenvent_wrongdata_ += 1
-            if _force_prenvent_wrongdata_ >150: 
-                _force_prenvent_wrongdata_ = 150 
+            if _force_prenvent_wrongdata_ >200: 
+                _force_prenvent_wrongdata_ = 200 
             rospy.sleep(0.002)
-            if  _force_prenvent_wrongdata_ >100 and ( not rob.is_program_running() ):
+            if  _force_prenvent_wrongdata_ >150 and ( not rob.is_program_running() ):
                 rospy.loginfo("did not contact")
                 break
         rob.stopl()
@@ -792,7 +867,6 @@ if __name__ == '__main__':
 
             pick_put_act("ugv_building")     # rospy.get_name())
             
-            # rospy.spin()
             # TF 计算
             listener = tf.TransformListener()
             while not FinishFlag:
