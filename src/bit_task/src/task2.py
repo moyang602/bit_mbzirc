@@ -478,20 +478,25 @@ class pick_put_act(object):
             if VisionData.Flag:
                 self.show_tell("Got BrickPos results from Vision")
                 rospy.loginfo(VisionData.Pose)
+                # 得到识别结果,旋转角度
+                rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(VisionData.Pose.orientation))
+                turn = pi+rpy[2]
+                if turn > pi:
+                    turn -= 2*pi
+                elif turn < -pi:
+                    turn += 2*pi
+
                 # 判断是否在工作空间，不是则动车  
-                if not SafeCheck(VisionData.Pose, rob.getj()):
+                if VisionData.index != 0:
+                    if VisionData.index == 1:
+                        CarMove(-0.55-VisionData.Pose.position.y, 0.805 + VisionData.Pose.position.x, turn, frame_id="car_link",wait= True)
+                    elif VisionData.index == -1:
+                        CarMove(-0.55-VisionData.Pose.position.y, -0.805 + VisionData.Pose.position.x, turn, frame_id="car_link",wait= True)
+                    
+                elif not SafeCheck(VisionData.Pose, rob.getj()):
                     self.show_tell("Brick position is out of workspace")
-                    wait()
-
-                    # 得到识别结果,旋转角度
-                    rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(VisionData.Pose.orientation))
-                    turn = pi+rpy[2]
-                    if turn > pi:
-                        turn -= 2*pi
-                    elif turn < -pi:
-                        turn += 2*pi
-
                     rospy.logwarn(-0.55-VisionData.Pose.position.y)
+                    wait()
                     CarMove(-0.55-VisionData.Pose.position.y, VisionData.Pose.position.x, turn, frame_id="car_link",wait= True)
                 else:   # 在工作空间，可以抓取
                     break
