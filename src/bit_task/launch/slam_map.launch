@@ -50,7 +50,7 @@
 
   <!--bringup move_base to navigate -->
   <!--include file="$(find my_robot_name_2dnav)/launch/nav.launch" /-->
-  <include file="$(find my_robot_name_2dnav)/launch2/move_base_burger.launch" />
+  <include file="$(find navigation)/launch2/move_base_burger.launch" />
 
   
 

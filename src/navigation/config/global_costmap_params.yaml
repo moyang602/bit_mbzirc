@@ -1,0 +1,7 @@
+global_costmap:
+  global_frame: /map
+  robot_base_frame: car_link
+  update_frequency: 10.0  #5.0
+  static_map: fasle
+  rolling_window: true
+  transform_tolerance: 0.5

@@ -1,0 +1,25 @@
+<launch>
+  <master auto="start"/>
+  <!-- Run the map server -->
+  <node name="map_server" pkg="map_server" type="map_server" args="/home/ugvcontrol/mymap.yaml"/>
+
+  <!--- Run AMCL -->
+  <include file="$(find amcl)/examples/amcl_omni.launch" />
+
+  <!--- Run move base -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base"  output="screen">
+    <rosparam file="$(find my_robot_name_2dnav)/param/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find my_robot_name_2dnav)/param/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find my_robot_name_2dnav)/param/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find my_robot_name_2dnav)/param/global_costmap_params.yaml" command="load" />
+ <rosparam file="$(find my_robot_name_2dnav)/config/base_local_planner_params.yaml" command="load" />
+    <param name="base_global_planner" value="global_planner/GlobalPlanner" /> 
+    <param name="use_dijkstra" value="true"/>
+
+    <!--param name="base_local_planner" value="wpbh_local_planner/WpbhLocalPlanner" /-->
+
+    <param name= "controller_frequency" value="10" type="double"/>
+  </node>
+
+
+</launch>

@@ -1,0 +1,9 @@
+global_costmap:
+  global_frame: map
+  robot_base_frame: car_link
+  update_frequency: 5.0
+  static_map: false
+  rolling_window: true
+  transform_tolerance: 0.5
+  width: 80.0
+  height: 80.0
