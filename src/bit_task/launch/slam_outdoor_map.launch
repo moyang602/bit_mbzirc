@@ -23,14 +23,14 @@
   <!--发布里程计-->
   <node pkg="bit_control_chassis" type="odom_encoder" name="odom_encoder" respawn="False" />
 
-  <!--bringup remoter-->  
+  <!--启动EKF节点-->  
   <include file="$(find robot_pose_ekf)/robot_pose_ekf_outdoor.launch" />
   
-  <!--bringup ur5 robot arm-->
+  <!--启动 ur5 机械臂-->
   <include file="$(find ur_modern_driver)/launch/ur5_bringup.launch" />
 
   <!--发布静态的tf--><!--需要几个link-->
- <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.450 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
+  <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser" args="0.450 0 0.155 0 0 3.1416  /car_link /velodyne 0" />
 
   <!--运行模型显示节点-->
   <include file="$(find bit_robotcar)/launch/view_ur5e_challenge2.launch" />
