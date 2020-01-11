@@ -312,40 +312,40 @@ class pick_put_act(object):
             pose = rob.getl()
             initj = rob.getj()
 
-            # #================ 1. 寻找砖堆 ================#
-            # # 1.1 机械臂移动至观察砖堆准备位姿
-            # rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
+            #================ 1. 寻找砖堆 ================#
+            # 1.1 机械臂移动至观察砖堆准备位姿
+            rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
-            # # 1.2 小车遍历场地， 基于视觉寻找砖堆
-            # out = 0
-            # while True:         # Todo 避免进入死循环
-            #     VisionData = GetVisionData_client(GetBrickLoc, "R")    # 数据是在base_link坐标系下的
-            #     if VisionData.Flag:     # 能够看到
-            #         rospy.loginfo("Found Brick Dui")
-            #         theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
-            #         distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
-            #         rospy.logwarn(distance)
-            #         if distance > 3:
-            #             CarMove(-VisionData.Pose.position.y-0.5, VisionData.Pose.position.x,theta,"car_link")
-            #         else:
-            #             CarStop()
+            # 1.2 小车遍历场地， 基于视觉寻找砖堆
+            out = 0
+            while True:         # Todo 避免进入死循环
+                VisionData = GetVisionData_client(GetBrickLoc, "R")    # 数据是在base_link坐标系下的
+                if VisionData.Flag:     # 能够看到
+                    rospy.loginfo("Found Brick Dui")
+                    theta = math.atan2(-VisionData.Pose.position.y,-VisionData.Pose.position.x)-90*deg2rad
+                    distance = (VisionData.Pose.position.y **2 +VisionData.Pose.position.x**2)**0.5
+                    rospy.logwarn("Vision Distance: %f"%distance)
+                    if distance > 3:
+                        CarMove(-VisionData.Pose.position.y-0.5, VisionData.Pose.position.x,theta,"car_link")
+                    else:
+                        CarStop()
 
-            #         while True:     # 激光雷达接手
-            #             LaserData = Laser_client("R")       # 调用激光雷达检测的服务
-            #             if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
-            #                 # CarStop()
-            #                 out = 1
-            #                 break
-            #     else:
-            #         rospy.loginfo("Mei Found Brick Dui")
-            #         # 遍历场地 TODO
-            #     if out :
-            #         break
-            # rospy.logwarn("Got Laser ")
-            # rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
-            # CarMove(LaserData.Pose.position.x, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True)
-            # # wait()
-            # self.show_tell("Arrived Bricks Position!")
+                    while True:     # 激光雷达接手
+                        LaserData = Laser_client("R")       # 调用激光雷达检测的服务
+                        if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
+                            # CarStop()
+                            out = 1
+                            break
+                else:
+                    rospy.loginfo("Mei Found Brick Dui")
+                    # 遍历场地 TODO
+                if out :
+                    break
+            rospy.logwarn("Got Laser ")
+            rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
+            CarMove(LaserData.Pose.position.x, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True)
+            # wait()
+            self.show_tell("Arrived Bricks Position!")
             #================ 2. 到达砖堆橙色处，开始取砖 ================#
             
             brickIndex = 0
@@ -357,14 +357,14 @@ class pick_put_act(object):
                 # 或者直接移动
                 
                 # # 2.2 机械臂取砖
-                for attempt in range(0,3):  # 最大尝试次数3
-                    result_ = self.goGetBrick(goal.bricks[brickIndex])
-                    if result_ == SUCCESS:
-                        # 记录当前点为这种砖的位置
-                        self.show_tell("finished !PICK! brick %d,go get next" %brickIndex)
-                        brickIndex = brickIndex + 1     # 成功了就取下一块  
-                        break
-                # brickIndex = brickIndex + 1     # 成功了就取下一块  
+                # for attempt in range(0,3):  # 最大尝试次数3
+                #     result_ = self.goGetBrick(goal.bricks[brickIndex])
+                #     if result_ == SUCCESS:
+                #         # 记录当前点为这种砖的位置
+                #         self.show_tell("finished !PICK! brick %d,go get next" %brickIndex)
+                #         brickIndex = brickIndex + 1     # 成功了就取下一块  
+                #         break
+                brickIndex = brickIndex + 1     # 成功了就取下一块  
 
                 if goal.bricks[brickIndex].type != last_type:
                     CarMove(-2.0, 0, 0, frame_id="car_link", wait = True)
