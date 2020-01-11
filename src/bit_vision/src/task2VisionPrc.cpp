@@ -47,10 +47,11 @@ using namespace cv;
 # define GetBrickPoseMERO   1
 # define GetBrickPoseMERC   2  
 # define GetBrickPoseZED    3  
-# define GetBrickLoc        4
-# define GetPutPos          5
-# define GetPutAngle        6
-# define GetLPose           7
+# define GetBrickPoseZEDNew 4  
+# define GetBrickLoc        5
+# define GetPutPos          6
+# define GetPutAngle        7
+# define GetLPose           8
 # define NotRun             0
 
 int algorithm = GetBrickPoseMERO;     // 当前算法
@@ -66,6 +67,9 @@ tf::StampedTransform transform_MEROnBase;
 tf::StampedTransform transform_ZEDLOnBase;
 tf::StampedTransform transform_ZEDROnBase;
 
+void get_rectangle2_points (HTuple hv_CenterY, HTuple hv_CenterX, HTuple hv_Phi, 
+    HTuple hv_Len1, HTuple hv_Len2, HTuple *hv_VertexesY, HTuple *hv_VertexesX);
+
 void get_cam_par_data (HTuple hv_CameraParam, HTuple hv_ParamName, HTuple *hv_ParamValue);
 // Chapter: Calibration / Camera Parameters
 // Short Description: Get the names of the parameters in a camera parameter tuple. 
@@ -74,6 +78,95 @@ void get_cam_par_names (HTuple hv_CameraParam, HTuple *hv_CameraType, HTuple *hv
 // Short Description: Set the value of a specified camera parameter in the camera parameter tuple. 
 void set_cam_par_data (HTuple hv_CameraParamIn, HTuple hv_ParamName, HTuple hv_ParamValue, 
     HTuple *hv_CameraParamOut);
+
+
+void get_rectangle2_points (HTuple hv_CenterY, HTuple hv_CenterX, HTuple hv_Phi, 
+    HTuple hv_Len1, HTuple hv_Len2, HTuple *hv_VertexesY, HTuple *hv_VertexesX)
+{
+
+  // Local iconic variables
+
+  // Local control variables
+  HTuple  hv_RowTem, hv_ColTem, hv_Cos, hv_Sin;
+
+  //Initialize the variable for coordinate of vertexes of rectangle2
+
+  (*hv_VertexesY) = HTuple();
+
+  (*hv_VertexesX) = HTuple();
+
+
+
+  //Initialize the temperary variables
+
+  hv_RowTem = 0;
+
+  hv_ColTem = 0;
+
+  //Judge the rectangle if it is available
+
+  if (0 != (HTuple(hv_Len1<0).TupleOr(hv_Len2<0)))
+  {
+
+    return;
+
+  }
+
+  //Compute the sine and cosine of tuple Phi
+
+  TupleCos(hv_Phi, &hv_Cos);
+
+  TupleSin(hv_Phi, &hv_Sin);
+
+  //Compute the coordinate of the upper-right vertex of rectangle
+
+  hv_RowTem = (hv_CenterY-(hv_Len1*hv_Sin))-(hv_Len2*hv_Cos);
+
+  hv_ColTem = (hv_CenterX+(hv_Len1*hv_Cos))-(hv_Len2*hv_Sin);
+
+  (*hv_VertexesY) = (*hv_VertexesY).TupleConcat(hv_RowTem);
+
+  (*hv_VertexesX) = (*hv_VertexesX).TupleConcat(hv_ColTem);
+
+
+
+  //Compute the coordinate of the upper-left vertex of rectangle
+
+  hv_RowTem = (hv_CenterY+(hv_Len1*hv_Sin))-(hv_Len2*hv_Cos);
+
+  hv_ColTem = (hv_CenterX-(hv_Len1*hv_Cos))-(hv_Len2*hv_Sin);
+
+  (*hv_VertexesY) = (*hv_VertexesY).TupleConcat(hv_RowTem);
+
+  (*hv_VertexesX) = (*hv_VertexesX).TupleConcat(hv_ColTem);
+
+
+
+  //Compute the coordinate of the bottom-left vertex of rectangle
+
+  hv_RowTem = (hv_CenterY+(hv_Len1*hv_Sin))+(hv_Len2*hv_Cos);
+
+  hv_ColTem = (hv_CenterX-(hv_Len1*hv_Cos))+(hv_Len2*hv_Sin);
+
+  (*hv_VertexesY) = (*hv_VertexesY).TupleConcat(hv_RowTem);
+
+  (*hv_VertexesX) = (*hv_VertexesX).TupleConcat(hv_ColTem);
+
+
+
+  //Compute the coordinate of the bottom-right vertex of rectangle
+
+  hv_RowTem = (hv_CenterY-(hv_Len1*hv_Sin))+(hv_Len2*hv_Cos);
+
+  hv_ColTem = (hv_CenterX+(hv_Len1*hv_Cos))+(hv_Len2*hv_Sin);
+
+  (*hv_VertexesY) = (*hv_VertexesY).TupleConcat(hv_RowTem);
+
+  (*hv_VertexesX) = (*hv_VertexesX).TupleConcat(hv_ColTem);
+
+  return;
+}
+
 
 // Procedures 
 // External procedures 
@@ -1204,6 +1297,314 @@ void rectangle_pose_ZED(HObject ho_Image, double Pose[6], bool &Flag)
 
 }
 
+// 1.4 ZED相机校正后图像新方法定位矩形标志
+void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &OrangeIndex)
+{
+  // Local iconic variables
+  HObject  ho_ClassRegions, ho_ColorObjectSelected;
+  HObject  ho_RectangleSelect, ho_GrayImage, ho_Red, ho_Green;
+  HObject  ho_Blue, ho_Hue, ho_Saturation, ho_Intensity, ho_ImageMedian;
+  HObject  ho_DynRegion, ho_Contours, ho_FilledRegion, ho_SelectedRegions11;
+  HObject  ho_SelectedRegions12, ho_SelectedRegions13, ho_SelectedRegions14;
+  HObject  ho_ImageSub, ho_SelectedRegions21, ho_SelectedRegions22;
+  HObject  ho_SelectedRegions23, ho_SelectedRegions24, ho_RegionIntersection;
+  HObject  ho_RegionDifference1, ho_RegionDifference2, ho_RegionOpening1;
+  HObject  ho_RegionOpening2, ho_RegionUnion1, ho_RegionUnion;
+  HObject  ho_ConnectedRegions, ho_ObjectSelected, ho_ObjectROI_2;
+  HObject  ho_OrangeRegions, ho_OrangeSelected, ho_Rectangle1;
+  HObject  ho_Rectangle, ho_RectangleLeft, ho_ImageReducedLeft;
+  HObject  ho_LeftRegions, ho_ObjectSelectedLeft, ho_RectangleRight;
+  HObject  ho_ImageReducedRight, ho_RightRegions, ho_ObjectSelectedRight;
+  HObject  ho_Cross, ho_ResultContour, ho_Contour, ho_ROIContour;
+  HObject  ho_ClosedContours, ho_RegionROI, ho_ContoursROI;
+  HObject  ho_ContoursSelected;
+
+  // Local control variables
+  HTuple  hv_pathFile, hv_MLPHandle, hv_CamParOriginal;
+  HTuple  hv_ImageFiles, hv_Brick_color, hv_Index;
+  HTuple  hv_pose, hv_RectWidth, hv_RectHeight, hv_color_index;
+  HTuple  hv_RowSelect, hv_ColumnSelect, hv_PhiSelect, hv_Length1Select;
+  HTuple  hv_Length2Select, hv_Number, hv_REC, hv_index, hv_indexes_REC;
+  HTuple  hv_Row2, hv_Column2, hv_Phi1, hv_Length11, hv_Length21;
+  HTuple  hv_NumberOrange, hv_Row, hv_Column, hv_Phi, hv_Length1;
+  HTuple  hv_Length2, hv_AreaAnchor, hv_AreaLeft, hv_Row1;
+  HTuple  hv_Column1, hv_AreaRight, hv_CenterY, hv_CenterX;
+  HTuple  hv_Len1, hv_Len2, hv_Area, hv_VertexesY, hv_VertexesX;
+  HTuple  hv_Width, hv_Height, hv_MetrologyHandle, hv_LineRow1;
+  HTuple  hv_LineColumn1, hv_LineRow2, hv_LineColumn2, hv_Tolerance;
+  HTuple  hv_Index1, hv_RowBegin, hv_ColBegin, hv_RowEnd;
+  HTuple  hv_ColEnd, hv_Nr, hv_Nc, hv_Dist, hv_J, hv_IsOverlapping;
+  HTuple  hv_Rows, hv_Columns, hv_Pose, hv_CovPose, hv_Error;
+  HTuple  hv_Exception;
+
+  try
+  {
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/brick_color_classify_0111.mlp";
+    ReadClassMlp(hv_pathFile, &hv_MLPHandle);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParOriginal);
+    OrangeIndex = 0;
+    hv_pose = HTuple();
+
+    //step1:根据颜色提取指定颜色的砖块区域
+    if (brick_color=="O")
+    {
+      hv_RectWidth = 0.19;
+      hv_RectHeight = 0.15;
+      hv_color_index = 4;
+    }
+    else if (brick_color=="B")
+    {
+      hv_RectWidth = 0.3;
+      hv_RectHeight = 0.15;
+      hv_color_index = 3;
+    }
+    else if (brick_color=="G")
+    {
+      hv_RectWidth = 0.3;
+      hv_RectHeight = 0.15;
+      hv_color_index = 2;
+    }
+    else if (brick_color=="R")
+    {
+      hv_RectWidth = 0.2;
+      hv_RectHeight = 0.15;
+      hv_color_index = 1;
+    }
+
+    //颜色分类
+    ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
+    SelectObj(ho_ClassRegions, &ho_ColorObjectSelected, hv_color_index);
+    SmallestRectangle2(ho_ColorObjectSelected, &hv_RowSelect, &hv_ColumnSelect, &hv_PhiSelect, 
+        &hv_Length1Select, &hv_Length2Select);
+    GenRectangle2(&ho_RectangleSelect, hv_RowSelect, hv_ColumnSelect, hv_PhiSelect, 
+        hv_Length1Select, hv_Length2Select);
+
+    Rgb1ToGray(ho_Image, &ho_GrayImage);
+    Decompose3(ho_Image, &ho_Red, &ho_Green, &ho_Blue);
+    TransFromRgb(ho_Red, ho_Green, ho_Blue, &ho_Hue, &ho_Saturation, &ho_Intensity, "hsv");
+
+    //方式一
+    MedianImage(ho_Saturation, &ho_ImageMedian, "square", 9, "mirrored");
+    VarThreshold(ho_ImageMedian, &ho_DynRegion, 35, 35, 0.2, 5, "dark");
+    GenContourRegionXld(ho_DynRegion, &ho_Contours, "border");
+    GenRegionContourXld(ho_Contours, &ho_FilledRegion, "filled");
+    //分开写便于调试参数
+    SelectShape(ho_FilledRegion, &ho_SelectedRegions11, "rectangularity", "and", 0.7, 1.0);
+    SelectShape(ho_SelectedRegions11, &ho_SelectedRegions12, (HTuple("rect2_len1").Append("rect2_len2")), "and", (HTuple(80).Append(70)), (HTuple(999).Append(999)));
+    SelectGray(ho_SelectedRegions12, ho_ImageMedian, &ho_SelectedRegions13, "mean", "and", 0, 70);
+    SelectGray(ho_SelectedRegions13, ho_ImageMedian, &ho_SelectedRegions14, "deviation", "and", 0, 50);
+
+    //方式二
+    SubImage(ho_GrayImage, ho_Saturation, &ho_ImageSub, 1, 0);
+    MedianImage(ho_ImageSub, &ho_ImageMedian, "square", 9, "mirrored");
+    VarThreshold(ho_ImageMedian, &ho_DynRegion, 35, 35, 0.2, 5, "light");
+    GenContourRegionXld(ho_DynRegion, &ho_Contours, "border");
+    GenRegionContourXld(ho_Contours, &ho_FilledRegion, "filled");
+    //分开写便于调试参数
+    SelectShape(ho_FilledRegion, &ho_SelectedRegions21, "rectangularity", "and", 0.7, 1.0);
+    SelectShape(ho_SelectedRegions21, &ho_SelectedRegions22, (HTuple("rect2_len1").Append("rect2_len2")),  "and", (HTuple(80).Append(70)), (HTuple(999).Append(999)));
+    SelectGray(ho_SelectedRegions22, ho_ImageMedian, &ho_SelectedRegions23, "mean", "and", 70, 255);
+    SelectGray(ho_SelectedRegions23, ho_ImageMedian, &ho_SelectedRegions24, "deviation", "and", 0, 50);
+
+    //方式一与方式二结果合并
+    Intersection(ho_SelectedRegions14, ho_SelectedRegions24, &ho_RegionIntersection);
+    Difference(ho_SelectedRegions14, ho_SelectedRegions24, &ho_RegionDifference1);
+    Difference(ho_SelectedRegions24, ho_SelectedRegions14, &ho_RegionDifference2);
+
+    OpeningCircle(ho_RegionDifference1, &ho_RegionOpening1, 15);
+    OpeningCircle(ho_RegionDifference2, &ho_RegionOpening2, 15);
+    Union2(ho_RegionIntersection, ho_RegionOpening1, &ho_RegionUnion1);
+    Union2(ho_RegionUnion1, ho_RegionOpening2, &ho_RegionUnion);
+
+    Connection(ho_RegionUnion, &ho_ConnectedRegions);
+
+    Intersection(ho_RectangleSelect, ho_ConnectedRegions, &ho_ConnectedRegions);
+    CountObj(ho_ConnectedRegions, &hv_Number);
+
+    //判断合并后的结果是否为空
+    if (hv_Number==0)
+    {
+      Flag = false;
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = 0.0;
+      }
+      ROS_WARN("Can't find brick");
+      return;
+    }
+    else
+    {
+      //如果含有多个,自己定义选择
+      RegionFeatures(ho_ConnectedRegions, "row", &hv_REC);
+      TupleSortIndex(hv_REC, &hv_index);
+      TupleInverse(hv_index, &hv_indexes_REC);
+      hv_index = HTuple(hv_indexes_REC[0])+1;
+      SelectObj(ho_ConnectedRegions, &ho_ObjectSelected, hv_index);
+      ho_ObjectROI_2 = ho_ObjectSelected;
+      //only one region selected
+    }
+
+    //judge the color is orange?
+    if (brick_color=="O")
+    {
+      ClassifyImageClassMlp(ho_Image, &ho_OrangeRegions, hv_MLPHandle, 0.9);
+      SelectObj(ho_OrangeRegions, &ho_OrangeSelected, 4);
+      SmallestRectangle2(ho_OrangeSelected, &hv_Row2, &hv_Column2, &hv_Phi1, &hv_Length11, &hv_Length21);
+      GenRectangle2(&ho_Rectangle1, hv_Row2, hv_Column2, hv_Phi1, hv_Length11, hv_Length21);
+      Intersection(ho_Rectangle1, ho_ObjectSelected, &ho_RegionIntersection);
+      CountObj(ho_RegionIntersection, &hv_NumberOrange);
+
+      if (hv_NumberOrange==0)
+      {
+        Flag = false;
+        for(int i=0;i<6;i++)
+        {
+          Pose[i] = 0.0;
+        }
+        ROS_WARN("Can't find orange brick");
+        return;
+      }
+
+      SmallestRectangle2(ho_RegionIntersection, &hv_Row, &hv_Column, &hv_Phi, &hv_Length1, &hv_Length2);
+      GenRectangle2(&ho_Rectangle, hv_Row, hv_Column, hv_Phi, hv_Length1, hv_Length2);
+      AreaCenter(ho_Rectangle, &hv_AreaAnchor, &hv_Row, &hv_Column);
+
+      //Left region
+      GenRectangle2(&ho_RectangleLeft, hv_Row, hv_Column-(2.5*hv_Length2), hv_Phi, hv_Length1, hv_Length2);
+      ReduceDomain(ho_Image, ho_RectangleLeft, &ho_ImageReducedLeft);
+      ClassifyImageClassMlp(ho_ImageReducedLeft, &ho_LeftRegions, hv_MLPHandle, 0.9);
+      SelectObj(ho_LeftRegions, &ho_ObjectSelectedLeft, 4);
+      AreaCenter(ho_ObjectSelectedLeft, &hv_AreaLeft, &hv_Row1, &hv_Column1);
+
+      //Right Region
+      GenRectangle2(&ho_RectangleRight, hv_Row, hv_Column+(2.5*hv_Length2), hv_Phi, hv_Length1, hv_Length2);
+      ReduceDomain(ho_Image, ho_RectangleRight, &ho_ImageReducedRight);
+      ClassifyImageClassMlp(ho_ImageReducedRight, &ho_RightRegions, hv_MLPHandle, 0.9);
+      SelectObj(ho_RightRegions, &ho_ObjectSelectedRight, 4);
+      AreaCenter(ho_ObjectSelectedRight, &hv_AreaRight, &hv_Row1, &hv_Column1);
+
+      if (hv_AreaLeft>(hv_AreaAnchor*0.4))
+      {
+        if (hv_AreaRight>(hv_AreaAnchor*0.4))
+        {
+          OrangeIndex = 0;     // Center
+        }
+        else
+        {
+          OrangeIndex = 1;     // Right
+        }
+      }
+      else
+      {
+        OrangeIndex = -1;      // Left
+      }
+      ho_ObjectSelected = ho_RegionIntersection;
+    }
+
+    SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, &hv_Len2);
+
+    AreaCenter(ho_ObjectSelected, &hv_Area, &hv_Row, &hv_Column);
+
+    GenRectangle2(&ho_Rectangle, hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2);
+    get_rectangle2_points(hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2, &hv_VertexesY, &hv_VertexesX);
+    GenCrossContourXld(&ho_Cross, hv_VertexesY, hv_VertexesX, 60, hv_Phi);
+
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    CreateMetrologyModel(&hv_MetrologyHandle);
+    SetMetrologyModelImageSize(hv_MetrologyHandle, hv_Width, hv_Height);
+
+    hv_LineRow1.Clear();
+    hv_LineRow1.Append(HTuple(hv_VertexesY[0]));
+    hv_LineRow1.Append(HTuple(hv_VertexesY[1]));
+    hv_LineRow1.Append(HTuple(hv_VertexesY[2]));
+    hv_LineRow1.Append(HTuple(hv_VertexesY[3]));
+    hv_LineColumn1.Clear();
+    hv_LineColumn1.Append(HTuple(hv_VertexesX[0]));
+    hv_LineColumn1.Append(HTuple(hv_VertexesX[1]));
+    hv_LineColumn1.Append(HTuple(hv_VertexesX[2]));
+    hv_LineColumn1.Append(HTuple(hv_VertexesX[3]));
+    hv_LineRow2.Clear();
+    hv_LineRow2.Append(HTuple(hv_VertexesY[1]));
+    hv_LineRow2.Append(HTuple(hv_VertexesY[2]));
+    hv_LineRow2.Append(HTuple(hv_VertexesY[3]));
+    hv_LineRow2.Append(HTuple(hv_VertexesY[0]));
+    hv_LineColumn2.Clear();
+    hv_LineColumn2.Append(HTuple(hv_VertexesX[1]));
+    hv_LineColumn2.Append(HTuple(hv_VertexesX[2]));
+    hv_LineColumn2.Append(HTuple(hv_VertexesX[3]));
+    hv_LineColumn2.Append(HTuple(hv_VertexesX[0]));
+
+    hv_Tolerance = 50;
+
+    AddMetrologyObjectLineMeasure(hv_MetrologyHandle, hv_LineRow1, hv_LineColumn1,hv_LineRow2, hv_LineColumn2, hv_Tolerance, 50, 1.5, 15, HTuple(), HTuple(), &hv_Index1);
+    SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "num_instances", 1);
+    SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "measure_select", "first");
+    SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "min_score", .7);
+
+    ApplyMetrologyModel(ho_Saturation, hv_MetrologyHandle);
+
+    //Access results
+    GetMetrologyObjectResultContour(&ho_ResultContour, hv_MetrologyHandle, "all", "all", 1.5);
+    GetMetrologyObjectMeasures(&ho_Contour, hv_MetrologyHandle, "all", "all", &hv_Row1, &hv_Column1);
+    GenCrossContourXld(&ho_Cross, hv_Row1, hv_Column1, 16, 0.785398);
+
+    FitLineContourXld(ho_ResultContour, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+    //Find intersection points [Rows, Columns]
+    for (hv_J=0; hv_J<=3; hv_J+=1)
+    {
+      IntersectionLines(HTuple(hv_RowBegin[hv_J]), HTuple(hv_ColBegin[hv_J]), HTuple(hv_RowEnd[hv_J]), 
+                        HTuple(hv_ColEnd[hv_J]), HTuple(hv_RowBegin[(hv_J+1)%4]), HTuple(hv_ColBegin[(hv_J+1)%4]), 
+                        HTuple(hv_RowEnd[(hv_J+1)%4]), HTuple(hv_ColEnd[(hv_J+1)%4]), &hv_Row, &hv_Column, &hv_IsOverlapping);
+      GenCrossContourXld(&ho_Cross, hv_Row, hv_Column, 60, 0.785398);
+      hv_Rows[hv_J] = hv_Row;
+      hv_Columns[hv_J] = hv_Column;
+    }
+
+    GenContourPolygonXld(&ho_ROIContour, hv_Rows, hv_Columns);
+    CloseContoursXld(ho_ROIContour, &ho_ClosedContours);
+
+    GenRegionContourXld(ho_ClosedContours, &ho_RegionROI, "filled");
+    GenContourRegionXld(ho_RegionROI, &ho_ContoursROI, "border");
+
+    try
+    {
+      GetRectanglePose(ho_ContoursROI, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = hv_Pose[i].D();
+      }
+      Flag = true;
+    }
+    catch (HException &HDevExpDefaultException)
+    {
+      HDevExpDefaultException.ToHTuple(&hv_Exception);
+      GenContourRegionXld(ho_ObjectROI_2, &ho_ContoursSelected, "border");
+      GetRectanglePose(ho_ContoursSelected, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
+          "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = hv_Pose[i].D();
+      }
+      Flag = true;
+    }
+}
+  // catch (Exception) 
+  catch (HException &exception)
+  {
+    Flag = false;
+    for(int i=0;i<6;i++)
+    {
+      Pose[i] = 0.0;
+    }
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+        (const char *)exception.ProcName(),
+        (const char *)exception.ErrorMessage());
+  }
+
+
+}
+
+
 // 2.定位砖堆位置 图像来源:zed 双目
 void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], bool &Flag)
 {
@@ -1226,7 +1627,7 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
       ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
       ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
 
-      hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
+      hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/brick_color_classify_0111.mlp";
       ReadClassMlp(hv_pathFile, &hv_MLPHandle);
       //识别
       
@@ -1290,7 +1691,7 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
     }
     catch (HException &exception)
     {
-      ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+      ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
               (const char *)exception.ErrorMessage());
       Flag = false;
@@ -1299,7 +1700,7 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
   }
   catch (HException &exception)
   {
-    ROS_ERROR("11  Error #%u in %s: %s\n", exception.ErrorCode(),
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
               (const char *)exception.ProcName(),
               (const char *)exception.ErrorMessage());
     Flag = false;
@@ -1330,7 +1731,7 @@ void put_brick(HObject ho_Image1, double Pose[6], bool &Flag)
   try
   {
     //读入训练好的分割模型
-    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/brick_color_classify_0111.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
     ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", 
         &hv_CameraParam);
@@ -1438,7 +1839,7 @@ void put_brick(HObject ho_Image1, double Pose[6], bool &Flag)
   }
   catch (HException &exception)
   {
-    ROS_ERROR("33  Error #%u in %s: %s\n", exception.ErrorCode(),
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
             (const char *)exception.ProcName(),
             (const char *)exception.ErrorMessage());
     Flag = false;
@@ -1535,7 +1936,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
     double MERPose[6];
     bool MER_flag = false;     // 数据置信度
     bool ZED_flag = false;     // 数据置信度
-
+    int OrangeIndex = 0;        // 橙色砖块位置检测标志
     // Local control variables
     HTuple  hv_MSecond, hv_Second, hv_Minute, hv_Hour;
     HTuple  hv_Day, hv_YDay, hv_Month, hv_Year;
@@ -1561,6 +1962,12 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/Pose/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             rectangle_pose_ZED(ho_ImageR, ZEDPose, ZED_flag);
             ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
+            break;
+        case GetBrickPoseZEDNew:
+            //取砖块的位姿 输入为 ZED 图像 新方法
+            rectangle_pose_ZED_new(ho_ImageR, ZEDPose, ZED_flag, OrangeIndex);
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/bit_mbzirc/src/bit_vision/image/ZED/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]<<", Index:"<<OrangeIndex);
             break;
         case GetBrickLoc:
             //定位砖堆位置 输入为zed双目
@@ -1652,6 +2059,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         res.VisionData.Pose.orientation.y = transform_TargetOnBase.getRotation().getY();
         res.VisionData.Pose.orientation.z = transform_TargetOnBase.getRotation().getZ();
         res.VisionData.Pose.orientation.w = transform_TargetOnBase.getRotation().getW();
+        res.VisionData.OrangeIndex = OrangeIndex;
     }
     else    // 如果没有识别结果
     {
@@ -1666,6 +2074,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         res.VisionData.Pose.orientation.y = 0.0;
         res.VisionData.Pose.orientation.z = 0.0;
         res.VisionData.Pose.orientation.w = 0.0;
+        res.VisionData.OrangeIndex = 0;
     }
     algorithm = NotRun;
 }
