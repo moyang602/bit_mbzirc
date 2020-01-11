@@ -106,6 +106,7 @@ a = np.array([a1, a2, a3, a4, a5, a6]) # unit: mm
 # alpha = np.array([0.0, pi/2, 0.0, 0.0, pi/2, -pi/2]) # unit: radian   MDH
 alpha = np.array([pi/2, 0, 0, pi/2, -pi/2, 0]) # unit: radian   SDH
 # Auxiliary Functions
+errorflag = [0,0,0,0,0,0,0,0]
 
 def ur2ros(ur_pose):
     """Transform pose from UR format to ROS Pose format.
@@ -214,11 +215,15 @@ def select(q_sols, q_d, w=[1]*6):
     Returns:
         A list of optimal joint value solution.
     """
-
+    global errorflag
     error = []
-    for q in q_sols:
-        error.append(sum([w[i] * (q[i] - q_d[i]) ** 2 for i in range(6)]))
-    
+    for i in range(8):
+        if errorflag[i] == 0:
+            q = q_sols[i]
+            error.append(sum([w[i] * (q[i] - q_d[i]) ** 2 for i in range(6)]))
+        else:
+            error.append(1000000)
+
     return q_sols[error.index(min(error))]
 
 
@@ -327,6 +332,8 @@ def inv_kin(p, q_d, i_unit='r', o_unit='r'):
     pz=T_06[2,3]
     
 
+    global errorflag
+    
 
     # theta1
     m = d6*ay - py 
@@ -348,11 +355,18 @@ def inv_kin(p, q_d, i_unit='r', o_unit='r'):
             theta5.append(value)
             theta5.append(-value)
         else:
-            return error
+            for j in range(4):
+                errorflag[2*j] = 1
+            continue
     for i in range(4):
-        theta[2*i, 4] = theta5[i]
-        theta[2*i+1, 4] = theta5[i]
-
+        if errorflag[2*i] == 0:
+            theta[2*i, 4] = theta5[i]
+        else:
+            theta[2*i, 4] = 0
+        if errorflag[2*i+1] == 0:
+            theta[2*i+1, 4] = theta5[i]
+        else:
+            theta[2*i+1, 4] = 0   
 
     # theta6
     for i in range(8):
@@ -361,11 +375,13 @@ def inv_kin(p, q_d, i_unit='r', o_unit='r'):
         s5 = sin(theta[i,4])
         m = nx*s1-ny*c1
         n = ox*s1-oy*c1
-        if fabs(s5)>1e-5:
+        if fabs(s5)>1e-5 and errorflag[i] == 0:
             theta6 = atan2(m,n)-atan2(s5,0)         # s5 != 0
             theta[i,5] = theta6
         else:
-            return error
+            errorflag[i] = 1
+            theta[i,5] = 0
+            continue
 
 
     # theta3                        
@@ -377,29 +393,43 @@ def inv_kin(p, q_d, i_unit='r', o_unit='r'):
         m = d5*(s6*(nx*c1+ny*s1)+c6*(ox*c1+oy*s1))-d6*(ax*c1+ay*s1)+px*c1+py*s1
         n = pz-d1-az*d6+d5*(oz*c6+nz*s6)
         if m**2 +n**2 <= (a2+a3)**2:
-            theta[2*i,2] = acos((m**2+n**2-a2**2-a3**2)/(2*a2*a3))                      #m^2 + n^2<(a2+a3)^2
-            theta[2*i+1,2] = -acos((m**2+n**2-a2**2-a3**2)/(2*a2*a3))
+            if errorflag[2*i]==0:
+                theta[2*i,2] = acos((m**2+n**2-a2**2-a3**2)/(2*a2*a3))                      #m^2 + n^2<(a2+a3)^2
+            else:
+                theta[2*i,2] = 0
+            if errorflag[2*i+1]==0:
+                theta[2*i+1,2] = -acos((m**2+n**2-a2**2-a3**2)/(2*a2*a3))
+            else:
+                theta[2*i+1,2] = 0
         else:
-            return error
+            errorflag[2*i] = 1
+            errorflag[2*i+1] = 1
+            continue
+
         for j in range(2):
             # theta2
-            s2=((a3*cos(theta[2*i+j,2])+a2)*n-a3*sin(theta[2*i+j,2])*m)/(a2**2+a3**2+2*a2*a3*cos(theta[2*i+j,2])) 
-            c2=(m+a3*sin(theta[2*i+j,2])*s2)/(a3*cos(theta[2*i+j,2])+a2)
-            theta[2*i+j,1] = atan2(s2,c2)
+            if errorflag[2*i+j] == 0:
+                s2=((a3*cos(theta[2*i+j,2])+a2)*n-a3*sin(theta[2*i+j,2])*m)/(a2**2+a3**2+2*a2*a3*cos(theta[2*i+j,2])) 
+                c2=(m+a3*sin(theta[2*i+j,2])*s2)/(a3*cos(theta[2*i+j,2])+a2)
+                theta[2*i+j,1] = atan2(s2,c2)
 
     # theta4
     for i in range(8):
-        m = -sin(theta[i,5])*(nx*cos(theta[i,0])+ny*sin(theta[i,0]))-cos(theta[i,5])*(ox*cos(theta[i,0])+oy*sin(theta[i,0]))
-        n = oz*cos(theta[i,5])+nz*sin(theta[i,5])
-        theta[i,3]=atan2(m,n)-theta[i,1]-theta[i,2]
+        if errorflag[i] == 0:
+            m = -sin(theta[i,5])*(nx*cos(theta[i,0])+ny*sin(theta[i,0]))-cos(theta[i,5])*(ox*cos(theta[i,0])+oy*sin(theta[i,0]))
+            n = oz*cos(theta[i,5])+nz*sin(theta[i,5])
+            theta[i,3]=atan2(m,n)-theta[i,1]-theta[i,2]
 
     for i in range(8):
         for j in range(6):
+            if errorflag[i]==1:
+                theta[i,j] = 0
             while theta[i,j] > pi:
                 theta[i,j] -= 2*pi
             while theta[i,j] <-pi:
                 theta[i,j] += 2*pi
-
+    
+    print theta
     theta = theta.tolist()
 
     # Select the most close solution
