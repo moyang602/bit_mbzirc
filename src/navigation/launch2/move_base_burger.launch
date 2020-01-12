@@ -11,6 +11,6 @@
     <rosparam file="$(find navigation)/param_turtle/burger/dwa_local_planner_params_burger.yaml" command="load" />
 	<!--rosparam file="$(find navigation)/config/base_local_planner_params.yaml" command="load" /-->
   </node>
-
+<!--output="screen"-->
 
 </launch>

@@ -16,6 +16,7 @@ from skimage import io
 import numpy as np
 import matplotlib.pyplot as plt
 import tf
+import os
 
 # import sys
 # sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
@@ -53,9 +54,7 @@ def scan_callback(msg):
             if math.fabs(x) < Map_size - 0.1 and math.fabs(y) < Map_size - 0.1 :
                 image[-int(round(x/resolution)) + imagesize ,-int(round(y/resolution)) + imagesize] = 255
 
-    # 保存图片
-    save = np.array(image,dtype=np.uint8)
-    io.imsave('./my_map.png', save)     # 修改为合适的路径
+
 
     # 进行hough线变换
     h, theta, d = st.hough_line(image)
@@ -63,7 +62,7 @@ def scan_callback(msg):
     # hough概率变换
     # lines = st.probabilistic_hough_line(image, threshold=10, line_length=40,line_gap=20)
 
-
+num = 0
 def LaserProcHandle(req):
     res = LaserProcResponse()
     pos = Pose()
@@ -108,6 +107,12 @@ def LaserProcHandle(req):
                         pos.orientation.z = ori[2]
                         pos.orientation.w = ori[3]
 
+                        os.system('gnome-screenshot -f /home/ugvcontrol/image/Laser/' + str(rospy.Time.now().to_sec())+ '.png')
+                        # 保存图片
+                        # global num
+                        # save = np.array(image,dtype=np.uint8)
+                        # io.imsave('/home/ugvcontrol/image/Laser/my_map' + str(num) + '.png', save)     # 修改为合适的路径
+                        # num += 1
                         res.VisionData.Pose = pos
                         resultok = 1
                         break
@@ -118,7 +123,8 @@ def LaserProcHandle(req):
             else:
                 res.VisionData.Flag = 0
                 res.VisionData.header.stamp = rospy.Time.now()
-    except:
+    except Exception as e:
+        print(e)
         res.VisionData.Flag = 0
         res.VisionData.header.stamp = rospy.Time.now()
     finally:

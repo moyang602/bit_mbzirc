@@ -63,21 +63,27 @@ vector<vector<double>> BrickPlan::get_specified_layer_of_wall_2(int layer) {
 	switch(layer)
 	{
 		case 0:
-			for (size_t i = 0; i < 3; i++)
+			for (size_t i = 3; i > 0; i--)
 			{
-				vector<double> brick1{ 0.1, 3.2, 0.2+i*0.2 };
-				vector<double> brick2{ 0.1, 1.4, 0.2+layer*0.2 };
+				vector<double> brick1{ 0.1, 3.2, 0.2+(i-1)*0.2 };
 				res.push_back(brick1);
+			}
+			for (size_t i = 3; i> 0; i--)
+			{
+				vector<double> brick2{ 0.1, 1.4, 0.2+(i-1)*0.2 };
 				res.push_back(brick2);
 			}
 			break;
 
 		case 1:
-			for (size_t i = 3; i < 5; i++)
+			for (size_t i = 5; i > 3; i--)
 			{
-				vector<double> brick1{ 0.1, 3.2, 0.2+i*0.2 };
-				vector<double> brick2{ 0.1, 1.4, 0.2+layer*0.2 };
+				vector<double> brick1{ 0.1, 3.2, 0.2+(i-1)*0.2 };
 				res.push_back(brick1);
+			}
+			for (size_t i = 5; i > 3; i--)
+			{
+				vector<double> brick2{ 0.1, 1.4, 0.2+(i-1)*0.2 };
 				res.push_back(brick2);
 			}
 			break;

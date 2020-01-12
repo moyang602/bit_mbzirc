@@ -1340,7 +1340,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
 
   try
   {
-    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/brick_color_classify_0111.mlp";
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
     ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParOriginal);
     OrangeIndex = 0;
@@ -1351,25 +1351,25 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     {
       hv_RectWidth = 0.19;
       hv_RectHeight = 0.15;
-      hv_color_index = 4;
+      hv_color_index = 1;
     }
     else if (brick_color=="B")
     {
       hv_RectWidth = 0.3;
       hv_RectHeight = 0.15;
-      hv_color_index = 3;
+      hv_color_index = 2;
     }
     else if (brick_color=="G")
     {
       hv_RectWidth = 0.3;
       hv_RectHeight = 0.15;
-      hv_color_index = 2;
+      hv_color_index = 3;
     }
     else if (brick_color=="R")
     {
       hv_RectWidth = 0.2;
       hv_RectHeight = 0.15;
-      hv_color_index = 1;
+      hv_color_index = 4;
     }
 
     GetImageSize(ho_Image, &hv_Width, &hv_Height);
@@ -1458,7 +1458,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     if (brick_color=="O")
     {
       ClassifyImageClassMlp(ho_Image, &ho_OrangeRegions, hv_MLPHandle, 0.9);
-      SelectObj(ho_OrangeRegions, &ho_OrangeSelected, 4);
+      SelectObj(ho_OrangeRegions, &ho_OrangeSelected, 1);
       SmallestRectangle2(ho_OrangeSelected, &hv_Row2, &hv_Column2, &hv_Phi1, &hv_Length11, &hv_Length21);
       GenRectangle2(&ho_Rectangle1, hv_Row2, hv_Column2, hv_Phi1, hv_Length11, hv_Length21);
       Intersection(ho_Rectangle1, ho_ObjectSelected, &ho_RegionIntersection);
@@ -1485,7 +1485,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
           hv_Length2);
       ReduceDomain(ho_Image, ho_RectangleLeft, &ho_ImageReducedLeft);
       ClassifyImageClassMlp(ho_ImageReducedLeft, &ho_LeftRegions, hv_MLPHandle, 0.9);
-      SelectObj(ho_LeftRegions, &ho_ObjectSelectedLeft, 4);
+      SelectObj(ho_LeftRegions, &ho_ObjectSelectedLeft, 1);
       AreaCenter(ho_ObjectSelectedLeft, &hv_AreaLeft, &hv_Row1, &hv_Column1);
 
       //Right Region
@@ -1494,7 +1494,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
           hv_Length2);
       ReduceDomain(ho_Image, ho_RectangleRight, &ho_ImageReducedRight);
       ClassifyImageClassMlp(ho_ImageReducedRight, &ho_RightRegions, hv_MLPHandle, 0.9);
-      SelectObj(ho_RightRegions, &ho_ObjectSelectedRight, 4);
+      SelectObj(ho_RightRegions, &ho_ObjectSelectedRight, 1);
       AreaCenter(ho_ObjectSelectedRight, &hv_AreaRight, &hv_Row1, &hv_Column1);
 
       if (hv_AreaLeft>(hv_AreaAnchor*0.4))
@@ -1643,7 +1643,7 @@ void color_bricks_location(HObject ho_ImageL,HObject ho_ImageR, double Pose[6], 
       ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", &hv_CamParam1);
       ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CamParam2);
 
-      hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/brick_color_classify_0111.mlp";
+      hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
       ReadClassMlp(hv_pathFile, &hv_MLPHandle);
       //识别
       
@@ -1747,7 +1747,7 @@ void put_brick(HObject ho_Image1, double Pose[6], bool &Flag)
   try
   {
     //读入训练好的分割模型
-    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/brick_color_classify_0111.mlp";
+    hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
     ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar1_01.dat", 
         &hv_CameraParam);
