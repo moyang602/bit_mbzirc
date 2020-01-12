@@ -1302,11 +1302,13 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
 {
   // Local iconic variables
   HObject  ho_ClassRegions, ho_ColorObjectSelected;
-  HObject  ho_RectangleSelect, ho_GrayImage, ho_Red, ho_Green;
-  HObject  ho_Blue, ho_Hue, ho_Saturation, ho_Intensity, ho_ImageMedian;
-  HObject  ho_DynRegion, ho_Contours, ho_FilledRegion, ho_SelectedRegions11;
-  HObject  ho_SelectedRegions12, ho_SelectedRegions13, ho_SelectedRegions14;
-  HObject  ho_ImageSub, ho_SelectedRegions21, ho_SelectedRegions22;
+  HObject  ho_ConnectedRegions1, ho_SelectedRegions, ho_RectangleSelect;
+  HObject  ho_ObjectSelected1, ho_Region, ho_GrayImage, ho_Red;
+  HObject  ho_Green, ho_Blue, ho_Hue, ho_Saturation, ho_Intensity;
+  HObject  ho_ImageMedian, ho_DynRegion, ho_Contours, ho_FilledRegion;
+  HObject  ho_SelectedRegions11, ho_SelectedRegions12, ho_SelectedRegions13;
+  HObject  ho_SelectedRegions14, ho_ImageSub, ho_RegionFillUp;
+  HObject  ho_RegionOpening, ho_SelectedRegions21, ho_SelectedRegions22;
   HObject  ho_SelectedRegions23, ho_SelectedRegions24, ho_RegionIntersection;
   HObject  ho_RegionDifference1, ho_RegionDifference2, ho_RegionOpening1;
   HObject  ho_RegionOpening2, ho_RegionUnion1, ho_RegionUnion;
@@ -1315,28 +1317,28 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
   HObject  ho_Rectangle, ho_RectangleLeft, ho_ImageReducedLeft;
   HObject  ho_LeftRegions, ho_ObjectSelectedLeft, ho_RectangleRight;
   HObject  ho_ImageReducedRight, ho_RightRegions, ho_ObjectSelectedRight;
-  HObject  ho_Cross, ho_ResultContour, ho_Contour, ho_ROIContour;
-  HObject  ho_ClosedContours, ho_RegionROI, ho_ContoursROI;
-  HObject  ho_ContoursSelected, ho_Rectangle2;
+  HObject  ho_Cross, ho_ResultContour, ho_Contour, ho_Cross1;
+  HObject  ho_ROIContour, ho_ClosedContours, ho_RegionROI;
+  HObject  ho_ContoursROI, ho_ContoursSelected, ho_Rectangle2;
 
   // Local control variables
   HTuple  hv_pathFile, hv_MLPHandle, hv_CamParOriginal;
   HTuple  hv_ImageFiles, hv_Brick_color, hv_coord_label, hv_Index;
   HTuple  hv_pose, hv_Width, hv_Height, hv_RectWidth, hv_RectHeight;
-  HTuple  hv_color_index, hv_RowSelect, hv_ColumnSelect, hv_PhiSelect;
-  HTuple  hv_Length1Select, hv_Length2Select, hv_Number, hv_REC_row;
-  HTuple  hv_REC_column, hv_weight, hv_Index1, hv_index, hv_Row2;
-  HTuple  hv_Column2, hv_Phi1, hv_Length11, hv_Length21, hv_NumberOrange;
+  HTuple  hv_color_index, hv_Number1, hv_Index2, hv_Rows1;
+  HTuple  hv_Columns1, hv_Number, hv_REC_row, hv_REC_column;
+  HTuple  hv_weight, hv_Index1, hv_index, hv_Row2, hv_Column2;
+  HTuple  hv_Phi1, hv_Length11, hv_Length21, hv_NumberOrange;
   HTuple  hv_Row, hv_Column, hv_Phi, hv_Length1, hv_Length2;
   HTuple  hv_AreaAnchor, hv_AreaLeft, hv_Row1, hv_Column1;
   HTuple  hv_AreaRight, hv_CenterY, hv_CenterX, hv_Len1, hv_Len2;
   HTuple  hv_Area, hv_VertexesY, hv_VertexesX, hv_MetrologyHandle;
   HTuple  hv_LineRow1, hv_LineColumn1, hv_LineRow2, hv_LineColumn2;
-  HTuple  hv_Tolerance, hv_RowBegin, hv_ColBegin, hv_RowEnd;
-  HTuple  hv_ColEnd, hv_Nr, hv_Nc, hv_Dist, hv_J, hv_IsOverlapping;
-  HTuple  hv_Rows, hv_Columns, hv_Pose, hv_CovPose, hv_Error;
-  HTuple  hv_Exception, hv_Row3, hv_Column3, hv_Phi2, hv_Length12;
-  HTuple  hv_Length22;
+  HTuple  hv_Tolerance, hv_Thresh, hv_RowBegin, hv_ColBegin;
+  HTuple  hv_RowEnd, hv_ColEnd, hv_Nr, hv_Nc, hv_Dist, hv_J;
+  HTuple  hv_IsOverlapping, hv_Rows, hv_Columns, hv_Pose;
+  HTuple  hv_CovPose, hv_Error, hv_Exception, hv_Row3, hv_Column3;
+  HTuple  hv_Phi2, hv_Length12, hv_Length22;
 
   try
   {
@@ -1376,40 +1378,69 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     //颜色分类
     ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
     SelectObj(ho_ClassRegions, &ho_ColorObjectSelected, hv_color_index);
-    SmallestRectangle2(ho_ColorObjectSelected, &hv_RowSelect, &hv_ColumnSelect, &hv_PhiSelect, 
-        &hv_Length1Select, &hv_Length2Select);
-    GenRectangle2(&ho_RectangleSelect, hv_RowSelect, hv_ColumnSelect, hv_PhiSelect, 
-        hv_Length1Select, hv_Length2Select);
+    Connection(ho_ColorObjectSelected, &ho_ConnectedRegions1);
+    SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions, "area", "and", 150, 999999999999);
+
+    CountObj(ho_SelectedRegions, &hv_Number1);
+    GenEmptyRegion(&ho_RectangleSelect);
+    {
+    HTuple end_val43 = hv_Number1;
+    HTuple step_val43 = 1;
+    for (hv_Index2=1; hv_Index2.Continue(end_val43, step_val43); hv_Index2 += step_val43)
+    {
+      SelectObj(ho_SelectedRegions, &ho_ObjectSelected1, hv_Index2);
+      GetRegionConvex(ho_ObjectSelected1, &hv_Rows1, &hv_Columns1);
+      GenRegionPolygonFilled(&ho_Region, hv_Rows1, hv_Columns1);
+      Union2(ho_RectangleSelect, ho_Region, &ho_RectangleSelect);
+    }
+    }
+    DilationRectangle1(ho_RectangleSelect, &ho_RectangleSelect, 35, 35);
 
     Rgb1ToGray(ho_Image, &ho_GrayImage);
+
     Decompose3(ho_Image, &ho_Red, &ho_Green, &ho_Blue);
-    TransFromRgb(ho_Red, ho_Green, ho_Blue, &ho_Hue, &ho_Saturation, &ho_Intensity, "hsv");
+    TransFromRgb(ho_Red, ho_Green, ho_Blue, &ho_Hue, &ho_Saturation, &ho_Intensity, 
+        "hsv");
+
+
 
     //方式一
     MedianImage(ho_Saturation, &ho_ImageMedian, "square", 9, "mirrored");
     VarThreshold(ho_ImageMedian, &ho_DynRegion, 35, 35, 0.2, 5, "dark");
+
     GenContourRegionXld(ho_DynRegion, &ho_Contours, "border");
     GenRegionContourXld(ho_Contours, &ho_FilledRegion, "filled");
     //分开写便于调试参数
-    SelectShape(ho_FilledRegion, &ho_SelectedRegions11, "rectangularity", "and", 0.7, 1.0);
-    SelectShape(ho_SelectedRegions11, &ho_SelectedRegions12, (HTuple("rect2_len1").Append("rect2_len2")), "and", (HTuple(80).Append(70)), (HTuple(999).Append(999)));
-    SelectGray(ho_SelectedRegions12, ho_ImageMedian, &ho_SelectedRegions13, "mean", "and", 0, 70);
-    SelectGray(ho_SelectedRegions13, ho_ImageMedian, &ho_SelectedRegions14, "deviation", "and", 0, 50);
+    SelectShape(ho_FilledRegion, &ho_SelectedRegions11, "rectangularity", "and", 
+        0.75, 1.0);
+    SelectShape(ho_SelectedRegions11, &ho_SelectedRegions12, (HTuple("rect2_len1").Append("rect2_len2")), 
+        "and", (HTuple(80).Append(50)), (HTuple(999).Append(999)));
+    SelectGray(ho_SelectedRegions12, ho_ImageMedian, &ho_SelectedRegions13, "mean", 
+        "and", 0, 70);
+    SelectGray(ho_SelectedRegions13, ho_ImageMedian, &ho_SelectedRegions14, "deviation", 
+        "and", 0, 50);
 
     //方式二
     SubImage(ho_GrayImage, ho_Saturation, &ho_ImageSub, 1, 0);
     MedianImage(ho_ImageSub, &ho_ImageMedian, "square", 9, "mirrored");
     VarThreshold(ho_ImageMedian, &ho_DynRegion, 35, 35, 0.2, 5, "light");
-    GenContourRegionXld(ho_DynRegion, &ho_Contours, "border");
+    FillUp(ho_DynRegion, &ho_RegionFillUp);
+    OpeningCircle(ho_RegionFillUp, &ho_RegionOpening, 15.5);
+    GenContourRegionXld(ho_RegionOpening, &ho_Contours, "border");
     GenRegionContourXld(ho_Contours, &ho_FilledRegion, "filled");
     //分开写便于调试参数
-    SelectShape(ho_FilledRegion, &ho_SelectedRegions21, "rectangularity", "and", 0.7, 1.0);
-    SelectShape(ho_SelectedRegions21, &ho_SelectedRegions22, (HTuple("rect2_len1").Append("rect2_len2")),  "and", (HTuple(80).Append(70)), (HTuple(999).Append(999)));
-    SelectGray(ho_SelectedRegions22, ho_ImageMedian, &ho_SelectedRegions23, "mean", "and", 70, 255);
-    SelectGray(ho_SelectedRegions23, ho_ImageMedian, &ho_SelectedRegions24, "deviation", "and", 0, 50);
+    SelectShape(ho_FilledRegion, &ho_SelectedRegions21, "rectangularity", "and", 
+        0.75, 1.0);
+    SelectShape(ho_SelectedRegions21, &ho_SelectedRegions22, (HTuple("rect2_len1").Append("rect2_len2")), 
+        "and", (HTuple(80).Append(50)), (HTuple(999).Append(999)));
+    SelectGray(ho_SelectedRegions22, ho_ImageMedian, &ho_SelectedRegions23, "mean", 
+        "and", 70, 255);
+    SelectGray(ho_SelectedRegions23, ho_ImageMedian, &ho_SelectedRegions24, "deviation", 
+        "and", 0, 50);
 
     //方式一与方式二结果合并
-    Intersection(ho_SelectedRegions14, ho_SelectedRegions24, &ho_RegionIntersection);
+    Intersection(ho_SelectedRegions14, ho_SelectedRegions24, &ho_RegionIntersection
+        );
     Difference(ho_SelectedRegions14, ho_SelectedRegions24, &ho_RegionDifference1);
     Difference(ho_SelectedRegions24, ho_SelectedRegions14, &ho_RegionDifference2);
 
@@ -1421,7 +1452,13 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     Connection(ho_RegionUnion, &ho_ConnectedRegions);
 
     Intersection(ho_RectangleSelect, ho_ConnectedRegions, &ho_ConnectedRegions);
+
     Connection(ho_ConnectedRegions, &ho_ConnectedRegions);
+    SelectShape(ho_ConnectedRegions, &ho_ConnectedRegions, "convexity", "and", 0.90, 
+        1);
+    SelectShape(ho_ConnectedRegions, &ho_ConnectedRegions, (HTuple("rect2_len1").Append("rect2_len2")), 
+        "and", (HTuple(80).Append(50)), (HTuple(999).Append(999)));
+
     CountObj(ho_ConnectedRegions, &hv_Number);
 
     //判断合并后的结果是否为空
@@ -1442,15 +1479,16 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       RegionFeatures(ho_ConnectedRegions, "column", &hv_REC_column);
       hv_weight = HTuple();
       {
-      HTuple end_val92 = hv_Number-1;
-      HTuple step_val92 = 1;
-      for (hv_Index1=0; hv_Index1.Continue(end_val92, step_val92); hv_Index1 += step_val92)
+      HTuple end_val123 = hv_Number-1;
+      HTuple step_val123 = 1;
+      for (hv_Index1=0; hv_Index1.Continue(end_val123, step_val123); hv_Index1 += step_val123)
       {
         hv_weight[hv_Index1] = ((hv_Height-HTuple(hv_REC_row[hv_Index1]))*(hv_Height-HTuple(hv_REC_row[hv_Index1])))+(((hv_Width/2)-HTuple(hv_REC_column[hv_Index1]))*((hv_Width/2)-HTuple(hv_REC_column[hv_Index1])));
       }
       }
       TupleSortIndex(hv_weight, &hv_index);
       SelectObj(ho_ConnectedRegions, &ho_ObjectSelected, HTuple(hv_index[0])+1);
+      ho_ObjectROI_2 = ho_ObjectSelected;
       //only one region selected
     }
 
@@ -1459,23 +1497,19 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     {
       ClassifyImageClassMlp(ho_Image, &ho_OrangeRegions, hv_MLPHandle, 0.9);
       SelectObj(ho_OrangeRegions, &ho_OrangeSelected, 1);
-      SmallestRectangle2(ho_OrangeSelected, &hv_Row2, &hv_Column2, &hv_Phi1, &hv_Length11, &hv_Length21);
+      SmallestRectangle2(ho_OrangeSelected, &hv_Row2, &hv_Column2, &hv_Phi1, &hv_Length11, 
+          &hv_Length21);
       GenRectangle2(&ho_Rectangle1, hv_Row2, hv_Column2, hv_Phi1, hv_Length11, hv_Length21);
       Intersection(ho_Rectangle1, ho_ObjectSelected, &ho_RegionIntersection);
       CountObj(ho_RegionIntersection, &hv_NumberOrange);
-
-      if (hv_NumberOrange==0)
+      //
+      if (0 != (hv_NumberOrange==0))
       {
-        Flag = false;
-        for(int i=0;i<6;i++)
-        {
-          Pose[i] = 0.0;
-        }
-        ROS_WARN("Can't find orange brick");
         return;
       }
 
-      SmallestRectangle2(ho_RegionIntersection, &hv_Row, &hv_Column, &hv_Phi, &hv_Length1, &hv_Length2);
+      SmallestRectangle2(ho_RegionIntersection, &hv_Row, &hv_Column, &hv_Phi, &hv_Length1, 
+          &hv_Length2);
       GenRectangle2(&ho_Rectangle, hv_Row, hv_Column, hv_Phi, hv_Length1, hv_Length2);
       AreaCenter(ho_Rectangle, &hv_AreaAnchor, &hv_Row, &hv_Column);
 
@@ -1493,7 +1527,8 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
           hv_Column+((2*hv_Length1)*((-hv_Phi).TupleCos())), hv_Phi, hv_Length1, 
           hv_Length2);
       ReduceDomain(ho_Image, ho_RectangleRight, &ho_ImageReducedRight);
-      ClassifyImageClassMlp(ho_ImageReducedRight, &ho_RightRegions, hv_MLPHandle, 0.9);
+      ClassifyImageClassMlp(ho_ImageReducedRight, &ho_RightRegions, hv_MLPHandle, 
+          0.9);
       SelectObj(ho_RightRegions, &ho_ObjectSelectedRight, 1);
       AreaCenter(ho_ObjectSelectedRight, &hv_AreaRight, &hv_Row1, &hv_Column1);
 
@@ -1519,11 +1554,19 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     {
       SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, &hv_Len2);
 
+    SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, 
+        &hv_Len2);
+
+    try
+    {
+
       AreaCenter(ho_ObjectSelected, &hv_Area, &hv_Row, &hv_Column);
 
       GenRectangle2(&ho_Rectangle, hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2);
-      get_rectangle2_points(hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2, &hv_VertexesY, &hv_VertexesX);
+      get_rectangle2_points(hv_CenterY, hv_CenterX, hv_Phi, hv_Len1, hv_Len2, &hv_VertexesY, 
+          &hv_VertexesX);
       GenCrossContourXld(&ho_Cross, hv_VertexesY, hv_VertexesX, 60, hv_Phi);
+
 
       CreateMetrologyModel(&hv_MetrologyHandle);
       SetMetrologyModelImageSize(hv_MetrologyHandle, hv_Width, hv_Height);
@@ -1550,26 +1593,32 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       hv_LineColumn2.Append(HTuple(hv_VertexesX[0]));
 
       hv_Tolerance = 50;
-
-      AddMetrologyObjectLineMeasure(hv_MetrologyHandle, hv_LineRow1, hv_LineColumn1,hv_LineRow2, hv_LineColumn2, hv_Tolerance, 50, 1.5, 5, HTuple(), HTuple(), &hv_Index1);
+      hv_Thresh = 25;
+      AddMetrologyObjectLineMeasure(hv_MetrologyHandle, hv_LineRow1, hv_LineColumn1, 
+          hv_LineRow2, hv_LineColumn2, hv_Tolerance, 5, 1.5, hv_Thresh, HTuple(), 
+          HTuple(), &hv_Index1);
       SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "num_instances", 1);
       SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "measure_select", "first");
       SetMetrologyObjectParam(hv_MetrologyHandle, hv_Index1, "min_score", .7);
 
-      ApplyMetrologyModel(ho_Saturation, hv_MetrologyHandle);
+      ApplyMetrologyModel(ho_GrayImage, hv_MetrologyHandle);
 
       //Access results
-      GetMetrologyObjectResultContour(&ho_ResultContour, hv_MetrologyHandle, "all", "all", 1.5);
-      GetMetrologyObjectMeasures(&ho_Contour, hv_MetrologyHandle, "all", "all", &hv_Row1, &hv_Column1);
-      GenCrossContourXld(&ho_Cross, hv_Row1, hv_Column1, 16, 0.785398);
+      GetMetrologyObjectResultContour(&ho_ResultContour, hv_MetrologyHandle, "all", 
+          "all", 1.5);
+      GetMetrologyObjectMeasures(&ho_Contour, hv_MetrologyHandle, "all", "all", &hv_Row1, 
+          &hv_Column1);
+      GenCrossContourXld(&ho_Cross1, hv_Row1, hv_Column1, 16, 0.785398);
 
-      FitLineContourXld(ho_ResultContour, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+      FitLineContourXld(ho_ResultContour, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, 
+          &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
       //Find intersection points [Rows, Columns]
       for (hv_J=0; hv_J<=3; hv_J+=1)
       {
         IntersectionLines(HTuple(hv_RowBegin[hv_J]), HTuple(hv_ColBegin[hv_J]), HTuple(hv_RowEnd[hv_J]), 
-                          HTuple(hv_ColEnd[hv_J]), HTuple(hv_RowBegin[(hv_J+1)%4]), HTuple(hv_ColBegin[(hv_J+1)%4]), 
-                          HTuple(hv_RowEnd[(hv_J+1)%4]), HTuple(hv_ColEnd[(hv_J+1)%4]), &hv_Row, &hv_Column, &hv_IsOverlapping);
+            HTuple(hv_ColEnd[hv_J]), HTuple(hv_RowBegin[(hv_J+1)%4]), HTuple(hv_ColBegin[(hv_J+1)%4]), 
+            HTuple(hv_RowEnd[(hv_J+1)%4]), HTuple(hv_ColEnd[(hv_J+1)%4]), &hv_Row, 
+            &hv_Column, &hv_IsOverlapping);
         GenCrossContourXld(&ho_Cross, hv_Row, hv_Column, 60, 0.785398);
         hv_Rows[hv_J] = hv_Row;
         hv_Columns[hv_J] = hv_Column;
@@ -1581,7 +1630,8 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       GenRegionContourXld(ho_ClosedContours, &ho_RegionROI, "filled");
       GenContourRegionXld(ho_RegionROI, &ho_ContoursROI, "border");
 
-      GetRectanglePose(ho_ContoursROI, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+      GetRectanglePose(ho_ContoursROI, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
+            "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
       for(int i=0;i<6;i++)
       {
         Pose[i] = hv_Pose[i].D();
@@ -1590,22 +1640,22 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     }
     catch (HException &exception)
     {
-      ROS_WARN("First method can't find, #%u in %s: %s\n", exception.ErrorCode(),
-        (const char *)exception.ProcName(),
-        (const char *)exception.ErrorMessage());
-      SmallestRectangle2(ho_ObjectSelected, &hv_Row3, &hv_Column3, &hv_Phi2, &hv_Length12, 
-          &hv_Length22);
-      GenRectangle2(&ho_Rectangle2, hv_Row3, hv_Column3, hv_Phi2, hv_Length12, hv_Length22);
-      GenContourRegionXld(ho_Rectangle2, &ho_ContoursSelected, "border");
-      GetRectanglePose(ho_ContoursSelected, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
-          "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
-      for(int i=0;i<6;i++)
-      {
-        Pose[i] = hv_Pose[i].D();
-      }
-      Flag = true;
+        ROS_WARN("First method failed: #%u in %s: %s\n", exception.ErrorCode(),
+          (const char *)exception.ProcName(),
+          (const char *)exception.ErrorMessage());
+        SmallestRectangle2(ho_ObjectSelected, &hv_Row3, &hv_Column3, &hv_Phi2, &hv_Length12, &hv_Length22);
+        GenRectangle2(&ho_Rectangle2, hv_Row3, hv_Column3, hv_Phi2, hv_Length12, hv_Length22);
+        GenContourRegionXld(ho_Rectangle2, &ho_ContoursSelected, "border");
+        GetRectanglePose(ho_ContoursSelected, hv_CamParOriginal, hv_RectWidth, hv_RectHeight, 
+            "tukey", 1, &hv_Pose, &hv_CovPose, &hv_Error);
+        for(int i=0;i<6;i++)
+        {
+          Pose[i] = hv_Pose[i].D();
+        }
+        Flag = true;
     }
   }
+  // catch (Exception) 
   catch (HException &exception)
   {
     Flag = false;
