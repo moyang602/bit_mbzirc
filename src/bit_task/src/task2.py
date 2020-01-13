@@ -99,8 +99,10 @@ ORG_load = (
 global floorHeight_base     # 使用时直接将期望值加上这个值就可以发给机械臂
 global CarHeight_base
 
-tf_OdomOnCar_trans = TransformStamped.transform.translation()
-tf_OdomOnCar_rot = TransformStamped.transform.rotation()
+# tf_CarOnMap_trans = TransformStamped.transform.translation()
+# tf_CarOnMap_rot = TransformStamped.transform.rotation()
+global tf_CarOnMap_trans
+global tf_CarOnMap_rot
 # 机械臂移动的速度和加速度  
 v = 0.05*4
 a = 0.3
@@ -312,6 +314,8 @@ class pick_put_act(object):
         global set_height
         set_height = rospy.ServiceProxy('Setheight',SetHeight)
         
+       
+
 
     def show_tell(self, info):
         rospy.loginfo(info)
@@ -329,6 +333,18 @@ class pick_put_act(object):
             rospy.loginfo("Begining!")
             pose = rob.getl()
             initj = rob.getj()
+
+            self.Bit_move(2.0, 0.0, 0)
+            rospy.sleep(0.5)
+            self.Bit_move(0, 0, pi/4)
+            rospy.sleep(1.0)
+            self.Bit_move(0.0, 0.0, -pi/2)
+            rospy.sleep(1.0)
+            self.Bit_move(-0.0, -0.0, pi/4)
+            rospy.sleep(1.0)
+            self.Bit_move(-2.0, 0.0, 0)
+            rospy.sleep(1.0)
+            wait()
 
             # #================ 1. 寻找砖堆 ================#
             # # 1.1 机械臂移动至观察砖堆准备位姿
@@ -902,22 +918,106 @@ class pick_put_act(object):
                 break
 
     def MoveAlongL(self,MoveDistance):
-        StartCarPos = tf_OdomOnCar_trans
+        StartCarPos = tf_CarOnMap_trans
         while True:
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
                 deltaTheta = 0 - VisionData.L_Theta
-                deltaX = 800 - VisionData.L_dist
-                deltaY = StartCarPos.y + MoveDistanc - tf_OdomOnCar_trans.y
+                deltaX = 800 - VisionData.L_dist        # TODO 确定距离值
+                deltaY = StartCarPos.y + MoveDistance - tf_CarOnMap_trans.y
 
                 if math.fabs(deltaY)<0.01:
                     break
                 # MovePos = [deltax*0.2*deg2rad,0,0,0,0,0]
                 rospy.sleep(0.5)
             else:
-                rospy.
+                rospy.logwarn("Can't find L")
                 pass
+    
+ 
+    def Bit_move(self,goal_distance_x,goal_distance_y,goal_angle):
+        # 我们将用多快的速度更新控制机器人运动的命令
+        try:
+        
+            linear_speed = 0.3
+            # linear_speed_y=0.3
+            x_tolerance=0.05
+            y_tolerance=0.05
+            rot_tolerance=0.05
 
+            min_angular_vel = 0.15
+
+            angular_p = 0.6
+            angular_i = 0.01
+            sum_err = 0
+            ang_i_limit = 15 #min_angular_vel / angular_i
+        
+            # 初始化运动命令
+            move_cmd = Twist()
+
+            # 设定速度
+            # 得到开始的姿态信息（位置和转角）    
+            x_start = tf_CarOnMap_trans[0]
+            y_start = tf_CarOnMap_trans[1]
+            rotate = tf.transformations.euler_from_quaternion(tf_CarOnMap_rot)
+            rot_start=rotate[2]
+            #缺失旋转矩阵更新每一步的控制器输入指令值
+
+            # 随时掌控机器人行驶的距离
+            distance_x = 0
+            distance_y = 0
+            distance_rot = 0
+
+            # 进入循环，一边移动一边转动
+            while not rospy.is_shutdown(): 
+
+                carlink_now_x = (tf_CarOnMap_trans[0] - x_start) * math.cos(rot_start) + (tf_CarOnMap_trans[1] - y_start) * math.sin(rot_start)
+                carlink_now_y = -(tf_CarOnMap_trans[0] - x_start) * math.sin(rot_start) + (tf_CarOnMap_trans[1] - y_start) * math.cos(rot_start)
+                
+                print(carlink_now_x, carlink_now_y,rot_start )
+
+                v_x = linear_speed * math.cos( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
+                v_y = linear_speed * math.sin( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
+
+                # 计算相对于开始位置的位姿
+                distance_x= math.fabs(carlink_now_x - goal_distance_x)
+                distance_y= math.fabs(carlink_now_y - goal_distance_y)
+                rotate = tf.transformations.euler_from_quaternion(tf_CarOnMap_rot)
+                distance_rot= rotate[2] - rot_start
+                delta_angle = (goal_angle - distance_rot)
+                sum_err += delta_angle
+                if sum_err > ang_i_limit:
+                    sum_err = ang_i_limit
+                elif sum_err < -ang_i_limit:
+                    sum_err = -ang_i_limit
+                move_cmd.angular.z = delta_angle * angular_p + sum_err * angular_i #(min_angular_vel/rot_tolerance + 0.5)
+                if move_cmd.angular.z > 0.3:
+                    move_cmd.angular.z = 0.3
+                elif move_cmd.angular.z < -0.3:
+                    move_cmd.angular.z = -0.3
+
+                move_cmd.linear.x = v_x * math.cos(distance_rot) + v_y * math.sin(distance_rot)
+                move_cmd.linear.y = -v_x * math.sin(distance_rot) + v_y * math.cos(distance_rot)
+
+                if distance_x<=x_tolerance and distance_y<=y_tolerance:
+                    move_cmd.linear.x = 0
+                    move_cmd.linear.y = 0
+                if math.fabs(distance_rot - goal_angle) <= rot_tolerance:
+                    move_cmd.angular.z = 0
+                cmdvel_pub.publish(move_cmd)
+                # 发布一次Twist消息 和 sleep 1秒        
+                rospy.sleep(0.05)
+                # print(move_cmd)
+                
+                if (not move_cmd.linear.x) and (not move_cmd.linear.y) and (not move_cmd.angular.z) :
+                    rospy.loginfo("Moving complish!")
+                    cmdvel_pub.publish(move_cmd)
+                    cmdvel_pub.publish(move_cmd)
+                    break
+        except Exception as e:
+            rospy.loginfo(e)
+            
+            
 # ================== END CLASS ===========================#
 
 def PoseCal(quat1,trans1,quat2,trans2):
@@ -970,10 +1070,9 @@ if __name__ == '__main__':
             listener = tf.TransformListener()
             while not FinishFlag:
                 try:
-                    global tf_OdomOnCar_trans
-                    global tf_OdomOnCar_rot
-                    (tf_OdomOnCar_trans,tf_OdomOnCar_rot) = listener.lookupTransform("car_link","odom_combined", rospy.Time(0))
-                    # (tf_BaseOnMap_trans,tf_BaseOnMap_rot) = listener.lookupTransform("base_link","map", rospy.Time(0))
+                    global tf_CarOnMap_trans
+                    global tf_CarOnMap_rot
+                    (tf_CarOnMap_trans,tf_CarOnMap_rot) = listener.lookupTransform("map","car_link", rospy.Time(0))
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     continue
         except:
