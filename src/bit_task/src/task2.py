@@ -148,11 +148,13 @@ def forcecallback(data):
 
 def heightcallback(data):
     '''ur_force Callback Function'''
-    height = data.x 
+
+    global height_now
+    height_now = data.x 
     global floorHeight_base
     global CarHeight_base
-    floorHeight_base = -0.2549 - height/1000
-    CarHeight_base = 0.294 - height /1000
+    floorHeight_base = -0.2549 - height_now/1000
+    CarHeight_base = 0.294 - height_now /1000
 
 def wait():
     ''' used to debug move one by one step '''
@@ -189,6 +191,21 @@ def move_base_feedback(a):
         cancel_id = a.status_list[-1].goal_id
         status = a.status_list[-1].status
 
+
+def CarStop():
+    a = Twist()
+    simp_cancel.publish(cancel_id)
+    rospy.sleep(0.1)
+    a.linear.x = 0.0
+    a.linear.y = 0.0
+    a.linear.z = 0.0
+    a.angular.z = 0.0
+    for i in range(0,5):
+        cmdvel_pub.publish(a)
+        rospy.sleep(0.1)
+        # print("pub")
+
+
 # 小车移动
 def CarMove(x,y,theta,frame_id="car_link",wait = False):
 
@@ -224,20 +241,9 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
                 rospy.logwarn("Aborted")
                 break
                 # simp_goal_pub.publish(this_target)
+        CarStop()
 
 
-def CarStop():
-    a = Twist()
-    simp_cancel.publish(cancel_id)
-    rospy.sleep(0.1)
-    a.linear.x = 0.0
-    a.linear.y = 0.0
-    a.linear.z = 0.0
-    a.angular.z = 0.0
-    for i in range(0,5):
-        cmdvel_pub.publish(a)
-        rospy.sleep(0.1)
-        # print("pub")
 
 def Orientation2Numpy(orientation):
     ori = []
@@ -278,8 +284,8 @@ def SafeCheck(targetPose, currentAngle):
 ## 1\ 调用视觉的服务进行砖块精确定位                       ##
 ## 2\ 根据砖块序号来确定放在车上的位置，并记录到posSequence  ##
 ## 3\ 建筑任务的欲放置位置需要根据砖块x,y确定               ##
-## 4\ 建筑任务的放置砖需结合手眼完成 
-    ##5\ setheight wait                      ##
+## 4\ 建筑任务的放置砖需结合手眼完成                       ##
+## 5\ setheight wait                                  ##
 ##                                                    ##
 ## ================================================== ##
 ## ================================================== ##
@@ -675,13 +681,12 @@ class pick_put_act(object):
             print(goal.type)
             if goal.type == 'O':
                 if num > 3:     # 有第三层的两块
-                    set_height(520)     # 可能需要提高,升降台的高度，目前320mm
-                    rospy.sleep(6.0)    # TODO 改进时间
+                    SetHeight(520, 50)  # 可能需要提高,升降台的高度，目前320mm
                 elif num <= 3 and num >= 0:
-                    set_height(320)
+                    SetHeight(320, 50)
                     rospy.sleep(6.0)
             elif goal.type in ("R","G","B"):
-                set_height(320)     # 升降台的高度到达 320mm
+                SetHeight(320, 50)     # 升降台的高度到达 320mm
                 # rospy.sleep(0.5)
 
             rob.movexs("movej",[takePos,onCarStartPos],acc=2*a, vel=4*v,radius = 0.1,wait=True)    #同时到达相机搜索砖块位置
@@ -772,13 +777,12 @@ class pick_put_act(object):
             print(goal.type)
             if goal.type == "O":
                 if num > 3:     # 有第三层的两块
-                    set_height(520)     # 可能需要提高,升降台的高度，目前320mm
-                    rospy.sleep(1.0)    # TODO 改进时间
+                    SetHeight(520, 50)    # 可能需要提高,升降台的高度，目前320mm
                 elif num <= 3 and num >= 0:
-                    set_height(320)
+                    SetHeight(320, 55)
                     rospy.sleep(1.0)
             elif goal.type in ("R","G","B"):
-                set_height(320)     # 升降台的高度到达 320mm
+                SetHeight(320, 50)     # 升降台的高度到达 320mm
 
             print("OK")
                 # rospy.sleep(1.0)
@@ -887,6 +891,12 @@ class pick_put_act(object):
         pub_push.publish(push)
         pub_push.publish(push)
         rospy.sleep(0.3)
+
+    def SetHeight(self, hei_cmd, wait_until):
+        set_height(hei_cmd)
+        while True:
+            if math.fabs(height_now - hei_cmd) < wait_until:
+                break
 
 # ================== END CLASS ===========================#
 
