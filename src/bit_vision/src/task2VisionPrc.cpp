@@ -52,6 +52,7 @@ using namespace cv;
 # define GetPutPos          6
 # define GetPutAngle        7
 # define GetLPose           8
+# define GetLVSData         9
 # define NotRun             0
 
 int algorithm = GetBrickPoseMERO;     // 当前算法
@@ -1916,7 +1917,7 @@ void put_brick(HObject ho_Image1, double Pose[6], bool &Flag)
 }
 
 
-//5. L架方向(角度) 图像来源: MER
+//4. L架方向(角度) 图像来源: MER
 void L_shelf_orientation(HObject ho_Image,HTuple &hv_Phi1)
 {
 
@@ -1967,6 +1968,82 @@ void L_shelf_orientation(HObject ho_Image,HTuple &hv_Phi1)
   //hv_Phi1为L架角度,单位是弧度
 }
 
+//5. L架视觉伺服输出（角度，距离） 图像来源：ZED相机校正后右目
+void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bool &Flag)
+{
+
+  // Local iconic variables
+  HObject  ho_Image1, ho_Image2, ho_Image3;
+  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_Regions1, ho_Regions2;
+  HObject  ho_RegionIntersection, ho_ConnectedRegions, ho_RegionClosing;
+  HObject  ho_SelectedRegions, ho_ImageReduced, ho_Contours;
+  HObject  ho_ContoursSplit, ho_SelectedEdges, ho_UnionContours;
+  HObject  ho_Lines, ho_SortedContours, ho_Line;
+
+  // Local control variables
+  HTuple  hv_ImageFiles, hv_Index, hv_Width, hv_Height;
+  HTuple  hv_Phi, hv_Ra, hv_Rb, hv_Phi1, hv_theta, hv_Number;
+  HTuple  hv_RowBegin, hv_ColBegin, hv_RowEnd, hv_ColEnd;
+  HTuple  hv_Nr, hv_Nc, hv_Dist, hv_col, hv_row, hv_dist;
+
+  try
+  {
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+
+    //calculate angle
+    Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
+    TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
+        "hsv");
+    Threshold(ho_ImageS, &ho_Regions1, 1, 73);
+
+    Threshold(ho_ImageV, &ho_Regions2, 114, 255);
+    Intersection(ho_Regions1, ho_Regions2, &ho_RegionIntersection);
+    Connection(ho_RegionIntersection, &ho_ConnectedRegions);
+
+    ClosingRectangle1(ho_ConnectedRegions, &ho_RegionClosing, 30, 30);
+    SelectShape(ho_RegionClosing, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
+        "and", (HTuple(0.8).Append(10000)), (HTuple(1).Append(100000000)));
+
+    OrientationRegion(ho_SelectedRegions, &hv_Phi);
+    EllipticAxis(ho_SelectedRegions, &hv_Ra, &hv_Rb, &hv_Phi1);
+    //angle
+    hv_theta = hv_Phi1;
+
+    ReduceDomain(ho_ImageV, ho_SelectedRegions, &ho_ImageReduced);
+    GenContourRegionXld(ho_SelectedRegions, &ho_Contours, "border");
+    SegmentContoursXld(ho_Contours, &ho_ContoursSplit, "lines", 5, 8, 3);
+    SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 500, 5000, -0.05, 0.05);
+    SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "direction", -0.4, 0.4, -0.4, 0.4);
+    UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours, 10, 1, "attr_keep");
+
+    SelectContoursXld(ho_UnionContours, &ho_Lines, "contour_length", 600, 20000, -0.05, 0.05);
+
+    SortContoursXld(ho_Lines, &ho_SortedContours, "upper_right", "true", "row");
+    CountObj(ho_SortedContours, &hv_Number);
+    SelectObj(ho_SortedContours, &ho_Line, hv_Number);
+
+    FitLineContourXld(ho_Line, "tukey", -1, 0, 5, 2, &hv_RowBegin, &hv_ColBegin, 
+        &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+    hv_col = hv_Width/2;
+    hv_row = (hv_Dist-(hv_Nc*hv_col))/hv_Nr;
+    hv_dist = hv_Height-hv_row;
+
+    ZED_L_Theta = hv_theta.D();
+    ZED_L_dist = hv_dist.D();
+    Flag = true;
+  }
+  catch (HException &exception)
+  {
+    Flag = false;
+    ZED_L_Theta = 0;
+    ZED_L_dist = 0;
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+        (const char *)exception.ProcName(),
+        (const char *)exception.ErrorMessage());
+  }
+  
+  
+}
 
 //初始化halcon对象
 HObject  ho_ImageL, ho_ImageR, ho_ImageMER;
@@ -2003,6 +2080,9 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
     bool MER_flag = false;     // 数据置信度
     bool ZED_flag = false;     // 数据置信度
     int OrangeIndex = 0;        // 橙色砖块位置检测标志
+    double ZED_L_Theta;
+    double ZED_L_dist;
+
     // Local control variables
     HTuple  hv_MSecond, hv_Second, hv_Minute, hv_Hour;
     HTuple  hv_Day, hv_YDay, hv_Month, hv_Year;
@@ -2052,6 +2132,12 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         case GetLPose:
             //L架的角度 输入是MER图像
             L_shelf_orientation(ho_ImageMER,L_shelf_angle);
+            break;
+        case GetLVSData:
+            //获取L架视觉伺服程序
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/LVS/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            L_VisualServo(ho_ImageR, ZED_L_Theta, ZED_L_dist, ZED_flag);
+            ROS_INFO_STREAM("Vision data LVS:"<<ZED_L_Theta<<","<<ZED_L_dist);
             break;
         default:
             break;
@@ -2106,6 +2192,8 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
           case GetLPose:
             break;
+          case GetLVSData:
+            break;
           default:
             break;
         }
@@ -2123,6 +2211,8 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         res.VisionData.Pose.orientation.z = transform_TargetOnBase.getRotation().getZ();
         res.VisionData.Pose.orientation.w = transform_TargetOnBase.getRotation().getW();
         res.VisionData.OrangeIndex = OrangeIndex;
+        res.VisionData.L_Theta = ZED_L_Theta;
+        res.VisionData.L_dist = ZED_L_dist;
     }
     else    // 如果没有识别结果
     {
@@ -2138,6 +2228,8 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         res.VisionData.Pose.orientation.z = 0.0;
         res.VisionData.Pose.orientation.w = 0.0;
         res.VisionData.OrangeIndex = 0;
+        res.VisionData.L_Theta = 0;
+        res.VisionData.L_dist = 0;
     }
     algorithm = NotRun;
 }

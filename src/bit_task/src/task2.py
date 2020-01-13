@@ -25,7 +25,7 @@ from bit_control_msgs.msg import *
 from geometry_msgs.msg import WrenchStamped
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
-
+from geometry_msgs.msg import TransformStamped
 from actionlib_msgs.msg import GoalID
 from actionlib_msgs.msg import GoalStatus
 from actionlib_msgs.msg import GoalStatusArray
@@ -99,6 +99,8 @@ ORG_load = (
 global floorHeight_base     # 使用时直接将期望值加上这个值就可以发给机械臂
 global CarHeight_base
 
+tf_OdomOnCar_trans = TransformStamped.transform.translation()
+tf_OdomOnCar_rot = TransformStamped.transform.rotation()
 # 机械臂移动的速度和加速度  
 v = 0.05*4
 a = 0.3
@@ -114,6 +116,7 @@ GetBrickLoc =  5
 GetPutPos =    6
 GetPutAngle =  7
 GetLPose =     8
+GetLVSData =   9
 NotRun =       0
 
 
@@ -898,6 +901,23 @@ class pick_put_act(object):
             if math.fabs(height_now - hei_cmd) < wait_until:
                 break
 
+    def MoveAlongL(self,MoveDistance):
+        StartCarPos = tf_OdomOnCar_trans
+        while True:
+            VisionData = GetVisionData_client(GetLVSData, "N")
+            if VisionData.Flag:
+                deltaTheta = 0 - VisionData.L_Theta
+                deltaX = 800 - VisionData.L_dist
+                deltaY = StartCarPos.y + MoveDistanc - tf_OdomOnCar_trans.y
+
+                if math.fabs(deltaY)<0.01:
+                    break
+                # MovePos = [deltax*0.2*deg2rad,0,0,0,0,0]
+                rospy.sleep(0.5)
+            else:
+                rospy.
+                pass
+
 # ================== END CLASS ===========================#
 
 def PoseCal(quat1,trans1,quat2,trans2):
@@ -950,7 +970,10 @@ if __name__ == '__main__':
             listener = tf.TransformListener()
             while not FinishFlag:
                 try:
-                    (tf_BaseOnMap_trans,tf_BaseOnMap_rot) = listener.lookupTransform("base_link","map", rospy.Time(0))
+                    global tf_OdomOnCar_trans
+                    global tf_OdomOnCar_rot
+                    (tf_OdomOnCar_trans,tf_OdomOnCar_rot) = listener.lookupTransform("car_link","odom_combined", rospy.Time(0))
+                    # (tf_BaseOnMap_trans,tf_BaseOnMap_rot) = listener.lookupTransform("base_link","map", rospy.Time(0))
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     continue
         except:
