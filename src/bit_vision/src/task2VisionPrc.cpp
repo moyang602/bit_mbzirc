@@ -1340,8 +1340,8 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
   HTuple  hv_IsOverlapping, hv_Rows, hv_Columns, hv_Pose;
   HTuple  hv_CovPose, hv_Error, hv_Exception, hv_Row3, hv_Column3;
   HTuple  hv_Phi2, hv_Length12, hv_Length22;
-
-  try
+  
+  try  // 开始视觉算法
   {
     hv_pathFile = "/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/new_segment_four.mlp";
     ReadClassMlp(hv_pathFile, &hv_MLPHandle);
@@ -1384,7 +1384,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
 
     CountObj(ho_SelectedRegions, &hv_Number1);
     GenEmptyRegion(&ho_RectangleSelect);
-    {
+  
     HTuple end_val43 = hv_Number1;
     HTuple step_val43 = 1;
     for (hv_Index2=1; hv_Index2.Continue(end_val43, step_val43); hv_Index2 += step_val43)
@@ -1394,7 +1394,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       GenRegionPolygonFilled(&ho_Region, hv_Rows1, hv_Columns1);
       Union2(ho_RectangleSelect, ho_Region, &ho_RectangleSelect);
     }
-    }
+
     DilationRectangle1(ho_RectangleSelect, &ho_RectangleSelect, 35, 35);
 
     Rgb1ToGray(ho_Image, &ho_GrayImage);
@@ -1403,9 +1403,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     TransFromRgb(ho_Red, ho_Green, ho_Blue, &ho_Hue, &ho_Saturation, &ho_Intensity, 
         "hsv");
 
-
-
-    //方式一
+        //方式一
     MedianImage(ho_Saturation, &ho_ImageMedian, "square", 9, "mirrored");
     VarThreshold(ho_ImageMedian, &ho_DynRegion, 35, 35, 0.2, 5, "dark");
 
@@ -1439,6 +1437,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     SelectGray(ho_SelectedRegions23, ho_ImageMedian, &ho_SelectedRegions24, "deviation", 
         "and", 0, 50);
 
+
     //方式一与方式二结果合并
     Intersection(ho_SelectedRegions14, ho_SelectedRegions24, &ho_RegionIntersection
         );
@@ -1462,7 +1461,7 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
 
     CountObj(ho_ConnectedRegions, &hv_Number);
 
-    //判断合并后的结果是否为空
+   //判断合并后的结果是否为空
     if (hv_Number==0)
     {
       Flag = false;
@@ -1479,14 +1478,14 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       RegionFeatures(ho_ConnectedRegions, "row", &hv_REC_row);
       RegionFeatures(ho_ConnectedRegions, "column", &hv_REC_column);
       hv_weight = HTuple();
-      {
+   
       HTuple end_val123 = hv_Number-1;
       HTuple step_val123 = 1;
       for (hv_Index1=0; hv_Index1.Continue(end_val123, step_val123); hv_Index1 += step_val123)
       {
         hv_weight[hv_Index1] = ((hv_Height-HTuple(hv_REC_row[hv_Index1]))*(hv_Height-HTuple(hv_REC_row[hv_Index1])))+(((hv_Width/2)-HTuple(hv_REC_column[hv_Index1]))*((hv_Width/2)-HTuple(hv_REC_column[hv_Index1])));
       }
-      }
+
       TupleSortIndex(hv_weight, &hv_index);
       SelectObj(ho_ConnectedRegions, &ho_ObjectSelected, HTuple(hv_index[0])+1);
       ho_ObjectROI_2 = ho_ObjectSelected;
@@ -1533,9 +1532,9 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       SelectObj(ho_RightRegions, &ho_ObjectSelectedRight, 1);
       AreaCenter(ho_ObjectSelectedRight, &hv_AreaRight, &hv_Row1, &hv_Column1);
 
-      if (hv_AreaLeft>(hv_AreaAnchor*0.4))
+      if (hv_AreaLeft>(hv_AreaAnchor*0.2))
       {
-        if (hv_AreaRight>(hv_AreaAnchor*0.4))
+        if (hv_AreaRight>(hv_AreaAnchor*0.2))
         {
           OrangeIndex = 0;     // Center
         }
@@ -1550,13 +1549,8 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
       }
       ho_ObjectSelected = ho_RegionIntersection;
     }
-    
-    try
-    {
-      SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, &hv_Len2);
 
-    SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, 
-        &hv_Len2);
+    SmallestRectangle2(ho_ObjectSelected, &hv_CenterY, &hv_CenterX, &hv_Phi, &hv_Len1, &hv_Len2);
 
     try
     {
@@ -1655,9 +1649,9 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
         }
         Flag = true;
     }
+
   }
-  // catch (Exception) 
-  catch (HException &exception)
+  catch (HException &exception) // 停止视觉算法
   {
     Flag = false;
     for(int i=0;i<6;i++)
