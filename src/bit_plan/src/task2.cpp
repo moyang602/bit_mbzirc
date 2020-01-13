@@ -6,6 +6,7 @@
 #include "bit_task_msgs/BrickInfo.h"
 #include <vector>
 #include "GetBrick.h"
+#include <algorithm>
 
 typedef actionlib::SimpleActionClient<bit_task_msgs::buildingAction> Client;
 
@@ -129,7 +130,7 @@ int main(int argc, char *argv[])
             // 将砖块压入UGV搬运任务堆栈
             ugv_brick.push_back(brick);
         }
-
+        reverse(ugv_brick.begin(), ugv_brick.end());
         /* 调用UAV 与 UGV action 服务器 */
         // UGV action 部分 设置目标值
         ugv_building_goal.goal_task.header.stamp = ros::Time::now();
