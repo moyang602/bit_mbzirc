@@ -34,6 +34,7 @@ v = 0.05*4    # 机械臂关节运动速度
 a = 0.3       # 机械臂关节运动加速度
 
 HandEye = 1   
+status = LOST       # move_base状态量
 
 # 获取Movebase ID
 def move_base_feedback(a):
@@ -41,6 +42,20 @@ def move_base_feedback(a):
     global status
     cancel_id = a.status_list[0].goal_id
     status = a.status_list[0].status
+
+
+def CarStop():
+    a = Twist()
+    simp_cancel.publish(cancel_id)
+    rospy.sleep(0.1)
+    a.linear.x = 0.0
+    a.linear.y = 0.0
+    a.linear.z = 0.0
+    a.angular.z = 0.0
+    for i in range(0,5):
+        cmdvel_pub.publish(a)
+        rospy.sleep(0.1)
+        # print("pub")
 
 # 小车移动
 def CarMove(x,y,theta,frame_id="car_link",wait = False):
@@ -60,15 +75,21 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
     # 发布位置
     goal_pub.publish(this_target)
     
+    while True:
+        try:
+            if status != GoalStatus.ACTIVE:
+                pass
+            else:
+                break
+        except Exception as e:
+            rospy.logwarn(e)
+
     if wait:
-        # while(status != GoalStatus.ACTIVE):
-        #     pass
-        print(status)
         while status != GoalStatus.SUCCEEDED:
-            print "car moving"
-            if status == GoalStatus.ABORTED:     # 如果规划器失败的处理
-                goal_pub.publish(this_target)
-            pass
+            if status == GoalStatus.ABORTED:     # TODO 如果规划器失败的处理
+                rospy.logwarn("Aborted")
+                break
+        CarStop()
 
 # 视觉检测客户端
 def GetFireVisionData_client(cameraUsed):
@@ -79,6 +100,27 @@ def GetFireVisionData_client(cameraUsed):
         return respl
     except rospy.ServiceException, e:
         print "Service GetFireVisionData call failed: %s"%e
+
+def SafeCheck(targetPose, currentAngle):
+
+    if targetPose.position.x >0.540 or targetPose.position.x < -0.550:        # 左右
+        return False
+
+    if targetPose.position.y > -0.460:   # 太靠近小车前沿
+        return False
+
+    dist = (targetPose.position.x**2 + targetPose.position.y**2 + targetPose.position.z**2 )**0.5
+    if dist > 0.9:
+        return False
+    
+    # targetAngle = inv_kin(targetPose, currentAngle)
+    # print 'currentAngle:',currentAngle
+    # print 'targetAngle:',targetAngle
+    # print 'targetPose:',targetPose
+    # if math.fabs(targetAngle[2])<5*deg2rad :  # 太远，机械臂伸直了
+    #     return False
+
+    return True
 
 # 1. 机器人移动至门口附近
 def MoveToBuilding():
