@@ -240,7 +240,7 @@ DJISDKNode::initPublisher(ros::NodeHandle& nh)
    *       Z value is +9.8 when placed on level ground statically
    * - Raw angular velocity (body frame: FLU, rad/s^2)
    */
-  imu_publisher = nh.advertise<sensor_msgs::Imu>("dji_sdk/imu", 10);
+  imu_publisher = nh.advertise<sensor_msgs::Imu>("imu_data", 10);
 
   // Refer to dji_sdk.h for different enums for M100 and A3/N3
   flight_status_publisher =

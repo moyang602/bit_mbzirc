@@ -17,7 +17,7 @@
  */
 
 #include "ur_modern_driver/robot_state_RT.h"
-
+#include <math.h>
 RobotStateRT::RobotStateRT(std::condition_variable& msg_cond) {
 	version_ = 0.0;
 	time_ = 0.0;
@@ -155,10 +155,37 @@ std::vector<double> RobotStateRT::getMTarget() {
 	val_lock_.unlock();
 	return ret;
 }
+std::vector<double> last;
+bool firstJudge = true;
 std::vector<double> RobotStateRT::getQActual() {
 	std::vector<double> ret;
+	bool errorflag = false;
 	val_lock_.lock();
-	ret = q_actual_;
+	if (firstJudge)
+	{
+		firstJudge = false;
+		last = q_actual_;
+	}
+	double sum = 0.0;
+	for (size_t i = 0; i < 6; i++)
+	{
+		if (fabs(q_actual_[i])>10)
+		{
+			errorflag = true;
+		}
+		// if (fabs(last[i] - q_actual_[i])>0.024)
+		// 	errorflag = true;
+		sum+=fabs(q_actual_[i]);
+	}
+	if (!errorflag&& sum > 1e-5)
+	{
+		ret = q_actual_;
+		last = ret;
+	}
+	else
+	{
+		ret = last;
+	}
 	val_lock_.unlock();
 	return ret;
 }

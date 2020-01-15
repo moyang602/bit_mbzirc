@@ -26,9 +26,9 @@ global InRangeDistance,LineLikeThreshold,DistanceBTCarlink2Brick,needTolerance,T
 Map_size = 10                               # 激光雷达画的图的大小，单位：米
 resolution = 0.05                           # 地图分辨率，单位：米
 InRangeDistance = 3.0                       # 激光雷达可以接手的距离
-LineLikeThreshold = 0.07                    # 在遍历直线时认为是直线的阈值
+LineLikeThreshold = 0.1                   # 在遍历直线时认为是直线的阈值
 DistanceBTCarlink2Brick = 0.55 + 0.628       # 0.628为激光雷达到car_link的距离
-needTolerance = 0.05                         # 认为是需要的线段长度的阈值，+-，单位：米 
+needTolerance = 0.1                         # 认为是需要的线段长度的阈值，+-，单位：米 
 ThinkLineLength = 0.3                       # 认为霍夫变换的结果是一条直线的最小长度，单位：米
 
 def scan_callback(msg):
@@ -163,7 +163,7 @@ if __name__ == '__main__':
         ax2.axis((0, col1, row1, 0))
         ax2.set_title('Detected lines')
 
-        for a, angle, dist in zip(*st.hough_line_peaks(h, theta, d )):      # TODO improve the robustness
+        for a, angle, dist in zip(*st.hough_line_peaks(h, theta, d ,num_peaks=np.inf)):      # TODO improve the robustness
             y0 = (dist - 0 * np.cos(angle)) / np.sin(angle)
             y1 = (dist - col1 * np.cos(angle)) / np.sin(angle)
             ax2.plot((0, col1), (y0, y1), '-b', alpha = 0.5)
@@ -255,7 +255,7 @@ if __name__ == '__main__':
                    good += 1
 
             print(len(leng),good)
-            if good >= 2:
+            if good >= 1:
                 use_xy_M = xy_M
                 use_turnangle = turnangle
                 FindReady = 1

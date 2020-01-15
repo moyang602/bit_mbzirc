@@ -16,22 +16,35 @@ static tf::StampedTransform map_current_pose;
 
 void Init_WayPoints()
 {
-    int max=1,left=30,right=0,length=12;
+    int max=5,left=0,right=16,length=6;
 
     move_base_msgs::MoveBaseGoal newWayPoint;
-    tf::Quaternion q;
+    // tf::Quaternion q;
+    tf::Transform tf_a;
+    tf::Transform ori;
 
     newWayPoint.target_pose.header.frame_id = "map";
     for (int i=0;i<=max;i++){
        for(int j=0;j<=max;j++){
-    newWayPoint.target_pose.pose.position.x = ((i+1)%2)*(max-j)*length/max+(i%2)*j*length/max+map_current_pose.getOrigin().getX();
-    newWayPoint.target_pose.pose.position.y = (i*left-(max-i)*right)/max+map_current_pose.getOrigin().getY();
-    q.setRPY( 0, 0,(j == max ? (-1.57): ((i+1)%2)*3.14) );
-    newWayPoint.target_pose.pose.orientation.x = q.x();
-    newWayPoint.target_pose.pose.orientation.y = q.y();
-    newWayPoint.target_pose.pose.orientation.z = q.z();
-    newWayPoint.target_pose.pose.orientation.w = q.w();
-    arWayPoint.push_back(newWayPoint);
+            double dx = ((i+1)%2)*j*length/max+(i%2)*(max-j)*length/max;
+            double dy = (i*left-(max-i)*right)/max;
+            tf_a = tf::Transform(tf::createQuaternionFromYaw(  (j == max ? (-1.57): (i%2)*3.14) - 1.57 ),tf::Vector3(dy,-dx,0));
+    
+    // ROS_INFO("%f,%f,%f",map_current_pose.getRotation().getY(),map_current_pose.getRotation().getZ(),map_current_pose.getRotation().getW());
+            // ori = tf::Transform(map_current_pose.getRotation(), map_current_pose.getOrigin());
+            tf::Transform tf_result =  map_current_pose * tf_a;
+         
+            newWayPoint.target_pose.pose.position.x = tf_result.getOrigin().x();
+            newWayPoint.target_pose.pose.position.y = tf_result.getOrigin().y();
+
+
+        newWayPoint.target_pose.pose.orientation.x = tf_result.getRotation().getX();
+        newWayPoint.target_pose.pose.orientation.y = tf_result.getRotation().getY();
+        newWayPoint.target_pose.pose.orientation.z = tf_result.getRotation().getZ();
+        newWayPoint.target_pose.pose.orientation.w = tf_result.getRotation().getW();
+
+            arWayPoint.push_back(newWayPoint);
+            ROS_INFO_STREAM(newWayPoint);
       }
 
     }
@@ -115,7 +128,9 @@ int main(int argc, char** argv)
 
 
     try{
-        listener.lookupTransform("car_link", "map", ros::Time(0), map_current_pose);
+        ros::Time now = ros::Time::now();
+        listener.waitForTransform("map", "base_link", now, ros::Duration(15.0));
+        listener.lookupTransform("map", "base_link", ros::Time(0), map_current_pose);
     }
         catch (tf::TransformException ex){
         ros::Duration(1.0).sleep();
@@ -152,7 +167,7 @@ int main(int argc, char** argv)
         ROS_INFO("Go to the WayPoint[%d]",nWPIndex);
         ac.sendGoal(arWayPoint[nWPIndex]);
 
-        ac.waitForResult(ros::Duration(40.0));
+        ac.waitForResult(ros::Duration(20.0));
 
         if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
         {

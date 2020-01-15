@@ -17,7 +17,7 @@ static tf::StampedTransform map_current_pose;
 void Init_WayPoints()
 {
    
-    int max=1,left=30,right=0,length=12;
+    int max=3,left=7,right=0,length=16;
 
     move_base_msgs::MoveBaseGoal newWayPoint;
     tf::Quaternion q;
@@ -25,9 +25,9 @@ void Init_WayPoints()
     newWayPoint.target_pose.header.frame_id = "map";
     for (int i=0;i<=max;i++){
        for(int j=0;j<=max;j++){
-    newWayPoint.target_pose.pose.position.x = (max-j)*length/max+map_current_pose.getOrigin().getX();
+    newWayPoint.target_pose.pose.position.x = j*length/max+map_current_pose.getOrigin().getX();
     newWayPoint.target_pose.pose.position.y = (i*left-(max-i)*right)/max+map_current_pose.getOrigin().getY();
-    q.setRPY( 0, 0,(j == max ? (-1.57): 3.14) );
+    q.setRPY( 0, 0,(j == max ? (-1.57): 0) );
     newWayPoint.target_pose.pose.orientation.x = q.x();
     newWayPoint.target_pose.pose.orientation.y = q.y();
     newWayPoint.target_pose.pose.orientation.z = q.z();
@@ -152,7 +152,7 @@ int main(int argc, char** argv)
         ROS_INFO("Go to the WayPoint[%d]",nWPIndex);
         ac.sendGoal(arWayPoint[nWPIndex]);
 
-        ac.waitForResult(ros::Duration(40.0));
+        ac.waitForResult(ros::Duration(20.0));
 
         if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
         {

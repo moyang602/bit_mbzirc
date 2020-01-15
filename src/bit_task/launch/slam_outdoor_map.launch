@@ -15,7 +15,7 @@
   <include file="$(find dji_sdk)/launch/sdk.launch" />
 
   <!--运行dji监测节点-->
-  <node pkg="bit_hardware_interface" type="dji_odom.py" name="dji_odom" respawn="False"/>
+  <!--<node pkg="bit_hardware_interface" type="dji_odom.py" name="dji_odom" respawn="False"/>-->
 
   <!--运行底盘节点-->
   <node pkg="bit_control_chassis" type="chassis_sub" name="chassis_sub" respawn="False"/>
