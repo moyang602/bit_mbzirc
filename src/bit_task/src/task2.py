@@ -4,6 +4,7 @@
 '''ur_force ROS Node'''
 import rospy
 from math import pi
+from math import atan2
 import math
 import time,sys,logging,os
 import numpy as np
@@ -47,6 +48,9 @@ deg2rad = 0.017453
 # takePos = (-1.916, -1.367, 1.621, 1.257, 1.549, -0.344) #(-1.57,-1.29, 1.4, 1.4, 1.57, 0)  # 末端位姿 [0 400 300 0 -180 0]
 lookForwardPos = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)
 lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与pickPos相同
+
+LookForLPos = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)                   # 寻找L架准备位姿
+LookForLEdge = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)                   # 寻找L架边缘准备位姿
 
 takePos = list(np.array([-90.0,-100.77,-30.8,-138.41,90.0,0.0])*deg2rad)     # Take动作开始位置
 onCarStartPos = list(np.array([-249.93,-86.05,-53.04,-130.93,90.36,19.77])*deg2rad) # 车上操作位置1
@@ -99,10 +103,26 @@ ORG_load = (
 global floorHeight_base     # 使用时直接将期望值加上这个值就可以发给机械臂
 global CarHeight_base
 
-# tf_CarOnMap_trans = TransformStamped.transform.translation()
-# tf_CarOnMap_rot = TransformStamped.transform.rotation()
+#============= TF相关变量 ==========
 global tf_CarOnMap_trans
 global tf_CarOnMap_rot
+global tf_CarOnL_trans
+global tf_CarOnL_rot
+
+global tft
+tft = tf.TransformerROS()
+global tf_OrignOnMap 
+global tf_CarOnLXAxis
+global tf_CarOnLYAxis
+global tf_CarOnLXOut
+global tf_CarOnLYOut
+tf_OrignOnMap = tft.fromTranslationRotation((0,0,0),(0,0,0,1))  # 开启的时候初始化为单位阵，直到找到之后更新之
+tf_CarOnLXAxis = tft.fromTranslationRotation((5,0,0),(0,0,1,0)) # x 5m 180°
+tf_CarOnLYAxis = tft.fromTranslationRotation((5.5,0,0),(0,0,-0.70710678,0.70710678)) # y 5.5m -90°
+tf_CarOnLXOut = tft.fromTranslationRotation((2,-1,0),(0,0,0.70710678,0.70710678))  # x 2m y -1m 90°
+tf_CarOnLYOut = tft.fromTranslationRotation((-1,2,0),(0,0,0,1))  # x -1m y 2m 0°
+
+
 # 机械臂移动的速度和加速度  
 v = 0.2
 a = 0.3
@@ -163,10 +183,9 @@ def heightcallback(data):
 
 def wait():
     ''' used to debug move one by one step '''
-    if do_wait:
+    if do_wait: 
         print("Click enter to continue")
         input()
-
 
 def GetVisionData_client(ProcAlgorithm, BrickType):
     rospy.wait_for_service('GetVisionData')
@@ -176,6 +195,15 @@ def GetVisionData_client(ProcAlgorithm, BrickType):
         return respl.VisionData
     except rospy.ServiceException as e:
         print("Service GetVisionData call failed: %s"%e)
+
+def GetL_KPS_client():
+    rospy.wait_for_service('Get_L_KPS')
+    try:
+        get_vision_data = rospy.ServiceProxy('Get_L_KPS',L_KPS_srv)
+        respl = get_vision_data()
+        return respl
+    except rospy.ServiceException as e:
+        print("Service Get_L_KPS call failed: %s"%e)
 
 
 def Laser_client(BrickType):
@@ -284,7 +312,7 @@ def SafeCheck(targetPose, currentAngle):
 
 ## ================================================== ##
 ## ================================================== ##
-##                    Todo List                       ##
+##                    TODO List                       ##
 ##                                                    ##
 ## 1\ 调用视觉的服务进行砖块精确定位                       ##
 ## 2\ 根据砖块序号来确定放在车上的位置，并记录到posSequence  ##
@@ -305,11 +333,6 @@ class pick_put_act(object):
         self._as.start()
         rospy.loginfo("%s server ready! ", name)
 
-        global tft
-        tft = tf.TransformerROS()
-        global tf_OrignOnMap 
-        tf_OrignOnMap = tft.fromTranslationRotation((0,0,0),(0,0,0,1))  # 开启的时候初始化为单位阵，直到找到之后更新之
-        
         rospy.wait_for_service('Setheight')
         global set_height
         set_height = rospy.ServiceProxy('Setheight',SetHeight)
@@ -342,7 +365,7 @@ class pick_put_act(object):
 
             # # 1.2 小车遍历场地， 基于视觉寻找砖堆
             # out = 0
-            # while True:         # Todo 避免进入死循环
+            # while True:         # TODO 避免进入死循环
             #     VisionData = GetVisionData_client(GetBrickLoc, goal.bricks[0].type)    # 数据是在base_link坐标系下的
             #     if VisionData.Flag:     # 能够看到
             #         rospy.loginfo("Found Brick Dui")
@@ -424,7 +447,7 @@ class pick_put_act(object):
             # if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
             #     rospy.loginfo("There is !NO! L location, try to find by myself")
             #     wait()
-            #     while True:         # Todo 避免进入死循环
+            #     while True:         # TODO 避免进入死循环
             #         VisionData = GetVisionData_client(GetLPose, "O")    # 数据是在base_link坐标系下的
             #         if VisionData.Flag:     # 能够看到
             #             theta = math.atan2(VisionData.Pose.position.x,-VisionData.Pose.position.y)
@@ -519,7 +542,7 @@ class pick_put_act(object):
         self.show_tell("arrived pre-pick position")
 
         # 视觉搜索目标砖块位置
-        while True:         # Todo 避免进入死循环
+        while True:         # TODO 避免进入死循环
             VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
             if VisionData.Flag:
                 self.show_tell("Got BrickPos results from Vision")
@@ -573,7 +596,7 @@ class pick_put_act(object):
         pose[5] = 0 
         rob.movel(pose, acc=a, vel=v, wait=True)
 
-        while True:         # Todo 避免进入死循环
+        while True:         # TODO 避免进入死循环
             VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
             if VisionData.Flag:
                 self.show_tell("Got SECOND BrickPos results from Vision")
@@ -593,7 +616,7 @@ class pick_put_act(object):
             
         self.show_tell("In the workspace，Ready to pick")
 
-        # 得到识别结果,旋转角度
+        # 得到识别结果,旋转角度rob.movej([0,0,0,0,0, -turn],acc=2*a, vel=2*v,wait=True, relative=True)
         rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(VisionData.Pose.orientation))
 
         turn = pi+rpy[2]
@@ -897,15 +920,103 @@ class pick_put_act(object):
         while True:
             if math.fabs(height_now - hei_cmd) < wait_until:
                 break
+    def FindL(self, goal):
+        #================ 0. 准备 ===================#
+        rospy.loginfo("Start to Find L!")
+        pose = rob.getl()
+        initj = rob.getj()
+        # 机械臂移动至L架寻找准备位姿
+        rob.movej(LookForLPos, acc=a, vel=3*v,wait=True)        # TODO 确定位姿
+        #================ 1. 遍历场地寻找L架 ===================#
+        # 1.1 小车遍历场地， 基于视觉寻找L架
+        # TODO 加小车移动
+        while(not rospy.is_shutdown()):         
+            VisionData = GetL_KPS_client()    # 数据是在map坐标系下的
+            if VisionData.Flag:     # 能够看到
+                rospy.loginfo("Found L frame")
+                break
+            else:
+                rospy.logwarn("Looking for L frame")
+        rospy.loginfo("Got L frame pos")
+        # 1.2 找到L架后，移动至L架观察位姿
+        # 分成四种不同情况运动
+        CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
+        tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
+        if CarOnL_theta <= pi/4 and CarOnL_theta >= 0: # 0~45°
+            target_tf = np.dot(tf_CarOnLXAxis,np.linalg.pinv(tf_CarOnL_now))
+            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+
+            rospy.sleep(1)
+
+            target_tf = np.dot(tf_CarOnLXOut,np.linalg.pinv(tf_CarOnL_now))
+            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+        elif CarOnL_theta > pi/4 and CarOnL_theta <= pi/2: # 45~90°
+            target_tf = np.dot(tf_CarOnLYAxis,np.linalg.pinv(tf_CarOnL_now))
+            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+
+            rospy.sleep(1)
+            
+            target_tf = np.dot(tf_CarOnLYOut,np.linalg.pinv(tf_CarOnL_now))
+            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+        elif (CarOnL_theta > pi/2 and CarOnL_theta <= pi) or (CarOnL_theta > -3*pi/4 and CarOnL_theta < -pi): # 90~225°
+            target_tf = np.dot(tf_CarOnLYOut,np.linalg.pinv(tf_CarOnL_now))
+            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+        elif CarOnL_theta < 0 and CarOnL_theta > -3*pi/4: # 225~360° 
+            target_tf = np.dot(tf_CarOnLXOut,np.linalg.pinv(tf_CarOnL_now))
+            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+        
+        # 1.3 调整末端姿态，寻找L架边缘
+        # 机械臂移动至L架边缘寻找准备位姿
+        rob.movej(LookForLEdge, acc=a, vel=3*v,wait=True)           # TODO  确定位姿
+        while(not rospy.is_shutdown()):         
+            VisionData = GetVisionData_client(GetLVSData, "N")
+            if VisionData.Flag:     # 能够看到
+                rospy.loginfo("Found L frame edge")
+                break
+            else:
+                rob.movej([0,0,0,1*deg2rad,0,0],acc=2*a, vel=2*v,wait=True, relative=True)  # TODO 确定旋转方向与角度
+                initj = rob.getj()
+                if initj[3] > 10*deg2rad:       # TODO 确定退出条件
+                    break                       # TODO 确定失败预案
+                rospy.logwarn("Looking for L frame edge")
+        rospy.loginfo("Got L frame pos")
+        # 1.4 依据L架边缘伺服移动至L架拐点处
+        if VisionData.Flag:     # 如果寻找到L架
+            CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
+            if CarOnL_theta < 0 and CarOnL_theta > -3*pi/4:     # 在 225~360°处 ，X轴下侧
+                MoveAlongL(2)
+            elif CarOnL_theta < pi and CarOnL_theta > pi/2:     # 在 90~180°处 ，Y轴左侧
+                MoveAlongL(-2)
+            else:
+                pass    # 错误条件判断
+
+        # 1.5 依据精确测量结果矫正L架姿态
+
+
+        # 1.6 依据矫正后L架位姿开始砖块放置作业
+
+    
 
     def MoveAlongL(self,MoveDistance):
-        StartCarPos = tf_CarOnMap_trans
-        while True:
+        StartCarPos = tf_OdomOnCar_trans
+        while(not rospy.is_shutdown()):
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
                 deltaTheta = 0 - VisionData.L_Theta
-                deltaX = 800 - VisionData.L_dist        # TODO 确定距离值
-                deltaY = StartCarPos.y + MoveDistance - tf_CarOnMap_trans.y
+                deltaX = 200 - VisionData.L_dist
+                deltaY = StartCarPos.y + MoveDistanc - tf_OdomOnCar_trans.y
 
                 if math.fabs(deltaY)<0.01:
                     break
@@ -919,7 +1030,6 @@ class pick_put_act(object):
     def Bit_move(self,goal_distance_x,goal_distance_y,goal_angle):
         # 我们将用多快的速度更新控制机器人运动的命令
         try:
-        
             linear_speed = 0.3
             # linear_speed_y=0.3
             x_tolerance=0.05
@@ -1062,7 +1172,7 @@ if __name__ == '__main__':
             rob = urx.Robot("192.168.50.60",use_rt = True) 
             normal = 1
             rospy.loginfo('robot ok')
-            # Todo 根据实际末端负载与工具中心设置
+            # TODO 根据实际末端负载与工具中心设置
             rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
             rob.set_payload(0.76, (0.011, -0.042, 0.003))
 
@@ -1074,7 +1184,10 @@ if __name__ == '__main__':
                 try:
                     global tf_CarOnMap_trans
                     global tf_CarOnMap_rot
+                    global tf_CarOnL_trans
+                    global tf_CarOnL_rot
                     (tf_CarOnMap_trans,tf_CarOnMap_rot) = listener.lookupTransform("map","car_link", rospy.Time(0))
+                    (tf_CarOnL_trans,tf_CarOnL_rot) = listener.lookupTransform("L_frame","car_link", rospy.Time(0))                    
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     continue
         except:

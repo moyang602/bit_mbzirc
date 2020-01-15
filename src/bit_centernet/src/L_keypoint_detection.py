@@ -11,6 +11,7 @@ from bit_vision_msgs.srv import *
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+
 import os
 import torch
 from opts import opts
@@ -20,6 +21,7 @@ import numpy as np
 from progress.bar import Bar
 import time
 import torch
+
 
 image_ext = ['jpg', 'jpeg', 'png', 'webp']
 video_ext = ['mp4', 'mov', 'avi', 'mkv']
@@ -39,9 +41,11 @@ from utils.debugger import Debugger
 from detectors.base_detector import BaseDetector
 
 import sys
-if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
-    sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+# if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
+#     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
+import tf
 
 #检测是否成功标志
 Detection_Flag = False
@@ -188,8 +192,15 @@ def get_detection_result(req):
 if __name__ == '__main__':
     opt = opts().init()
     rospy.init_node('Shelf_KPS_Detection')
-    rospy.Subscriber("/CameraMER/ContinuousImage", Image, callback) #/zed/zed_node/left/image_rect_color
+    rospy.Subscriber("/zed/zed_node/left/image_rect_color", Image, callback) #/zed/zed_node/left/image_rect_color    /CameraMER/ContinuousImage
     s = rospy.Service('Get_L_KPS', L_KPS_srv, get_detection_result)
     rospy.loginfo("Ready to handle the request:")
-    rospy.spin()
 
+    br = tf.TransformBroadcaster()
+    rate = rospy.Rate(10.0)
+    
+    while not rospy.is_shutdown():
+        pos = (0, 0, 0)
+        q = (0, 0, 0, 1.0)
+        br.sendTransform(pos,q,rospy.Time.now(),"L_frame","zed_linkL")
+        rate.sleep()
