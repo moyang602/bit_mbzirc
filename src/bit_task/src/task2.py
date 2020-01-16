@@ -49,8 +49,8 @@ deg2rad = 0.017453
 lookForwardPos = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)
 lookDownPos = (-1.571, -1.396, -1.745, -1.396, 1.571, 0.0)  # 暂时与pickPos相同
 
-LookForLPos = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)                   # 寻找L架准备位姿
-LookForLEdge = (-1.57, -1.57, -1.57, -18*deg2rad, 1.57, 0)                   # 寻找L架边缘准备位姿
+LookForLPos = list(np.array([-90.0, -90.0, -10.0, -104.12, 90.0, 0.0])*deg2rad)     # 寻找L架准备位姿
+LookForLEdge = list(np.array([-90.0, -90.0, -10.0, -153.82, 90.0, 0.0])*deg2rad)    # 寻找L架边缘准备位姿
 
 takePos = list(np.array([-90.0,-100.77,-30.8,-138.41,90.0,0.0])*deg2rad)     # Take动作开始位置
 onCarStartPos = list(np.array([-249.93,-86.05,-53.04,-130.93,90.36,19.77])*deg2rad) # 车上操作位置1
@@ -240,8 +240,8 @@ def CarStop():
         # print("pub")
 
 
-# 小车移动
-def CarMove(x,y,theta,frame_id="car_link",wait = False):
+
+def CarMove(x,y,theta,frame_id="car_link",wait = False):        # 小车移动
 
     global status
     this_target = PoseStamped()
@@ -309,6 +309,22 @@ def SafeCheck(targetPose, currentAngle):
 
     # print("out2")
     return True
+
+def PoseCal(quat1,trans1,quat2,trans2):
+    t1 = tf.transformations.quaternion_matrix(quat1)
+    t1[0][3] = trans1[0]
+    t1[1][3] = trans1[1]
+    t1[2][3] = trans1[2]
+    t2 = tf.transformations.quaternion_matrix(quat2)
+    t2[0][3] = trans2[0]
+    t2[1][3] = trans2[1]
+    t2[2][3] = trans2[2]
+
+    t3 = np.dot(t2,t1)
+    return t3
+
+
+
 
 
 ## ================================================== ##
@@ -439,10 +455,7 @@ class pick_put_act(object):
             # wait()
 
             # #================ 3. 到达L架 ================#
-            # # 机械臂移动至观察L架位姿
-            rob.movej(lookForwardPos, acc=a, vel=7*v,wait=True)
-            # wait()
-
+            self.FindL()
             # # 3.1 移动至L架
             # # 3.1.2 如果无信息，场地遍历，寻找L架
             # if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
@@ -456,19 +469,13 @@ class pick_put_act(object):
             #         else:
             #             # 遍历场地 TODO
             #             pass
-
-
-            # CarMove(0, 0, 0, frame_id="map",wait=True)
-
             # # 3.1.1 如果有信息，直接运动至指定位置
             # else:   
             #     rospy.loginfo("There !EXSISTS! L location, move to it")
             #     wait()
 
             #================ 3. 找到L架，开始搭建 ================#
-            self.FindL()
             self.Build_on_L(goal)
-
 
             global FinishFlag
             FinishFlag = 1
@@ -479,9 +486,6 @@ class pick_put_act(object):
             self._result.finish_state = FAIL
             self._as.set_aborted(self._result)
             rob.stopl()
-            # rob = urx.Robot("192.168.50.60",use_rt = True)
-            # rob.set_tcp((0, 0, 0, 0, 0, 0))
-            # rob.set_payload(0.0, (0, 0, 0))
         finally:
             if self._result.finish_state == SUCCESS:
                 self._as.set_succeeded(self._result)
@@ -960,7 +964,8 @@ class pick_put_act(object):
 
 
     def MoveAlongL(self,MoveDistance):
-        # rob.movej() # TODO 确定姿态
+        self.SetHei(320, 50)
+        rob.movej(LookForLEdge, acc=a, vel=3*v,wait=True)           # TODO  确定位姿
         while(not rospy.is_shutdown()):
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
@@ -1127,19 +1132,8 @@ class pick_put_act(object):
 
 # ================== END CLASS ===========================#
 
-def PoseCal(quat1,trans1,quat2,trans2):
-    t1 = tf.transformations.quaternion_matrix(quat1)
-    t1[0][3] = trans1[0]
-    t1[1][3] = trans1[1]
-    t1[2][3] = trans1[2]
-    t2 = tf.transformations.quaternion_matrix(quat2)
-    t2[0][3] = trans2[0]
-    t2[1][3] = trans2[1]
-    t2[2][3] = trans2[2]
 
-    t3 = np.dot(t2,t1)
-    return t3
-
+# ================== END CLASS ===========================#
 
 if __name__ == '__main__':
 
