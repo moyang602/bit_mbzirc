@@ -141,6 +141,7 @@ GetPutPos =    6
 GetPutAngle =  7
 GetLPose =     8
 GetLVSData =   9
+GetLPoseOnCamera =  10
 NotRun =       0
 
 SUCCESS = 1
@@ -883,7 +884,7 @@ class pick_put_act(object):
         # 1.1 小车遍历场地， 基于视觉寻找L架
         # TODO 加小车移动
         while(not rospy.is_shutdown()):         
-            VisionData = GetL_KPS_client()    # 数据是在map坐标系下的
+            VisionData = GetVisionData_client(GetLPoseOnCamera, "N")    # 数据是在map坐标系下的
             if VisionData.Flag:     # 能够看到
                 rospy.loginfo("Found L frame")
                 break

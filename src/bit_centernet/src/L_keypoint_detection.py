@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #coding=utf-8
 
 from __future__ import absolute_import
@@ -45,17 +45,15 @@ import sys
 #     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
-import tf
 
 #检测是否成功标志
 Detection_Flag = False
-bbox_x1 = 0
-bbox_y1 = 0
-bbox_x2 = 0
-bbox_y2 = 0
-X_x = 0
-X_y = 0
-
+# bbox_x1 = 0
+# bbox_y1 = 0
+# bbox_x2 = 0
+# bbox_y2 = 0
+kps_x_list = [0,0,0,0,0,0]
+kps_y_list = [0,0,0,0,0,0]
 
 class KPSDetector(BaseDetector):
     def __init__(self, opt):
@@ -143,14 +141,9 @@ class KPSDetector(BaseDetector):
         for j in range(1, self.num_classes + 1):
             for bbox in results[j]:
                 if bbox[4] > self.opt.vis_thresh:
-                    bbox_x1 = bbox[0]
-                    bbox_y1 = bbox[1]
-                    bbox_x2 = bbox[2]
-                    bbox_y2 = bbox[3]
-
-                    X_x = bbox[5]
-                    X_y = bbox[6]
-
+                    
+                    kps_x_list = bbox[5:10]
+                    kps_y_list = bbox[10:17]
 
 
 ImageL = np.zeros((2209,1243,3))
@@ -159,7 +152,7 @@ def callback(imgmsg):
     global im, flag_im
     bridge = CvBridge()
     im = bridge.imgmsg_to_cv2(imgmsg, 'bgr8')
-    Image = im
+    ImageL = im
     flag_im = True  
 
 
@@ -181,12 +174,10 @@ def get_detection_result(req):
     demo(opt,ImageL)
     res = L_KPS_srvResponse()
     res.success_flag = Detection_Flag
-    res.bbox_x1 = bbox_x1
-    res.bbox_y1 = bbox_y1
-    res.bbox_x2 = bbox_x2
-    res.bbox_y2 = bbox_y2
-    res.x = X_x
-    res.y = X_y
+    
+    res.X_list = kps_x_list
+    res.Y_list = kps_y_list
+
     return res
 
 if __name__ == '__main__':
@@ -196,11 +187,7 @@ if __name__ == '__main__':
     s = rospy.Service('Get_L_KPS', L_KPS_srv, get_detection_result)
     rospy.loginfo("Ready to handle the request:")
 
-    br = tf.TransformBroadcaster()
     rate = rospy.Rate(10.0)
     
     while not rospy.is_shutdown():
-        pos = (0, 0, 0)
-        q = (0, 0, 0, 1.0)
-        br.sendTransform(pos,q,rospy.Time.now(),"L_frame","zed_linkL")
         rate.sleep()

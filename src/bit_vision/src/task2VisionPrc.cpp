@@ -28,6 +28,7 @@
 #include "std_msgs/Empty.h"
 #include "tf/transform_broadcaster.h"
 #include <bit_vision_msgs/VisionProc.h>
+#include <bit_vision_msgs/L_KPS_srv.h>
 #include <opencv2/core/core.hpp>
 
 #undef Success  
@@ -40,6 +41,7 @@
 #include <message_filters/time_synchronizer.h>
 #include <tf/transform_listener.h>
 
+
 using namespace std;
 using namespace HalconCpp;
 using namespace cv;
@@ -51,8 +53,9 @@ using namespace cv;
 # define GetBrickLoc        5
 # define GetPutPos          6
 # define GetPutAngle        7
-# define GetLPose           8
+# define GetLAngle          8
 # define GetLVSData         9
+# define GetLPoseOnCamera   10
 # define NotRun             0
 
 int algorithm = GetBrickPoseMERO;     // 当前算法
@@ -67,6 +70,8 @@ HTuple L_shelf_angle(0);
 tf::StampedTransform transform_MEROnBase;
 tf::StampedTransform transform_ZEDLOnBase;
 tf::StampedTransform transform_ZEDROnBase;
+tf::StampedTransform transform_ZEDROnMap;
+tf::Transform transform_LOnMap;
 
 void get_rectangle2_points (HTuple hv_CenterY, HTuple hv_CenterX, HTuple hv_Phi, 
     HTuple hv_Len1, HTuple hv_Len2, HTuple *hv_VertexesY, HTuple *hv_VertexesX);
@@ -2039,6 +2044,105 @@ void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bo
   
 }
 
+
+//7.L架坐标系在相机坐标系下的位姿
+void L_Object_Pose(double Pose[6], bool &Flag)
+{
+
+  // Local control variables
+  HTuple  hv_CamParam, hv_Width, hv_Height, hv_Row;
+  HTuple  hv_Column, hv_ControlX, hv_ControlY, hv_ControlZ;
+  HTuple  hv_RowCenter, hv_ColCenter, hv_PoseOfObject, hv_Errors;
+
+  double KPS_Row[6];
+  double KPS_Column[6];
+
+  ros::NodeHandle n_local;
+  ros::ServiceClient client = n_local.serviceClient<bit_vision_msgs::L_KPS_srv>("Get_L_KPS");
+  
+  bit_vision_msgs::L_KPS_srv srv;
+  client.call(srv);
+
+  if (!srv.response.success_flag)
+  {
+    Flag = false;
+    return;
+  }
+  else
+  {
+    for (size_t i = 0; i < 6; i++)
+    {
+      KPS_Row[i] = srv.response.X_list[i];
+      KPS_Column[i] = srv.response.Y_list[i];
+    }
+
+  }
+
+  try
+  {
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat",&hv_CamParam);
+
+    hv_Row.Clear();
+    hv_Row[0] = KPS_Row[0];
+    hv_Row[1] = KPS_Row[1];
+    hv_Row[2] = KPS_Row[2];
+    hv_Row[3] = KPS_Row[3];
+    hv_Row[4] = KPS_Row[4];
+    hv_Row[5] = KPS_Row[5];
+    hv_Column.Clear();
+    hv_Column[0] = KPS_Column[0];
+    hv_Column[1] = KPS_Column[1];
+    hv_Column[2] = KPS_Column[2];
+    hv_Column[3] = KPS_Column[3];
+    hv_Column[4] = KPS_Column[4];
+    hv_Column[5] = KPS_Column[5];
+    hv_ControlX.Clear();
+    hv_ControlX[0] = 4-0.2;
+    hv_ControlX[1] = 4-0.2;
+    hv_ControlX[2] = 0-0.2;
+    hv_ControlX[3] = 0-0.2;
+    hv_ControlX[4] = 0.4-0.2;
+    hv_ControlX[5] = 0.4-0.2;
+    hv_ControlY.Clear();
+    hv_ControlY[0] = 0.4-0.2;
+    hv_ControlY[1] = 0-0.2;
+    hv_ControlY[2] = 0-0.2;
+    hv_ControlY[3] = 4.4-0.2;
+    hv_ControlY[4] = 4.4-0.2;
+    hv_ControlY[5] = 0.4-0.2;
+    hv_ControlZ.Clear();
+    hv_ControlZ[0] = 0;
+    hv_ControlZ[1] = 0;
+    hv_ControlZ[2] = 0;
+    hv_ControlZ[3] = 0;
+    hv_ControlZ[4] = 0;
+    hv_ControlZ[5] = 0;
+
+    hv_RowCenter = hv_Row;
+    hv_ColCenter = hv_Column;
+    //获取L架在相机坐标系下的位姿
+    VectorToPose(hv_ControlX, hv_ControlY, hv_ControlZ, hv_RowCenter, hv_ColCenter, 
+      hv_CamParam, "iterative", "error", &hv_PoseOfObject, &hv_Errors);
+      for(int i=0;i<6;i++)
+          {
+            Pose[i] = hv_PoseOfObject[i].D();
+          }
+      Flag = true;
+  }
+  catch (HException &exception)
+  {
+    Flag = false;
+    for(int i=0;i<6;i++)
+    {
+      Pose[i] = 0.0;
+    }
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+        (const char *)exception.ProcName(),
+        (const char *)exception.ErrorMessage());
+  }
+
+}
+
 //初始化halcon对象
 HObject  ho_ImageL, ho_ImageR, ho_ImageMER;
 
@@ -2123,7 +2227,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         case GetPutAngle:
             put_brick(ho_ImageR, ZEDPose, ZED_flag);
             break;
-        case GetLPose:
+        case GetLAngle:
             //L架的角度 输入是MER图像
             L_shelf_orientation(ho_ImageMER,L_shelf_angle);
             break;
@@ -2132,6 +2236,10 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/LVS/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             L_VisualServo(ho_ImageR, ZED_L_Theta, ZED_L_dist, ZED_flag);
             ROS_INFO_STREAM("Vision data LVS:"<<ZED_L_Theta<<","<<ZED_L_dist);
+            break;
+        case GetLPoseOnCamera:
+            L_Object_Pose(ZEDPose, ZED_flag);
+            ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         default:
             break;
@@ -2184,9 +2292,19 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             break;
           case GetPutAngle:
             break;
-          case GetLPose:
+          case GetLAngle:
             break;
           case GetLVSData:
+            break;
+          case GetLPoseOnCamera:
+          {
+            tf::Transform transform_LOnZEDR;
+            transform_LOnZEDR.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
+            q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
+            transform_LOnZEDR.setRotation(q);
+            transform_LOnMap = transform_LOnZEDR * transform_ZEDROnMap;
+            ROS_INFO_STREAM("L frame position has been renew");
+          }
             break;
           default:
             break;
@@ -2251,7 +2369,10 @@ int main(int argc, char *argv[])
   //指定循环的频率 
   ros::Rate loop_rate(20); 
   tf::TransformListener listener;
+  tf::TransformBroadcaster br;
   
+
+  ros::Rate rate(15.0);
   while(ros::ok()) 
   { 
       // 获取 MER_link, zed_linkL, zed_linkR 在 base_link下的坐标 
@@ -2259,11 +2380,14 @@ int main(int argc, char *argv[])
         listener.lookupTransform("base_link", "MER_link", ros::Time(0), transform_MEROnBase);
         listener.lookupTransform("base_link", "zed_linkL", ros::Time(0), transform_ZEDLOnBase);
         listener.lookupTransform("base_link", "zed_linkR", ros::Time(0), transform_ZEDROnBase);
+        listener.lookupTransform("map", "zed_linkR", ros::Time(0), transform_ZEDROnMap);
+        
       }
       catch (tf::TransformException ex){
         ros::Duration(1.0).sleep();
       }
       
+      br.sendTransform(tf::StampedTransform(transform_LOnMap, ros::Time::now(), "map", "L_frame"));
       //处理ROS的信息，比如订阅消息,并调用回调函数 
       ros::spinOnce(); 
       loop_rate.sleep(); 

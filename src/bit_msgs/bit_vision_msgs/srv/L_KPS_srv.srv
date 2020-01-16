@@ -1,8 +1,4 @@
 ---
 bool success_flag
-float32 bbox_x1
-float32 bbox_y1
-float32 bbox_x2
-float32 bbox_y2
-float32 x
-float32 y
+float64[6] X_list
+float64[6] Y_list
