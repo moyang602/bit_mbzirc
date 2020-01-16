@@ -465,61 +465,9 @@ class pick_put_act(object):
             #     wait()
 
             #================ 3. 找到L架，开始搭建 ================#
-            # 移动到L架原点处
-            if np.allclose(goal.bricks[0].x ,0.0):
-                rot_ = tf.transformations.quaternion_from_euler(0,0,0)
-                tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick ,0.131, 0),rot_)      # 砖外0.5m
-            elif np.allclose(goal.bricks[0].y ,0.0):
-                rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
-                tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
-            else:
-                self.show_tell("WRONG TASK INDEX, Check the plan!")
+            self.FindL()
+            self.Build_on_L(goal)
 
-            target_tf = np.dot( np.dot( tf_CarOnBrick, tf_OrignOnMap), np.linalg.pinv(tft.fromTranslationRotation(tf_CarOnMap_trans,tf_CarOnMap_rot) ) )
-            target_rot = tf.transformations.euler_from_matrix(target_tf)
-            target_trans = tf.transformations.translation_from_matrix(target_tf)
-            
-            # self.Bit_move(target_trans[0],target_trans[1],target_rot[2])
-
-            target_tf = tf_OrignOnMap
-            target_rot = tf.transformations.euler_from_matrix(target_tf)
-            target_trans = tf.transformations.translation_from_matrix(target_tf)
-            CarMove(target_trans[0], target_trans[1], target_rot[2],frame_id="map",wait=True)
-
-            brickIndex = 0
-            last_BrickOnOrign = tft.fromTranslationRotation([0,0,0],[0,0,0,1])
-            while brickIndex < goal.Num :
-                
-                tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x, goal.bricks[brickIndex].y, 0),(0,0,0,1))
-                rospy.loginfo(goal.bricks[brickIndex])
-                if np.allclose(goal.bricks[brickIndex].x ,0.0):
-                    rot_ = tf.transformations.quaternion_from_euler(0,0,0)
-                    tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick ,0.131, 0),rot_)      # 砖外0.5m
-                elif np.allclose(goal.bricks[brickIndex].y ,0.0):
-                    rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
-                    tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
-                else:
-                    self.show_tell("WRONG TASK INDEX, Check the plan!")
-                    # TODO 序列出现问题的处理
-
-                tf_CarnowOnL = np.dot( tf_CarOnBrick, tf_BrickOnOrign)
-                target_tf = np.dot(tf_CarnowOnL, np.linalg.pinv(last_BrickOnOrign) )
-                target_rot = tf.transformations.euler_from_matrix(target_tf)
-                target_trans = tf.transformations.translation_from_matrix(target_tf)
-
-                self.Bit_move(target_trans[0]  ,target_trans[1] , target_rot[2] )
-                last_BrickOnOrign = tf_CarnowOnL
-                self.show_tell("Got the %d brick place"% brickIndex)
-                self.Push(OFF)
-               
-                for attempt in range(0,3):  # 最大尝试次数3
-                    result_ = self.buildWall(goal.bricks[brickIndex])
-                    if result_ == SUCCESS:
-                        # 记录当前点为这种砖的位置
-                        self.show_tell("finished !BUILD! brick %d,go get next" %brickIndex)
-                        brickIndex = brickIndex + 1     # 成功了就取下一块 
-                        break 
-            self.show_tell("Build all bricks")
 
             global FinishFlag
             FinishFlag = 1
@@ -924,7 +872,7 @@ class pick_put_act(object):
         while True:
             if math.fabs(height_now - hei_cmd) < wait_until:
                 break
-    def FindL(self, goal):
+    def FindL(self):
         #================ 0. 准备 ===================#
         rospy.loginfo("Start to Find L!")
         pose = rob.getl()
@@ -1014,22 +962,65 @@ class pick_put_act(object):
     
 
     def MoveAlongL(self,MoveDistance):
-        StartCarPos = tf_OdomOnCar_trans
+        # rob.movej() # TODO 确定姿态
         while(not rospy.is_shutdown()):
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
                 deltaTheta = 0 - VisionData.L_Theta
-                deltaX = 200 - VisionData.L_dist
-                deltaY = StartCarPos.y + MoveDistanc - tf_OdomOnCar_trans.y
+                self.Bit_move(0, 0, deltaTheta)
+
+        y_record = 0
+        while(not rospy.is_shutdown()):
+            VisionData = GetVisionData_client(GetLVSData, "N")
+            if VisionData.Flag:
+                deltaX = 0.1 * (200 - VisionData.L_dist )       # TODO 需要确定L架边缘在相机空间中的距离
+                deltaY = 0.1 * (MoveDistanc - y_record)
+                y_record += deltaY
+                self.Bit_move(deltaX, deltaY, 0)
 
                 if math.fabs(deltaY)<0.01:
                     break
-                # MovePos = [deltax*0.2*deg2rad,0,0,0,0,0]
-                rospy.sleep(0.5)
             else:
                 rospy.logwarn("Can't find L")
                 pass
     
+
+    def Build_on_L(self, goal):
+
+        brickIndex = 0
+        # last_BrickOnOrign = tft.fromTranslationRotation([0,0,0],[0,0,0,1])
+        while brickIndex < goal.Num :
+            tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
+            
+            tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x, goal.bricks[brickIndex].y, 0),(0,0,0,1))
+            rospy.loginfo(goal.bricks[brickIndex])
+            if np.allclose(goal.bricks[brickIndex].x ,0.0):
+                rot_ = tf.transformations.quaternion_from_euler(0,0,0)
+                tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick ,0.131, 0),rot_)      # 砖外0.5m
+            elif np.allclose(goal.bricks[brickIndex].y ,0.0):
+                rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
+                tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
+            else:
+                self.show_tell("WRONG TASK INDEX, Check the plan!")
+                # TODO 序列出现问题的处理
+
+            target_tf = np.dot( np.dot( tf_CarOnBrick, tf_BrickOnOrign), np.linalg.pinv(tf_CarOnL_now) )
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+
+            self.Bit_move(target_trans[0]  ,target_trans[1] , target_rot[2] )
+
+            self.show_tell("Got the %d brick place"% brickIndex)
+            self.Push(OFF)
+            
+            for attempt in range(0,3):  # 最大尝试次数3
+                result_ = self.buildWall(goal.bricks[brickIndex])
+                if result_ == SUCCESS:
+                    # 记录当前点为这种砖的位置
+                    self.show_tell("finished !BUILD! brick %d,go get next" %brickIndex)
+                    brickIndex = brickIndex + 1     # 成功了就取下一块 
+                    break 
+        self.show_tell("Build all bricks")
  
     def Bit_move(self,goal_distance_x,goal_distance_y,goal_angle):
         print("BitMove is ready:",goal_distance_x,goal_distance_y,goal_angle)
@@ -1135,6 +1126,8 @@ class pick_put_act(object):
             rospy.loginfo(e)
             
             
+
+
 # ================== END CLASS ===========================#
 
 def PoseCal(quat1,trans1,quat2,trans2):
