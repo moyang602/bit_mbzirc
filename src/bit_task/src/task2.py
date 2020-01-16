@@ -896,36 +896,36 @@ class pick_put_act(object):
         CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
         tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
         if CarOnL_theta <= pi/4 and CarOnL_theta >= 0: # 0~45°
-            target_tf = np.dot(tf_CarOnLXAxis,np.linalg.pinv(tf_CarOnL_now))
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXAxis)
             target_rot = tf.transformations.quaternion_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
 
             rospy.sleep(1)
 
-            target_tf = np.dot(tf_CarOnLXOut,np.linalg.pinv(tf_CarOnL_now))
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXOut)
             target_rot = tf.transformations.quaternion_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         elif CarOnL_theta > pi/4 and CarOnL_theta <= pi/2: # 45~90°
-            target_tf = np.dot(tf_CarOnLYAxis,np.linalg.pinv(tf_CarOnL_now))
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYAxis)
             target_rot = tf.transformations.quaternion_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
 
             rospy.sleep(1)
             
-            target_tf = np.dot(tf_CarOnLYOut,np.linalg.pinv(tf_CarOnL_now))
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYOut)
             target_rot = tf.transformations.quaternion_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         elif (CarOnL_theta > pi/2 and CarOnL_theta <= pi) or (CarOnL_theta > -3*pi/4 and CarOnL_theta < -pi): # 90~225°
-            target_tf = np.dot(tf_CarOnLYOut,np.linalg.pinv(tf_CarOnL_now))
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYOut)
             target_rot = tf.transformations.quaternion_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         elif CarOnL_theta < 0 and CarOnL_theta > -3*pi/4: # 225~360° 
-            target_tf = np.dot(tf_CarOnLXOut,np.linalg.pinv(tf_CarOnL_now))
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXOut)
             target_rot = tf.transformations.quaternion_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
@@ -958,9 +958,6 @@ class pick_put_act(object):
         # 1.5 依据精确测量结果矫正L架姿态
 
 
-        # 1.6 依据矫正后L架位姿开始砖块放置作业
-
-    
 
     def MoveAlongL(self,MoveDistance):
         # rob.movej() # TODO 确定姿态
@@ -989,7 +986,6 @@ class pick_put_act(object):
     def Build_on_L(self, goal):
 
         brickIndex = 0
-        # last_BrickOnOrign = tft.fromTranslationRotation([0,0,0],[0,0,0,1])
         while brickIndex < goal.Num :
             tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
             
@@ -1005,7 +1001,7 @@ class pick_put_act(object):
                 self.show_tell("WRONG TASK INDEX, Check the plan!")
                 # TODO 序列出现问题的处理
 
-            target_tf = np.dot( np.dot( tf_CarOnBrick, tf_BrickOnOrign), np.linalg.pinv(tf_CarOnL_now) )
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now),  np.dot(tf_BrickOnOrign, tf_CarOnBrick) )
             target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
 

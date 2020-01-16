@@ -2302,7 +2302,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             transform_LOnZEDR.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
             q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
             transform_LOnZEDR.setRotation(q);
-            transform_LOnMap = transform_LOnZEDR * transform_ZEDROnMap;
+            transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
             ROS_INFO_STREAM("L frame position has been renew");
           }
             break;

@@ -4,8 +4,9 @@
 import rospy
 import sys
 import urx
-import math
+from math import *
 import tf
+import numpy as np
 from math import pi
 # movebase 相关
 from geometry_msgs.msg import PoseStamped
@@ -35,6 +36,16 @@ a = 0.3       # 机械臂关节运动加速度
 
 HandEye = 1   
 status = LOST       # move_base状态量
+
+# 相机参数
+Sx = 17*1e-6
+Sy = 17*1e-6
+focus = 4*1e-3
+
+global tft
+tft = tf.TransformerROS()
+global tf_CameraOnBase_trans
+global tf_CameraOnBase_rot
 
 # 获取Movebase ID
 def move_base_feedback(a):
@@ -196,8 +207,34 @@ def FightFire():
     while True:
         VisionData = GetFireVisionData_client(HandEye)
         if VisionData.flag:
-            deltax = VisionData.FirePos.point.x
-            deltay = VisionData.FirePos.point.y
+            # 图像坐标转换为真实数据
+            deltax = VisionData.FirePos.point.x * Sx 
+            deltay = VisionData.FirePos.point.y * Sy
+
+            # TODO 待验证
+            # 获取光轴仰角
+            tf_CameraOnBase_R = tf.transformations.quaternion_matrix(tf_CameraOnBase_rot)
+            Unit_CA = np.dot(tf_CameraOnBase_R,(0,0,1))
+            Unit_CW = (0,0,-1)
+            alpha = acos(np.dot(Unit_CA,Unit_CW))
+            
+            # 获取火源位置仰角
+            delta_alpha = atan(-deltay/focus)
+
+            FyOnW = h*tan(alpha+delta_alpha)
+
+            FxOnW = FyOnW*deltax/focus
+
+            FOnW = (FxOnW, FyOnW, 0)
+
+            rot = tf.transformations.euler_matrix(pi/2-alpha, 0, 0)
+            trans = (0, h*cos(pi/2-alpha), h*sin(pi/2 - alpha))
+            
+            tf_WOnCamera = tft.fromTranslationRotation(trans,rot)
+            tf_CameraOnBase = tft.fromTranslationRotation(tf_CameraOnBase_trans,tf_CameraOnBase_rot)
+            Point_FOnW = (FxOnW,FyOnW,0,1)
+            tf_FireOnBase = np.dot(tf_CameraOnBase, np.dot(tf_WOnCamera, Point_FOnW))
+
             pose = rob.getl()
             if math.fabs(pose[4] + math.pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
                 goal_cancel.publish(cancel_id)
@@ -291,6 +328,10 @@ if __name__ == '__main__':
         finally:
             if normal == 1:
                 break
+    
+    global tf_CameraOnBase_trans
+    global tf_CameraOnBase_rot
+    (tf_CameraOnBase_trans,tf_CameraOnBase_rot) = listener.lookupTransform("base_link","infrared_link", rospy.Time(0))
 
     if normal == 0:
         rospy.logerr('UR controller cannot connected')
