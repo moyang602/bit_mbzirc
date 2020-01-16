@@ -69,9 +69,9 @@ RGB = (
     [-0.3, 0.42, 0.2, pi, 0, 0],   # 红3
     [ 0.3, 0.22, 0.2, pi, 0, 0],   # 红2
     [-0.3, 0.22, 0.2, pi, 0, 0],   # 红1
-    [ 0.0, 0.42, 0.4, pi, 0, 0],   # 兰1
     [ 0.3, 0.22, 0.4, pi, 0, 0],   # 绿2
     [-0.3, 0.22, 0.4, pi, 0, 0],   # 绿1
+    [ 0.0, 0.42, 0.4, pi, 0, 0],   # 兰1
 )
 ORG = (
     [0.0, 0.22, 0.2, pi, 0, 0],     # 橙0 + 0.07
@@ -83,20 +83,20 @@ ORG = (
 )
 tolerance = 0.02    # 米
 RGB_load = (
-    [ 0.3, 0.37 + tolerance, 0.2, pi, 0, 0],   # 红2
-    [-0.3, 0.37 + tolerance, 0.2, pi, 0, 0],   # 红1
-    [ 0.3, 0.57 + 2*tolerance, 0.2, pi, 0, 0],   # 红4
-    [-0.3, 0.57 + 2*tolerance, 0.2, pi, 0, 0],   # 红3
-    [ 0.3 + 0.5*tolerance, 0.37 + tolerance, 0.4, pi, 0, 0],   # 绿2
-    [-0.3 - 0.5*tolerance, 0.37 + tolerance, 0.4, pi, 0, 0],   # 绿1
-    [ 0.0, 0.57 + 2*tolerance, 0.4, pi, 0, 0],   # 兰1
+    [ 0.3,                  0.37 + tolerance,   0.2, pi + 0.1, 0, 0],   # 红2
+    [-0.3,                  0.37 + tolerance,   0.2, pi + 0.1, 0, 0],   # 红1
+    [ 0.3,                  0.57 + 2*tolerance, 0.2, pi + 0.1, 0, 0],   # 红4
+    [-0.3,                  0.57 + 2*tolerance, 0.2, pi + 0.1, 0, 0],   # 红3
+    [ 0.3 + 0.5*tolerance,  0.37 + tolerance,   0.4, pi + 0.1, 0, 0],   # 绿2
+    [-0.3 - 0.5*tolerance,  0.37 + tolerance,   0.4, pi + 0.1, 0, 0],   # 绿1
+    [ 0.0,                  0.57 + 2*tolerance, 0.4, pi + 0.1, 0, 0],   # 兰1
 )
 ORG_load = (
-    [0.0 , 0.37 + tolerance, 0.2, pi, 0, 0],
+    [0.0 , 0.37 + tolerance,   0.2, pi + 0.1, 0, 0],
     [0.0 , 0.57 + 2*tolerance, 0.2, pi + 0.1, 0, 0],
-    [0.0 , 0.37 + tolerance, 0.4, pi, 0, 0],
+    [0.0 , 0.37 + tolerance,   0.4, pi + 0.1, 0, 0],
     [0.0 , 0.57 + 2*tolerance, 0.4, pi + 0.1, 0, 0],
-    [0.0 , 0.37 + tolerance, 0.6, pi, 0, 0],
+    [0.0 , 0.37 + tolerance,   0.6, pi + 0.1, 0, 0],
     [0.0 , 0.57 + 2*tolerance, 0.6, pi + 0.1, 0, 0],
 )
 
@@ -126,6 +126,8 @@ tf_CarOnLYOut = tft.fromTranslationRotation((-1,2,0),(0,0,0,1))  # x -1m y 2m 0�
 # 机械臂移动的速度和加速度  
 v = 0.2
 a = 0.3
+# 0.25 moveL 
+# 1.4 moveJ
 
 distanceBTcarlink_brick = 0.5 + 0.6
 
@@ -141,10 +143,8 @@ GetLPose =     8
 GetLVSData =   9
 NotRun =       0
 
-
 SUCCESS = 1
 FAIL = 0
-
 
 TASK_GET = 0
 TASK_BUILD = 1
@@ -395,24 +395,24 @@ class pick_put_act(object):
             # self.show_tell("Arrived Bricks Position!")
             # #================ 2. 到达砖堆橙色处，开始取砖 ================#
             
-            brickIndex = 0
-            last_type = goal.bricks[brickIndex].type
-            while brickIndex <  goal.Num:
-            #     # 2.1 小车运动至期望砖堆处
+            # brickIndex = 0
+            # last_type = goal.bricks[brickIndex].type
+            # while brickIndex <  goal.Num:
+            # #     # 2.1 小车运动至期望砖堆处
             
 
-                # # 2.2 机械臂取砖
-                for attempt in range(0,3):  # 最大尝试次数3
-                    result_ = self.goGetBrick(goal.bricks[brickIndex])
-                    if result_ == SUCCESS:
-                        # 记录当前点为这种砖的位置
-                        self.show_tell("finished !PICK! brick %d,go get next in %d" %(brickIndex, goal.Num))
-                        brickIndex = brickIndex + 1     # 成功了就取下一块  
-                        break
-                # brickIndex = brickIndex + 1     # 成功了就取下一块  
+            #     # # 2.2 机械臂取砖
+            #     for attempt in range(0,3):  # 最大尝试次数3
+            #         result_ = self.goGetBrick(goal.bricks[brickIndex])
+            #         if result_ == SUCCESS:
+            #             # 记录当前点为这种砖的位置
+            #             self.show_tell("finished !PICK! brick %d,go get next in %d" %(brickIndex, goal.Num))
+            #             brickIndex = brickIndex + 1     # 成功了就取下一块  
+            #             break
+            #     # brickIndex = brickIndex + 1     # 成功了就取下一块  
 
-                if brickIndex == goal.Num:
-                    break
+            #     if brickIndex == goal.Num:
+            #         break
 
             #     # 在不同砖堆之间切换
             #     if goal.bricks[brickIndex].type != last_type:
@@ -439,8 +439,8 @@ class pick_put_act(object):
 
             # #================ 3. 到达L架 ================#
             # # 机械臂移动至观察L架位姿
-            rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
-            wait()
+            rob.movej(lookForwardPos, acc=a, vel=7*v,wait=True)
+            # wait()
 
             # # 3.1 移动至L架
             # # 3.1.2 如果无信息，场地遍历，寻找L架
@@ -465,52 +465,59 @@ class pick_put_act(object):
             #     wait()
 
             #================ 3. 找到L架，开始搭建 ================#
+            # 移动到L架原点处
+            if np.allclose(goal.bricks[0].x ,0.0):
+                rot_ = tf.transformations.quaternion_from_euler(0,0,0)
+                tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick ,0.131, 0),rot_)      # 砖外0.5m
+            elif np.allclose(goal.bricks[0].y ,0.0):
+                rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
+                tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
+            else:
+                self.show_tell("WRONG TASK INDEX, Check the plan!")
 
-            oom_rot = tf.transformations.quaternion_from_matrix(tf_OrignOnMap)
-            oom_trans = tf.transformations.translation_from_matrix(tf_OrignOnMap)
-            Rotation = tf.transformations.euler_from_quaternion(oom_rot)
-            CarMove(oom_trans[0],oom_trans[1],Rotation[2],frame_id="map",wait = True )
+            target_tf = np.dot( np.dot( tf_CarOnBrick, tf_OrignOnMap), np.linalg.pinv(tft.fromTranslationRotation(tf_CarOnMap_trans,tf_CarOnMap_rot) ) )
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            
+            # self.Bit_move(target_trans[0],target_trans[1],target_rot[2])
 
-            x_start = 0
-            y_start = 0
-            th_start = 0
-            brickIndex = goal.Num - 1
-            while brickIndex >= 0:
+            target_tf = tf_OrignOnMap
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
+            CarMove(target_trans[0], target_trans[1], target_rot[2],frame_id="map",wait=True)
+
+            brickIndex = 0
+            last_BrickOnOrign = tft.fromTranslationRotation([0,0,0],[0,0,0,1])
+            while brickIndex < goal.Num :
                 
                 tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x, goal.bricks[brickIndex].y, 0),(0,0,0,1))
                 rospy.loginfo(goal.bricks[brickIndex])
-                if np.allclose(goal.bricks[brickIndex].x ,0.1):
+                if np.allclose(goal.bricks[brickIndex].x ,0.0):
                     rot_ = tf.transformations.quaternion_from_euler(0,0,0)
                     tf_CarOnBrick = tft.fromTranslationRotation((-distanceBTcarlink_brick ,0.131, 0),rot_)      # 砖外0.5m
-                elif np.allclose(goal.bricks[brickIndex].y ,0.1):
+                elif np.allclose(goal.bricks[brickIndex].y ,0.0):
                     rot_ = tf.transformations.quaternion_from_euler(0,0,3.1415926/2)
                     tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
                 else:
                     self.show_tell("WRONG TASK INDEX, Check the plan!")
                     # TODO 序列出现问题的处理
 
-                target_tf = np.dot( tf_BrickOnOrign, tf_CarOnBrick)
-                target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+                tf_CarnowOnL = np.dot( tf_CarOnBrick, tf_BrickOnOrign)
+                target_tf = np.dot(tf_CarnowOnL, np.linalg.pinv(last_BrickOnOrign) )
+                target_rot = tf.transformations.euler_from_matrix(target_tf)
                 target_trans = tf.transformations.translation_from_matrix(target_tf)
 
-                Rotation = tf.transformations.euler_from_quaternion(target_rot)
-
-                
-                # 动态配置
-                self.Bit_move(target_trans[0] - x_start ,target_trans[1] - y_start, Rotation[2] - th_start)
-                x_start = target_trans[0]
-                y_start = target_trans[1]
-                th_start = Rotation[2] 
+                self.Bit_move(target_trans[0]  ,target_trans[1] , target_rot[2] )
+                last_BrickOnOrign = tf_CarnowOnL
                 self.show_tell("Got the %d brick place"% brickIndex)
                 self.Push(OFF)
-
                
                 for attempt in range(0,3):  # 最大尝试次数3
                     result_ = self.buildWall(goal.bricks[brickIndex])
                     if result_ == SUCCESS:
                         # 记录当前点为这种砖的位置
                         self.show_tell("finished !BUILD! brick %d,go get next" %brickIndex)
-                        brickIndex = brickIndex - 1     # 成功了就取下一块 
+                        brickIndex = brickIndex + 1     # 成功了就取下一块 
                         break 
             self.show_tell("Build all bricks")
 
@@ -538,7 +545,7 @@ class pick_put_act(object):
         # ----------- 已经到达橙色砖堆面前---------------- #
 
         # 机械臂移动至取砖准备位姿
-        rob.movej(pickPos,acc=a, vel=3*v,wait=True)
+        rob.movej(pickPos,acc=a, vel=7*v,wait=True)
         self.show_tell("arrived pre-pick position")
 
         # 视觉搜索目标砖块位置
@@ -565,7 +572,7 @@ class pick_put_act(object):
                         delta_x = - 0.805
 
                     self.Bit_move(-0.55-VisionData.Pose.position.y, delta_x + VisionData.Pose.position.x, turn)
-                    rob.movej(pickPos,acc=a, vel=3*v,wait=True)     # 动车之后就需要将视角还原
+                    rob.movej(pickPos,acc=a, vel=7*v,wait=True)     # 动车之后就需要将视角还原
                     
                 elif not SafeCheck(VisionData.Pose, rob.getj()):
                     self.show_tell("Brick position is out of workspace")
@@ -574,13 +581,13 @@ class pick_put_act(object):
                     if math.fabs(turn) > 20 * deg2rad:
                         continue
                     self.Bit_move(-0.55-VisionData.Pose.position.y, VisionData.Pose.position.x, turn)
-                    rob.movej(pickPos,acc=a, vel=3*v,wait=True)     # 动车之后就需要将视角还原
+                    rob.movej(pickPos,acc=a, vel=7*v,wait=True)     # 动车之后就需要将视角还原
 
                 else:   # 在工作空间，可以抓取
                     break
 
             else:       # 检测不到，换宽视角
-                rob.movej(pickPos_wide,acc=a, vel=3*v,wait=True)
+                rob.movej(pickPos_wide,acc=a, vel=7*v,wait=True)
             
         self.show_tell("In the workspace，Ready to pick")
 
@@ -594,7 +601,7 @@ class pick_put_act(object):
         pose[3] = 0
         pose[4] = -pi   # 下两个坐标使其垂直于地面Brick remembered
         pose[5] = 0 
-        rob.movel(pose, acc=a, vel=v, wait=True)
+        rob.movel(pose, acc=a, vel=2* v, wait=True)
 
         while True:         # TODO 避免进入死循环
             VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
@@ -612,7 +619,7 @@ class pick_put_act(object):
         pose[3] = 0
         pose[4] = -pi   # 下两个坐标使其垂直于地面Brick remembered
         pose[5] = 0 
-        rob.movel(pose, acc=a, vel=v, wait=True)      
+        rob.movel(pose, acc=a, vel=2* v, wait=True)      
             
         self.show_tell("In the workspace，Ready to pick")
 
@@ -625,7 +632,7 @@ class pick_put_act(object):
         elif turn < -pi:
             turn += 2*pi
 
-        rob.movej([0,0,0,0,0, -turn],acc=2*a, vel=2*v,wait=True, relative=True)
+        rob.movej([0,0,0,0,0, -turn],acc=2*a, vel=7*v,wait=True, relative=True)
 
         self.show_tell("Arrived brick up 0.1m position pependicular to brick")
 
@@ -659,12 +666,12 @@ class pick_put_act(object):
         # rob.movej(,acc=2*a, vel=3*v,wait=True)      # 到达Take动作开始位置
         # 融合了
         if goal.type in ("R","G","B","O"):
-            self.takeOneBrickOnCar(goal, True)
+            error_x = self.takeOneBrickOnCar(goal, False)
         else:
             rospy.logwarn("Wrong Brick Type")
        
         '''takePos的数值已经定了？'''
-        rob.movej(buildPos,acc=a, vel=3*v,wait=True)      
+        rob.movej(buildPos,acc=a, vel=4*v,wait=True)      
         self.show_tell("arrived Ready-Build position")
 
         # ************* DEBUG temp stop *********************#
@@ -681,18 +688,20 @@ class pick_put_act(object):
         #         break
 
         pose = [0]*6
-        pose[0] = -0.131
+        pose[0] = - 0.131 + error_x
         pose[1] = -distanceBTcarlink_brick + 0.6
-        pose[2] = floorHeight_base +  goal.z + 0.06     # 0.25是离车表面25cm
+        pose[2] = floorHeight_base +  goal.z + 0.31     # 0.25是离车表面25cm
         pose[3] = 0     # 下两个坐标使其垂直于地面Brick remembered
         pose[4] = -pi 
-        pose[5] = 0
-        rob.movel(pose, acc=a, vel=v, wait=True)
+        pose[5] = -5*deg2rad
+        pose2 = list(pose)
+        pose[2] -= 0.25
+        rob.movels([pose, pose2], acc=a, vel=1.5* v,radius=0.1, wait=True)
 
         self.forceDown(0.15, goal.type)
         self.turnEndEffect(OFF)
 
-        rob.movej(pickPos,acc=a, vel=3*v,wait=True)
+        rob.movej(takePos,acc=a, vel=3*v,wait=True)
         return SUCCESS
 
 
@@ -712,21 +721,19 @@ class pick_put_act(object):
                     self.SetHei(320, 50)
             elif goal.type in ("R","G","B"):
                 self.SetHei(320, 50)     # 升降台的高度到达 320mm
-                # rospy.sleep(0.5)
 
             rob.movexs("movej",[takePos,onCarStartPos],acc=2*a, vel=5*v,radius = 0.1,wait=True)    #同时到达相机搜索砖块位置
             
             if goal.type == "O":
                 delta = ORG[num]
                 delta[2] += 0.35 + CarHeight_base
-                rob.movel(delta, acc=a, vel=v,wait=True)   # 摄像机对准铁片
+                rob.movel(delta, acc=a, vel=1.5* v,wait=True)   # 摄像机对准铁片
             elif goal.type in ("R","G","B"):    #颜色类型 R/G/B
                 delta = RGB[num]
                 delta[2] += 0.35 + CarHeight_base          # 砖块上方0.35处
-                rob.movel(delta, acc=a, vel=v,wait=True)   # 摄像机对准铁片
+                rob.movel(delta, acc=a, vel=1.5* v,wait=True)   # 摄像机对准铁片
 
             # 视觉处理
-            # rospy.sleep(0.5)
             if useVisionToGetBrickOnCar_:
                 while True:         # TODO 避免进入死循环
                     VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
@@ -737,25 +744,20 @@ class pick_put_act(object):
                         z = VisionData.Pose.position.z
 
                         # 工作空间判断 ok 验证
-                        if y > 0.334 and y < 0.580\
+                        if y > 0.334 and y < 0.600\
                             and x < 0.409 and x>-0.410 \
                             and (z - CarHeight_base ) >0.1\
                             and (z - CarHeight_base ) <0.7:
                             rospy.logwarn("In the Workspace!")
                             break
 
-                pose = [0]*6
-                # 得到识别结果，移动到砖块上方0.1，平移
-                pose[0] = VisionData.Pose.position.x
-                pose[1] = VisionData.Pose.position.y
-                pose[2] = round( (VisionData.Pose.position.z-CarHeight_base)/0.2 )*0.2 + CarHeight_base + 0.05     # 0.1是离砖10cm
-                pose[3] = pi # 下两个坐标使其垂直于地面Brick remembered
-                pose[4] = 0 
-                pose[5] = 0
-                rob.movel(pose, acc=a, vel=v, wait=True)
+                rob.translate((0.0,0.15,-0.30), acc=a, vel=1.5* v,wait=True)   #模拟视觉处理后磁体对准铁片
+
+                error_x = VisionData.Pose.position.x - delta[0]
+               
             else:
-                rob.translate((0.0,0.15,-0.30), acc=a, vel=v,wait=True)   #模拟视觉处理后磁体对准铁片
-                return FAIL
+                rob.translate((0.0,0.15,-0.30), acc=a, vel=1.5* v,wait=True)   #模拟视觉处理后磁体对准铁片
+                # return FAIL
 
             self.forceDown(0.2)         # 伪力控下落
             self.turnEndEffect(ON)      # 操作末端
@@ -763,25 +765,27 @@ class pick_put_act(object):
             if goal.type == "O":
                 if num in (5, 3, 1):
                     rob.translate((0,0,0.25), acc=0.7*a, vel=0.8*v, wait=True)
-                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=0.7*a, vel=0.8*v,wait=True)
+                    rob.movel([0.0,0.37,0.75,pi,0,0],acc=0.7*a, vel=0.8*v,wait=True)
                 elif num in (4, 2, 0):
-                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=0.7*a, vel=0.8*v,wait=True)
+                    rob.movel([0.0,0.37,0.75,pi,0,0],acc=0.7*a, vel=0.8*v,wait=True)
             elif goal.type in ("R","G","B"):
-                if num in (5,6):
+                if num  == 6:
                     # 只能抬升
-                    rob.translate((0,0,0.35), acc=a, vel=v, wait=True)
-                elif num  == 4:
+                    rob.translate((0,0,0.25), acc=a, vel=v, wait=True)
+                    rob.movel([0.0,0.37,0.75,pi,0,0],acc=1.5* a, vel=v,wait=True)
+                elif num  in  (4, 5):
                     #直接斜着提过去
-                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=a, vel=v,wait=True)
+                    rob.translate((0,0,0.35), acc=a, vel=v, wait=True)
+                    # rob.movel([0.0,0.37,0.75,pi,0,0],acc=a, vel=v,wait=True)
                 elif num in (3,2):
                     # 抬升，并到位
                     rob.translate((0,0,0.35), acc=a, vel=v, wait=True)
-                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=a, vel=v,wait=True)
+                    rob.movel([0.0,0.37,0.75,pi,0,0],acc=a, vel=1.5* v,wait=True)
                 elif num in (1,0):
                     #直接斜着提过去
-                    rob.movel([0.0,0.37,0.71,pi,0,0],acc=a, vel=v,wait=True)
+                    rob.movel([0.0,0.37,0.75,pi,0,0],acc=a, vel=1.5* v,wait=True)
             
-            return SUCCESS
+            return error_x
 
         except Exception as e:
             rospy.logwarn(e)
@@ -808,36 +812,36 @@ class pick_put_act(object):
             elif goal.type in ("R","G","B"):
                 self.SetHei(320, 50)     # 升降台的高度到达 320mm
 
-            rob.movexs("movej",[onCarReadyPos_inter, onCarReadyPos],acc=1*a, vel=2*v,radius = 0.1, wait=True)    # 提升准备位置 onCarStartPos
+            rob.movexs("movej",[onCarReadyPos_inter, onCarReadyPos],acc=1*a, vel=4*v,radius = 0.1, wait=True)    # 提升准备位置 onCarStartPos
 
             if goal.type == "O":
                 delta = ORG_load[num]
                 if num in (0,2,4):
                     delta[2] += 0.05 + CarHeight_base
-                    rob.movel(delta, acc=a, vel=v,wait=True)   #磁体对准铁片
+                    rob.movel(delta, acc=a, vel=2*v,wait=True)   #磁体对准铁片
                 elif num in (1,3,5):
                     delta[2] += 0.30 + CarHeight_base
                     temp = list(delta)
                     temp[2] -= 0.25
-                    rob.movels([delta,temp], acc=a, vel=v,radius = 0.01, wait=True)   #磁体对准铁片
+                    rob.movels([delta,temp], acc=a, vel=2*v,radius = 0.01, wait=True)   #磁体对准铁片
                 self.forceDown(0.1, "O")         # 伪力控下落
             elif goal.type in ("R","G","B"):    #颜色类型 R/G/B
                 delta = RGB_load[num]
                 # 部分砖块需要分步走
                 if num in (0, 1, 4):
                     delta[2] += 0.05 + CarHeight_base
-                    rob.movel(delta, acc=a, vel=v,wait=True)   #磁体对准铁片
+                    rob.movel(delta, acc=a, vel=2*v,wait=True)   #磁体对准铁片
                 elif num in (2, 3, 5, 6):
                     delta[2] += 0.25 + CarHeight_base
                     temp = list(delta)
                     temp[2] -= 0.2
-                    rob.movels([delta,temp], acc=a, vel=v,radius = 0.03, wait=True)   #磁体对准铁片
+                    rob.movels([delta,temp], acc=a, vel=2*v,radius = 0.03, wait=True)   #磁体对准铁片
                 self.forceDown(0.1, goal.type)         # 伪力控下落
 
             self.turnEndEffect(OFF)      # 操作末端
     
             rob.movel([0,0.37,0.71,pi,0,0],acc=a, vel=4*v, wait=True)    # 提升准备位置
-            rob.movej(pickPos,acc=a, vel=4*v, wait=True)
+            rob.movej(pickPos,acc=a, vel=7*v, wait=True)
             
             return SUCCESS
 
@@ -906,7 +910,7 @@ class pick_put_act(object):
         if state == ON:
             rospy.sleep(0.3)
         elif state == OFF:
-            rospy.sleep(1.5)
+            rospy.sleep(0.5)
 
     def Push(self,state):
         push = PushState()
@@ -1028,6 +1032,7 @@ class pick_put_act(object):
     
  
     def Bit_move(self,goal_distance_x,goal_distance_y,goal_angle):
+        print("BitMove is ready:",goal_distance_x,goal_distance_y,goal_angle)
         # 我们将用多快的速度更新控制机器人运动的命令
         try:
             linear_speed = 0.3
@@ -1092,7 +1097,7 @@ class pick_put_act(object):
 
                 distance_rot= angle_now - rot_start
 
-                print(distance_rot)
+                # print(distance_rot)
 
                 delta_angle = (goal_angle - distance_rot)
                 sum_err += delta_angle
