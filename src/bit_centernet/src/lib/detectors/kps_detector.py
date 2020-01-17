@@ -97,7 +97,9 @@ class KPSDetector(BaseDetector):
 
     def show_results(self, debugger, image, results):
         debugger.add_img(image, img_id='multi_pose')
+        vis_scores = []
         for bbox in results[1]:
+            vis_scores.append(bbox[4])
             if bbox[4] > self.opt.vis_thresh:
                 debugger.add_coco_bbox(bbox[:4], 0, bbox[4], img_id='multi_pose')
                 debugger.add_KPS_hp(bbox[5:17], img_id='multi_pose')

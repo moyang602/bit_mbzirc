@@ -1,4 +1,3 @@
-#coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -22,24 +21,24 @@ class L_Shelf(data.Dataset):
 
     def __init__(self, opt, split):
         super(L_Shelf, self).__init__()
-        self.data_dir = '/media/srt/dataset/L_Shelf_0103'
-        self.img_dir = os.path.join(self.data_dir, 'imgs')
+        self.data_dir = '/media/srt/resource/Halcon_Project/L_shelf_dataset/HG_Dataset'
+        self.img_dir = os.path.join(self.data_dir, 'keypoint_img')
         if split == 'val':
             self.annot_path = os.path.join(
-                self.data_dir, 'json_2020',
+                self.data_dir, 'annotations',
                 'val_L.json')
         else:
             if opt.task == 'exdet':
                 self.annot_path = os.path.join(
-                    self.data_dir, 'json_2020',
+                    self.data_dir, 'annotations',
                     'train_L.json')
             if split == 'test':
                 self.annot_path = os.path.join(
-                    self.data_dir, 'json_2020',
+                    self.data_dir, 'annotations',
                     'test_L.json').format(split)
             else:
                 self.annot_path = os.path.join(
-                    self.data_dir, 'json_2020', 'train_L.json')
+                    self.data_dir, 'annotations', 'train_L.json')
         self.max_objs = 2
         self.class_name = [
             '__background__', 'L']

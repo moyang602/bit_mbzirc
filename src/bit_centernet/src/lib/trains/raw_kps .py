@@ -1,4 +1,3 @@
-#coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,13 +7,12 @@ import numpy as np
 
 from models.losses import FocalLoss
 from models.losses import RegL1Loss, RegLoss, NormRegL1Loss, RegWeightedL1Loss
-from models.decode import kps_decode  #ctdet: ctdet_decode
+from models.decode import multi_pose_decode  #ctdet: ctdet_decode
 from models.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
 from utils.post_process import multi_pose_post_process  #ctdet:ctdet_post_process
 from utils.oracle_utils import gen_oracle_map
 from .base_trainer import BaseTrainer
-from models.losses import KPSL1Loss
 
 try:
     import ipdb
@@ -33,7 +31,6 @@ class MultiKPSLoss(torch.nn.Module):
         self.crit_hm_hp = torch.nn.MSELoss() if opt.mse_loss else FocalLoss()  #关键点hp
         self.crit_kp = RegWeightedL1Loss() if not opt.dense_hp else \
             torch.nn.L1Loss(reduction='sum')                                   #关键点回归
-        self.crit_kps =KPSL1Loss()
 
         self.opt = opt
 
@@ -42,7 +39,6 @@ class MultiKPSLoss(torch.nn.Module):
         opt = self.opt
         hm_loss, wh_loss, off_loss = 0, 0, 0            #与目标检测的三个分支损失相同
         hp_loss, off_loss, hm_hp_loss, hp_offset_loss = 0, 0, 0, 0   #跟关键点有关的4个损失
-        kps_loss = 0
         for s in range(opt.num_stacks):
             output = outputs[s]
             output['hm'] = _sigmoid(output['hm'])
@@ -93,7 +89,7 @@ class MultiKPSLoss(torch.nn.Module):
                             mask_weight) / opt.num_stacks
             else:
                 hp_loss += self.crit_kp(output['hps'], batch['hps_mask'],
-                                        batch['hps_ind'], batch['hps']) / opt.num_stacks
+                                        batch['ind'], batch['hps']) / opt.num_stacks
 
 
             if opt.reg_offset and opt.off_weight > 0:
@@ -106,15 +102,13 @@ class MultiKPSLoss(torch.nn.Module):
             if opt.hm_hp and opt.hm_hp_weight > 0:
                 hm_hp_loss += self.crit_hm_hp(
                     output['hm_hp'], batch['hm_hp']) / opt.num_stacks
-                kps_loss += self.crit_kps( output['hm_hp'],batch['hm_hp'])
         loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + \
                opt.off_weight * off_loss + opt.hp_weight * hp_loss + \
-               opt.hm_hp_weight * hm_hp_loss + opt.off_weight * hp_offset_loss + \
-               opt.hm_hp_weight *kps_loss
+               opt.hm_hp_weight * hm_hp_loss + opt.off_weight * hp_offset_loss
 
         loss_stats = {'loss': loss, 'hm_loss': hm_loss, 'hp_loss': hp_loss,
                       'hm_hp_loss': hm_hp_loss, 'hp_offset_loss': hp_offset_loss,
-                      'wh_loss': wh_loss, 'off_loss': off_loss,'kps_loss':kps_loss}
+                      'wh_loss': wh_loss, 'off_loss': off_loss}
         return loss, loss_stats
 
 
@@ -124,7 +118,7 @@ class MultiKPSTrainer(BaseTrainer):
 
     def _get_losses(self, opt):
         loss_states = ['loss', 'hm_loss', 'hp_loss', 'hm_hp_loss',
-                       'hp_offset_loss', 'wh_loss', 'off_loss','kps_loss']
+                       'hp_offset_loss', 'wh_loss', 'off_loss']
         loss = MultiKPSLoss(opt)
         return loss_states, loss
 
@@ -134,7 +128,7 @@ class MultiKPSTrainer(BaseTrainer):
         hm_hp = output['hm_hp'] if opt.hm_hp else None
         hp_offset = output['hp_offset'] if opt.reg_hp_offset else None
         #使用multi_pose_decode来获取检测解码的结果
-        dets = kps_decode(
+        dets = multi_pose_decode(
             output['hm'], output['wh'], output['hps'],
             reg=reg, hm_hp=hm_hp, hp_offset=hp_offset, K=opt.K)
         dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])
@@ -185,7 +179,7 @@ class MultiKPSTrainer(BaseTrainer):
         reg = output['reg'] if self.opt.reg_offset else None
         hm_hp = output['hm_hp'] if self.opt.hm_hp else None
         hp_offset = output['hp_offset'] if self.opt.reg_hp_offset else None
-        dets = kps_decode(
+        dets = multi_pose_decode(
             output['hm'], output['wh'], output['hps'],
             reg=reg, hm_hp=hm_hp, hp_offset=hp_offset, K=self.opt.K)
         dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])

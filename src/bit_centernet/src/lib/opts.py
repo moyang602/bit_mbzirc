@@ -16,17 +16,19 @@ class opts(object):
                              help='L_Shelf|coco | kitti | coco_hp | pascal')
     self.parser.add_argument('--exp_id', default='L_Shelf_HP')
     self.parser.add_argument('--test', action='store_true')
-    self.parser.add_argument('--debug', type=int, default=0,
+    self.parser.add_argument('--debug', type=int, default= 2 ,
                              help='level of visualization.'
                                   '1: only show the final detection results'
                                   '2: show the network output features'
                                   '3: use matplot to display' # useful when lunching training with ipython notebook
                                   '4: save all visualizations to disk')
-    self.parser.add_argument('--demo', default='/home/ugvcontrol/workspace/test_L',
+    self.parser.add_argument('--demo', default='',
                              help='path to image/ image folders/ video. '
                                   'or "webcam"')
-    self.parser.add_argument('--load_model', default='/home/ugvcontrol/bit_mbzirc/src/bit_centernet/exp/model_last_010401.pth',
-                             help='path to pretrained model')
+    self.parser.add_argument('--load_model', default='/home/mylab/bit_mbzirc/src/bit_centernet/exp/model_best.pth',
+                             help='path to pretrained model') #/media/srt/resource/Project_December/Last_Week/CenterNet/exp/KPS/L_Shelf_HP/formal_models/model_235.pth
+                                                              #/media/srt/resource/Project_December/Last_Week/CenterNet/exp/KPS/L_Shelf_HP/model_best.pth
+                                                              #/media/srt/resource/2020_01/CenterNet/exp/KPS/L_Shelf_HP/model_best.pth
     self.parser.add_argument('--resume', action='store_true',
                              help='resume an experiment. '
                                   'Reloaded the optimizer parameter and '
@@ -36,7 +38,7 @@ class opts(object):
     # system
     self.parser.add_argument('--gpus', default='0', 
                              help='-1 for CPU, use comma for multiple gpus')
-    self.parser.add_argument('--num_workers', type=int, default=0,
+    self.parser.add_argument('--num_workers', type=int, default=4,
                              help='dataloader threads. 0 for single-thread.')
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
@@ -53,7 +55,7 @@ class opts(object):
     self.parser.add_argument('--metric', default='loss', 
                              help='main metric to save best model')
     self.parser.add_argument('--vis_thresh', type=float, default=0.5,
-                             help='visualization threshold.')  #0.3
+                             help='visualization threshold.')  #0.3  0.65
     self.parser.add_argument('--debugger_theme', default='white', 
                              choices=['white', 'black'])
     
@@ -80,11 +82,11 @@ class opts(object):
                              help='input width. -1 for default from dataset.')
     
     # train
-    self.parser.add_argument('--lr', type=float, default=1.25e-4, 
-                             help='learning rate for batch size 32.')
+    self.parser.add_argument('--lr', type=float, default=5e-4,
+                             help='learning rate for batch size 32.')  #1.25e-4
     self.parser.add_argument('--lr_step', type=str, default='90,120',
                              help='drop learning rate by 10.')
-    self.parser.add_argument('--num_epochs', type=int, default=50,
+    self.parser.add_argument('--num_epochs', type=int, default=300,
                              help='total training epochs.')
     self.parser.add_argument('--batch_size', type=int, default=4,
                              help='batch size')
@@ -328,7 +330,7 @@ class opts(object):
         opt.heads.update({'hp_offset': 2})
     elif opt.task == 'KPS':
       # opt.flip_idx = dataset.flip_idx
-      opt.heads = {'hm': opt.num_classes, 'wh': 2, 'hps': 12}
+      opt.heads = {'hm': opt.num_classes, 'wh': 2, 'hps': 12}  #12
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
       if opt.hm_hp:
@@ -361,17 +363,15 @@ class opts(object):
                   'mean': [0.32429235, 0.32851489, 0.33174885], 'std': [0.20327683, 0.21368938, 0.20512214],
                   'dataset': 'L_Shelf_HP'},
     }
-
     # class Struct:
-    #     def __init__(self, entries):
-    #         for k, v in entries.items():
-    #             self.__setattr__(k, v)
+    #   def __init__(self, entries):
+    #     for k, v in entries.items():
+    #       self.__setattr__(k, v)
+
     class Struct(object):
-        def __init__(self,entries):
-            for k,v in entries.items():
-                setattr(self,k,v)
-
-
+        def __init__(self, entries):
+            for k, v in entries.items():
+                setattr(self, k, v)
     opt = self.parse(args)
     dataset = Struct(default_dataset_info[opt.task])
     opt.dataset = dataset.dataset

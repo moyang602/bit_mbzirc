@@ -13,7 +13,7 @@ import torch.nn as nn
 from .utils import _transpose_and_gather_feat
 import torch.nn.functional as F
 from sklearn.cluster import KMeans
-import matplotlib
+
 
 def _slow_neg_loss(pred, gt):
   '''focal loss from CornerNet'''
@@ -238,39 +238,15 @@ def compute_rot_loss(output, target_bin, target_res, mask):
     return loss_bin1 + loss_bin2 + loss_res
 
 
-#########################################################################################
-#定义向量的损失函数
-class HPSLoss(nn.Module):
-    def __init__(self):
-        super(HPSLoss,self).__init__()
-
-    def forward(self, output, mask, ind, target):
-        pred = _transpose_and_gather_feat(output, ind)
-        mask = mask.unsqueeze(2).expand_as(pred).float()
-
-        loss = F.l1_loss(pred * mask, target * mask, size_average=False)
-        loss = loss / (mask.sum() + 1e-4)
-
-        return loss
 
 #######################################################################################
 #定义关键点回归损失函数
-
 class KPSL1Loss(nn.Module):
     def __init__(self):
         super(KPSL1Loss, self).__init__()
 
     def forward(self, output,reg_kps):
-
-        #显示每个通道的坐标
-        num_kps = 6
-        output_hp= output.cpu().detach().numpy()
-        for j in range(num_kps):
-            channel_hp = output_hp[0,j,:,:]
-            array_name = 'Pred_HP/visual_kps_'+str(j) + '.png'
-            matplotlib.image.imsave(array_name, channel_hp)
-
-
+        #output : [4,6,160,240]
         pad = 1             #(3 - 1) // 2
         hmax = nn.functional.max_pool2d(output, (3, 3), stride=1, padding=pad)
         keep = (hmax == output).float()
@@ -279,27 +255,22 @@ class KPSL1Loss(nn.Module):
         batch, cat, height, width = hm_hp.size()
         topk_scores, topk_inds = torch.topk(hm_hp.view(batch, cat, -1), 100)  #三个参数分别是batch,cls,K
         topk_inds = topk_inds % (height * width)
-        topk_ys = (topk_inds / width).int().float() #[batch,J,100]
-        topk_xs = (topk_inds % width).int().float() #[batch,J,100]
-
-        y_pred = torch.mean(topk_ys,2,True) #[batch,J,1]
+        topk_ys = (topk_inds / width).int().float()
+        topk_xs = (topk_inds % width).int().float()
+        #使用聚类计算中心
+        # #kmeans = KMeans(n_clusters=1)  #Kmeans用于处理numpy数据
+        # for j in range(6):
+        #     y_pred=kmeans.fit(topk_ys[0,j,:])
+        #     x_pred=kmeans.fit(topk_xs[0,j,:])
+        y_pred = torch.mean(topk_ys,2,True)
         x_pred = torch.mean(topk_xs,2,True)
 
         hm_kps = torch.stack([x_pred, y_pred],dim=-1).squeeze()
         pred_kps=hm_kps.view(batch,-1)
-
-        #将reg_kps取最大值
-        _, topk_inds_gt = torch.topk(reg_kps.view(batch, cat, -1), 10)  # 取heatmap中前10个最大值
-        topk_inds_gt = topk_inds_gt % (height * width)
-        topk_ys_gt = (topk_inds_gt / width).int().float()  # [batch,J,100]
-        topk_xs_gt = (topk_inds_gt % width).int().float()  # [batch,J,100]
-        y_gt = torch.mean(topk_ys_gt,2,True) #[batch,J,1]
-        x_gt = torch.mean(topk_xs_gt,2,True)
-        gt_kps = torch.stack([x_gt, y_gt], dim=-1).squeeze()
-        gt_kps = gt_kps.view(batch, -1)
-
-        loss = F.l1_loss(pred_kps, gt_kps)
-
-        loss = loss / (10 + 1e-4)   #代表K=100/10 #相当于给一个权重 以免影响其他损失值的下降
+        reg_kps = reg_kps[:,0,:].view(batch,-1)
+        # reg_kps = reg_kps[:,0,:].view([4,2,6])
+        # hm_kps = torch.stack([x_pred, y_pred], dim=-1).unsqueeze(
+        #     2).expand(batch, 6, 100, 100, 2)
+        loss = (((reg_kps - pred_kps) ** 2).sum(dim=1) ** 0.5)
 
         return loss

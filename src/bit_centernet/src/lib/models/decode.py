@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -5,6 +7,8 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 from .utils import _gather_feat, _transpose_and_gather_feat
+import torch.nn.functional as F
+import numpy as np
 
 def _nms(heat, kernel=3):
     pad = (kernel - 1) // 2
@@ -495,7 +499,74 @@ def ctdet_decode(heat, wh, reg=None, cat_spec_wh=False, K=100):
     return detections
 
 
+######################################################################################
 def kps_decode(
+        heat, wh, kps, reg=None, hm_hp=None, hp_offset=None, K=100):
+    batch, cat, height, width = heat.size()
+    num_joints = kps.shape[1] // 2
+
+    heat = _nms(heat)
+    scores, inds, clses, ys, xs = _topk(heat, K=K)
+
+    # kps = _transpose_and_gather_feat(kps, inds)
+    # kps = kps.view(batch, num_joints, num_joints * 2)
+    # kps[..., ::2] += xs.view(batch, K, 1).expand(batch, K, num_joints)
+    # kps[..., 1::2] += ys.view(batch, K, 1).expand(batch, K, num_joints)
+    if reg is not None:
+        reg = _transpose_and_gather_feat(reg, inds)
+        reg = reg.view(batch, K, 2)
+        xs = xs.view(batch, K, 1) + reg[:, :, 0:1]
+        ys = ys.view(batch, K, 1) + reg[:, :, 1:2]
+    else:
+        xs = xs.view(batch, K, 1) + 0.5
+        ys = ys.view(batch, K, 1) + 0.5
+    wh = _transpose_and_gather_feat(wh, inds)
+    wh = wh.view(batch, K, 2)
+    clses = clses.view(batch, K, 1).float()
+    # scores = scores.view(batch, K, 1)  #[batch,K,1]
+
+    bboxes = torch.cat([xs - wh[..., 0:1] / 2,
+                        ys - wh[..., 1:2] / 2,
+                        xs + wh[..., 0:1] / 2,
+                        ys + wh[..., 1:2] / 2], dim=2)
+    if hm_hp is not None:
+        hm_hp = _nms(hm_hp)
+        # thresh = 0.01
+        thresh = [0.3,0.3,0.3,0.3,0.3,0.3]  #设置到最低的阈值
+        hm_score, hm_inds, hm_ys, hm_xs = _topk_channel(hm_hp, K=K)  # b x J x K
+        #将hm_score归一化
+        new_hm_score=F.normalize(hm_score, p=2, dim=2)
+
+        hp_offset = _transpose_and_gather_feat(hp_offset, hm_inds.view(batch, -1))
+        hp_offset = hp_offset.view(batch, num_joints, K, 2)
+        hm_xs = hm_xs + hp_offset[:, :, :, 0]
+        hm_ys = hm_ys + hp_offset[:, :, :, 1]
+
+
+        mask = hm_score
+        for j in range(6):
+            mask[0,j,:]= (new_hm_score[0,1,:] > thresh[j]).float()
+
+        # new_hm_score = (1 - mask) * -1 + mask * new_hm_score  #[batch,J,1]
+        new_hm_score = torch.mean(new_hm_score,1,True)
+        hm_scores = new_hm_score.permute(0, 2, 1)
+
+        hm_ys = (1 - mask) * (-10000) + mask * hm_ys  #[1,6,100]
+        hm_xs = (1 - mask) * (-10000) + mask * hm_xs  #[1,6,100]
+        hm_kps = torch.stack([hm_xs, hm_ys], dim=-1)  #[batch,J,K,2]
+
+        hm_kps = hm_kps.view(batch, num_joints, K, 2)  #[batch,num_joints,K,2]
+        #将关键点候选reshape为每个关节100个点的格式
+        #将原来的kps替换成heatmap的输出
+        kps = hm_kps
+        kps = kps.permute(0, 2, 1, 3).contiguous().view(
+            batch, K, num_joints * 2)
+    detections = torch.cat([bboxes, hm_scores, kps, clses], dim=2)
+
+    return detections
+
+###########################################################################################
+def raw_kps_decode(
         heat, wh, kps, reg=None, hm_hp=None, hp_offset=None, K=100):
     batch, cat, height, width = heat.size()
     num_joints = kps.shape[1] // 2
@@ -569,7 +640,7 @@ def kps_decode(
     detections = torch.cat([bboxes, scores, kps, clses], dim=2)
 
     return detections
-
+#################################################################################################
 def multi_pose_decode(
     heat, wh, kps, reg=None, hm_hp=None, hp_offset=None, K=100):
   batch, cat, height, width = heat.size()

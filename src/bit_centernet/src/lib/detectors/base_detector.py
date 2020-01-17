@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
@@ -107,6 +108,7 @@ class BaseDetector(object):
     detections = []
     for scale in self.scales:
       scale_start_time = time.time()
+      #pre_processed= False
       if not pre_processed:
         images, meta = self.pre_process(image, scale, meta)
       else:
@@ -141,13 +143,13 @@ class BaseDetector(object):
     merge_time += end_time - post_process_time
     tot_time += end_time - start_time
 
-    # if self.opt.debug >= 1:
+    if self.opt.debug >= 1:
       # self.show_results(debugger, image, results)
-      # self.generate_results(debugger, image, results)
+      self.generate_results(debugger, image, results)
 
     #如果debug = 7 则只输出包围框的坐标值,不显示图像
     # if self.opt.debug == -2:
-    self.generate_results(debugger, image, results)
+    # self.generate_results(debugger, image, results)
 
     
     return {'results': results, 'tot': tot_time, 'load': load_time,

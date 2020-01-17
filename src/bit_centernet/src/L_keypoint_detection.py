@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #coding=utf-8
 
 from __future__ import absolute_import
@@ -137,13 +137,18 @@ class KPSDetector(BaseDetector):
 
     def generate_results(self, debugger, image, results):
         debugger.add_img(image, img_id='ctdet')
+        global Detection_Flag
+        global kps_x_list
+        global kps_y_list
         self.opt.vis_thresh = 0.5
         for j in range(1, self.num_classes + 1):
             for bbox in results[j]:
                 if bbox[4] > self.opt.vis_thresh:
-                    
-                    kps_x_list = bbox[5:10]
-                    kps_y_list = bbox[10:17]
+                    Detection_Flag = True
+                    kps_x_list = bbox[5:11]
+                    kps_y_list = bbox[11:17]
+                    print (kps_x_list)
+                    print (kps_y_list)
 
 
 ImageL = np.zeros((2209,1243,3))
@@ -171,13 +176,14 @@ def demo(opt,Image):
 
 def get_detection_result(req):
 
-    demo(opt,ImageL)
+    demo(opt, ImageL)
     res = L_KPS_srvResponse()
+    global Detection_Flag
     res.success_flag = Detection_Flag
-    
     res.X_list = kps_x_list
     res.Y_list = kps_y_list
 
+    Detection_Flag = False  # 复位标识量
     return res
 
 if __name__ == '__main__':

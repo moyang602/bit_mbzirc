@@ -1,4 +1,3 @@
-#coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -112,16 +111,11 @@ class KPSDataset(data.Dataset):
                                   dtype=np.float32)
         wh = np.zeros((self.max_objs, 2), dtype=np.float32)
         dense_wh = np.zeros((2, output_h, output_w), dtype=np.float32)
-        # kps= np.zeros((self.max_objs, num_kps * 2), dtype=np.float32)  #kps
-        kps = np.zeros((num_kps,num_kps*2), dtype=np.float32) #[6,12]
-
+        kps= np.zeros((self.max_objs, num_kps * 2), dtype=np.float32)  #kps
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs), dtype=np.int64)
         reg_mask = np.zeros((self.max_objs), dtype=np.uint8)
-        kps_mask = np.zeros((num_kps, self.num_kps * 2), dtype=np.uint8) #更改维度 [2,12] ===> [6,12]
-        #增加一个hps_ind
-        hps_ind = np.zeros((self.num_kps), dtype=np.int64)
-
+        kps_mask = np.zeros((self.max_objs, self.num_kps * 2), dtype=np.uint8)
         hp_offset = np.zeros((self.max_objs * num_kps, 2), dtype=np.float32)
         hp_ind = np.zeros((self.max_objs * num_kps), dtype=np.int64)
         hp_mask = np.zeros((self.max_objs * num_kps), dtype=np.int64)
@@ -175,13 +169,8 @@ class KPSDataset(data.Dataset):
                         pts[j, :2] = affine_transform(pts[j, :2], trans_output)   #对关键点进行变换
                         if pts[j, 0] >= 0 and pts[j, 0] < output_w and \
                                 pts[j, 1] >= 0 and pts[j, 1] < output_h:
-
-                            kps_vector = pts[:, :2] - pts[j, :2]  #[6,2]
-                            kps_vector=np.reshape(kps_vector,(12,-1))
-                            kps[j,:] =np.squeeze(kps_vector)
-
-
-                            kps_mask[j, j * 2: j * 2 + 2] = 1  #更改维度与kps匹配
+                            kps[k, j * 2: j * 2 + 2] = pts[j, :2] - ct_int
+                            kps_mask[k, j * 2: j * 2 + 2] = 1
                             pt_int = pts[j, :2].astype(np.int32)
                             hp_offset[k * num_kps + j] = pts[j, :2] - pt_int
                             hp_mask[k * num_kps + j] = 1
@@ -215,7 +204,7 @@ class KPSDataset(data.Dataset):
                 #                ct[0] + w / 2, ct[1] + h / 2, 1, cls_id])
         #在原来的基础上增加了 'hps','hps_mask'
         ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh,
-               'hps': kps, 'hps_mask': kps_mask,'hps_ind':hps_ind}     #添加了一个hps_ind项
+               'hps': kps, 'hps_mask': kps_mask}
         if self.opt.dense_hp:
             dense_kps = dense_kps.reshape(num_kps * 2, output_h, output_w)
             dense_kps_mask = dense_kps_mask.reshape(

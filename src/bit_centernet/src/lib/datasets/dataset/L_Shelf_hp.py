@@ -1,4 +1,3 @@
-#coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -27,25 +26,25 @@ class L_Shelf_HP(data.Dataset):
         self.edges = [[0,1],[1,2],[2,3],[3.4],[4,5]]
         self.acc_idxs = [1,2,3,4,5,6]
         #数据集的根目录
-        self.data_dir = '/media/srt/dataset/L_Shelf_0103'  #/media/srt/resource/Halcon_Project/L_shelf_dataset/HG_Dataset
-        self.img_dir = os.path.join(self.data_dir, 'imgs')  #keypoint_img
+        self.data_dir = '/media/srt/dataset/L_Shelf_0114'  #/media/srt/resource/Halcon_Project/L_shelf_dataset/HG_Dataset
+        self.img_dir = os.path.join(self.data_dir, 'JPEGimages')  #keypoint_img
         if split == 'val':
             self.annot_path = os.path.join(
-                self.data_dir, 'json_2020',
+                self.data_dir, 'json_2020_0117',
                 'val_L.json')
         else:
             #给关键点检测任务赋予新的任务名 KPS
             if opt.task == 'KPS':
                 self.annot_path = os.path.join(
-                    self.data_dir, 'json_2020',
+                    self.data_dir, 'json_2020_0117',
                     'train_L.json') #annotations
             if split == 'test':
                 self.annot_path = os.path.join(
-                    self.data_dir, 'json_2020',
+                    self.data_dir, 'json_2020_0117',
                     'test_L.json').format(split)
             else:
                 self.annot_path = os.path.join(
-                    self.data_dir, 'json_2020', 'train_L.json')
+                    self.data_dir, 'json_2020_0117', 'train_L.json')
         self.max_objs = 2
         self.class_name = [
             '__background__', 'L']
