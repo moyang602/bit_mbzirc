@@ -205,7 +205,7 @@ int main(int argc, char **argv)
     while (ros::ok())
     {
         try{
-            listener.lookupTransform("map","base_link", ros::Time(0), tf_CarOnMap);
+            listener.lookupTransform("map","car_link", ros::Time(0), tf_CarOnMap);
         }
         catch (tf::TransformException ex){
             ros::Duration(1.0).sleep();
