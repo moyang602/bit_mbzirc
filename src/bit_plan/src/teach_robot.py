@@ -18,6 +18,8 @@ global tf_TargetOnStart_rot
 
 START = 0
 REC = 1
+GET = 2
+FINISH = 3
 
 def readchar():
     fd = sys.stdin.fileno()
@@ -55,6 +57,11 @@ if __name__ == '__main__':
             teach_point_draw(START)
         if key=='r': 
             teach_point_draw(REC)
+        if key=='f': 
+            teach_point_draw(FINISH)
+        if key=='g': 
+            a = teach_point_draw(GET)
+            print(a)
         if key=='e':
             break
         

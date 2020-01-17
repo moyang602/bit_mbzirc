@@ -4,6 +4,7 @@
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Pose.h>
+#include <fstream>
 static ros::Publisher marker_pub;
 static visualization_msgs::Marker marker_waypoints;
 static visualization_msgs::Marker text_marker;
@@ -15,6 +16,12 @@ static std::vector<geometry_msgs::Pose> rec;
 #define START 0
 #define REC   1
 #define GET   2
+#define FINISH 3
+
+using namespace std;
+bool first = true;
+
+int index_temp = 0;
 
 
 void Init_Marker()
@@ -82,6 +89,7 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
     ROS_INFO("in%d",req.kind);
     if (req.kind == START)
     {
+        first = true;
         i = 0;
         S_CarOnMap = tf_CarOnMap;
         generate_point(i, tf_CarOnMap.getOrigin().getX(), tf_CarOnMap.getOrigin().getY());
@@ -89,6 +97,7 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
     }
     else if (req.kind == REC)
     {
+        
         i ++;
         tf_CarOnS = S_CarOnMap.inverse() * tf_CarOnMap.inverse().inverse();
         geometry_msgs::Pose temp;
@@ -98,20 +107,79 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
         tf::quaternionTFToMsg(tf_CarOnS.getRotation(), temp.orientation);
         rec.push_back(temp);
         ROS_INFO_STREAM(rec.back());
-
         generate_point(i, tf_CarOnMap.getOrigin().getX(), tf_CarOnMap.getOrigin().getY());
-        
 
+    }
+    else if (req.kind == FINISH)
+    {
+        first = true;
+
+        std::fstream f("pose_teach.txt", ios::out);
+        if(f.bad())
+        {
+            std::cout << "打开文件出错" << std::endl;
+            return false;
+        }
+        
+        for(int index = 0;index < rec.size(); index ++ )
+        {
+            f << index <<"\t" << rec[index].position.x << "\t" << rec[index].position.y << "\t" << rec[index].orientation.x << "\t" << rec[index].orientation.y << "\t" << rec[index].orientation.z << "\t" << rec[index].orientation.w << "\t" <<std::endl; 
+        } 
+        f.close();
+        rec.clear();
+     
     }
     else if (req.kind == GET)
     {
-        if (get_index == i){
+        
+        if (first){
+            double x;
+            double y;
+            double ox;
+            double oy;
+            double oz;
+            double ow;
+
+            first = false;
+            fstream fin;
+            fin.open("pose_teach.txt",ios::in);    
+        
+            if(!fin)
+            {
+                std::cout << "打开文件出错" << std::endl;
+                return false;
+            }
+            std::cout<<"文件打开成功，按行读入"<<std::endl;
+            //如果知道数据格式，可以直接用>>读入
+
+            
+            geometry_msgs::Pose temp;
+            while(!fin.eof())
+            {
+                fin >> index_temp >> x >> y >> ox >> oy >> oz >> ow ; 
+                temp.position.x = x;
+                temp.position.y = y;
+                temp.position.z = 0.15;
+                temp.orientation.x = ox;
+                temp.orientation.y = oy;
+                temp.orientation.z = oz;
+                temp.orientation.w = ow;
+                rec.push_back(temp);
+                std::cout << "Read In: " << index_temp << std::endl;
+            }
+    
+            fin.close();
+        }
+        
+        if (get_index == index_temp){
             get_index = 0;
         }
         res.num = get_index;
         res.pose = rec[get_index];
         get_index ++;
     }
+
+    
     // Init_WayPoints(req.x,req.y,req.r,req.p);
     
     // //tell the action client that we want to spin a thread by default
@@ -133,10 +201,11 @@ int main(int argc, char **argv)
     marker_pub = n.advertise<visualization_msgs::Marker>("targetpoints_marker", 100);
     ROS_INFO("Teach_robot points are generated.");
     ros::ServiceServer service = n.advertiseService("Teach_robot",Teach_robot);
+
     while (ros::ok())
     {
         try{
-            listener.lookupTransform("map","car_link", ros::Time(0), tf_CarOnMap);
+            listener.lookupTransform("map","base_link", ros::Time(0), tf_CarOnMap);
         }
         catch (tf::TransformException ex){
             ros::Duration(1.0).sleep();
@@ -153,3 +222,13 @@ int main(int argc, char **argv)
 
     return 0;
 }
+
+  //文件打开方式选项：
+//　ios::in　　　　= 0x01,　//供读，文件不存在则创建(ifstream默认的打开方式)
+//　ios::out　　　 = 0x02,　//供写，文件不存在则创建，若文件已存在则清空原内容(ofstream默认的打开方式)
+//　ios::ate　　　 = 0x04,　//文件打开时，指针在文件最后。可改变指针的位置，常和in、out联合使用
+//　ios::app　　　 = 0x08,　//供写，文件不存在则创建，若文件已存在则在原文件内容后写入新的内容，指针位置总在最后
+//　ios::trunc　　 = 0x10,　//在读写前先将文件长度截断为0（默认）
+//　ios::nocreate　= 0x20,　//文件不存在时产生错误，常和in或app联合使用
+//　ios::noreplace = 0x40,　//文件存在时产生错误，常和out联合使用
+//　ios::binary　　= 0x80　 //二进制格式文件
