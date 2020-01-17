@@ -18,7 +18,7 @@ from actionlib_msgs.msg import GoalStatusArray
 from bit_control_msgs.msg import EndEffector
 # 视觉相关
 from bit_vision_msgs.srv import FirePosition
-
+from geometry_msgs.msg import *
 #---- 变量初始化 ----#
 cancel_id = 0  # MoveBase 正在运行任务ID
 status = 0
@@ -44,20 +44,20 @@ focus = 4*1e-3
 
 global tft
 tft = tf.TransformerROS()
-global tf_CameraOnBase_trans
-global tf_CameraOnBase_rot
 
 # 获取Movebase ID
 def move_base_feedback(a):
     global cancel_id
-    global status
-    cancel_id = a.status_list[0].goal_id
-    status = a.status_list[0].status
+    global status    
+    
+    if len(a.status_list) != 0:
+        cancel_id = a.status_list[-1].goal_id
+        status = a.status_list[-1].status
 
 
 def CarStop():
     a = Twist()
-    simp_cancel.publish(cancel_id)
+    goal_cancel.publish(cancel_id)
     rospy.sleep(0.1)
     a.linear.x = 0.0
     a.linear.y = 0.0
@@ -86,7 +86,7 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):
     # 发布位置
     goal_pub.publish(this_target)
     
-    while True:
+    while (not rospy.is_shutdown()):
         try:
             if status != GoalStatus.ACTIVE:
                 pass
@@ -124,12 +124,12 @@ def SafeCheck(targetPose, currentAngle):
     if dist > 0.9:
         return False
     
-    # targetAngle = inv_kin(targetPose, currentAngle)
-    # print 'currentAngle:',currentAngle
-    # print 'targetAngle:',targetAngle
-    # print 'targetPose:',targetPose
-    # if math.fabs(targetAngle[2])<5*deg2rad :  # 太远，机械臂伸直了
-    #     return False
+    targetAngle = inv_kin(targetPose, currentAngle)
+    print 'currentAngle:',currentAngle
+    print 'targetAngle:',targetAngle
+    print 'targetPose:',targetPose
+    if fabs(targetAngle[2])<5*deg2rad :  # 太远，机械臂伸直了
+        return False
 
     return True
 
@@ -152,14 +152,13 @@ def FightFire():
     #----- 1. 机械臂移动至火源探索位姿 -------#
     rob.movej(FindFirePos, acc=a, vel=3*v, wait=True, relative=False)
 
-    
     #----- 2. 车臂移动探索火源 -------#
     # 2.1 小车开始自由移动
     CarMove(2.0, 0.0, 0.0*deg2rad)
     # 2.2 机械臂移动直到找到火源
     offset = [-0*deg2rad, 0*deg2rad, 0*deg2rad, -0*deg2rad]
     count = 0   #搜索次数
-    while True:
+    while (not rospy.is_shutdown()):
         MovePos = list(FindFirePos)
         MovePos[0] = MovePos[0]+offset[count%4]
         count = count+1
@@ -167,9 +166,9 @@ def FightFire():
         rospy.sleep(0.5)
         VisionData = GetFireVisionData_client(HandEye)
         rospy.loginfo("MovePos[0] = %f",MovePos[0])
-        if (VisionData.flag or count>20) and VisionData.FirePos.point.y < 100:  
+        if (VisionData.flag or count>20) and VisionData.DeltaInPix.y < 100:  
             # 取消运动
-            goal_cancel.publish(cancel_id)
+            CarStop()
             rospy.loginfo("car motion has been canceled")
             break
 
@@ -181,11 +180,11 @@ def FightFire():
     
     #--------- 机械臂移动直到火源在图像中心线 -------#
     rospy.sleep(0.5)
-    while True:
+    while (not rospy.is_shutdown()):
         VisionData = GetFireVisionData_client(HandEye)
         if VisionData.flag:
-            deltax = VisionData.FirePos.point.x
-            if math.fabs(deltax)<5:
+            deltax = VisionData.DeltaInPix.x
+            if fabs(deltax)<5:
                 break
             MovePos = [deltax*0.2*deg2rad,0,0,0,0,0]
             rob.movej(MovePos,acc=1*a, vel=0.3*v,wait=False,relative=True)
@@ -204,7 +203,7 @@ def FightFire():
 
     #----- 4. 车臂运动，靠近火源 -------#
     rospy.sleep(0.5)
-    while True:
+    while (not rospy.is_shutdown()):
         VisionData = GetFireVisionData_client(HandEye)
         if VisionData.flag:
             # TODO 根据视觉得到的火源相对于基座的位置，移动小车与机械臂
@@ -212,12 +211,12 @@ def FightFire():
             deltay = VisionData.DeltaInPix.y
 
             pose = rob.getl()
-            if math.fabs(pose[4] + math.pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
-                goal_cancel.publish(cancel_id)
+            if fabs(pose[4] + pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
+                CarStop()
                 break
-            if math.fabs(deltax)<5:
+            if fabs(deltax)<5:
                 deltax = 0
-            if math.fabs(deltay)<5:
+            if fabs(deltay)<5:
                 deltay = 0
             print "pose[1] = ", pose[1]
             if pose[1]<-0.45:                            # 机械臂一边移动一边往前伸
@@ -225,8 +224,23 @@ def FightFire():
                 rob.movel_tool(pose, acc=a, vel=0.2*v, wait=False)
             else:
                 pose = [0, -0.1 ,0,-deltay*0.2*deg2rad,0,0]      # 俯仰角通过机械臂调整
+                # currentAngle = rob.getj()
+                # poseNow = rob.getl()
+                # trans = (poseNow[0],poseNow[1],poseNow[2])
+                # rot = tf.transformations.quaternion_from_euler(poseNow[3],poseNow[4],poseNow[5])
+                # tf_ArmNow = tf.TransformerROS.fromTranslationRotation(trans,rot)
+                # trans = (pose[0],pose[1],pose[2])
+                # rot = tf.transformations.quaternion_from_euler(pose[3],pose[4],pose[5])
+                # tf_Delta = tf.TransformerROS.fromTranslationRotation(trans,rot)
+                # target_tf = np.dot(tf_ArmNow, tf_Delta)
+                # if SafeCheck(target_tf, currentAngle):
+                #     rob.movel(pose, acc=a, vel=0.2*v, wait=False,relative=True)
+                # else:
+                #     print "robot out of range"
+                #     break
                 rob.movel(pose, acc=a, vel=0.2*v, wait=False,relative=True)
-            CarMove(0.15, 0.0, deltax*0.08*deg2rad)      # 偏航角通过小车调整
+                
+            CarMove(0.25, 0.0, deltax*0.08*deg2rad)      # 偏航角通过小车调整
             rospy.sleep(0.5)
         else:
             break
@@ -241,14 +255,14 @@ def FightFire():
    
     #----- 6. 控制机械臂水平移动，对准火源 -------#
     rospy.sleep(0.5)
-    while True:
+    while (not rospy.is_shutdown()):
         VisionData = GetFireVisionData_client(HandEye)
         if VisionData.flag:
             #　TODO 根据火源位置调整喷水倾角
 
             deltax = VisionData.DeltaInPix.x + 17.0       # Todo 标定水枪位置
             deltay = VisionData.DeltaInPix.y + 20.6
-            if math.fabs(deltax)<5 and math.fabs(deltay)<5:
+            if fabs(deltax)<5 and fabs(deltay)<5:
                 break
             pose = [deltax*0.001, -deltay*0.001,0,0,0,0]      
             rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
@@ -262,25 +276,25 @@ def FightFire():
 
     #----- 7. 开始灭火-------#
     
-    # 操作末端 开始喷水
+    # # 操作末端 开始喷水
     
-    rospy.sleep(1.0)
-    ee.PumpState = 100
-    pub_ee.publish(ee)
-    rospy.sleep(1.0)
+    # rospy.sleep(1.0)
+    # ee.PumpState = 100
+    # pub_ee.publish(ee)
+    # rospy.sleep(1.0)
     
-    # 喷5s水
-    rospy.sleep(15.0)
+    # # 喷5s水
+    # rospy.sleep(15.0)
 
-    # 操作末端 停止
+    # # 操作末端 停止
     
-    rospy.sleep(1.0)
-    ee.PumpState = 100
-    pub_ee.publish(ee)
-    rospy.sleep(1.0)
+    # rospy.sleep(1.0)
+    # ee.PumpState = 100
+    # pub_ee.publish(ee)
+    # rospy.sleep(1.0)
 
-    # 等待水停止
-    rospy.sleep(10.0)
+    # # 等待水停止
+    # rospy.sleep(10.0)
      
     #----- 8. 机械臂复原-------#
     rob.movej(FindFirePos,acc=a, vel=2*v,wait=True)
@@ -307,10 +321,6 @@ if __name__ == '__main__':
             if normal == 1:
                 break
     
-    global tf_CameraOnBase_trans
-    global tf_CameraOnBase_rot
-    (tf_CameraOnBase_trans,tf_CameraOnBase_rot) = listener.lookupTransform("base_link","infrared_link", rospy.Time(0))
-
     if normal == 0:
         rospy.logerr('UR controller cannot connected')
         sys.exit(0)
@@ -318,7 +328,8 @@ if __name__ == '__main__':
     # 小车移动相关话题初始化
     goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
     goal_sub = rospy.Subscriber('move_base/status', GoalStatusArray, move_base_feedback)
-    goal_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)     
+    goal_cancel = rospy.Publisher('/move_base/cancel',GoalID,queue_size=1)  
+    cmdvel_pub = rospy.Publisher('/cmd_vel_plan',Twist,queue_size=1)   
     # 末端执行器
     EndEffector_pub = rospy.Publisher('endeffCmd',EndEffector, queue_size=1)
     

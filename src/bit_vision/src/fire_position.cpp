@@ -189,7 +189,7 @@ void fire_position_HandEye(HObject ho_Image, bool &data_flag, double &delta_x, d
     ClosingCircle(ho_RegionOpening, &ho_RegionClosing, 1.5);
     FillUp(ho_RegionClosing, &ho_RegionFillUp);
     Connection(ho_RegionFillUp, &ho_ConnectedRegions);
-    SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, "area", "and", 800, 2000);
+    SelectShape(ho_ConnectedRegions, &ho_SelectedRegions, "area", "and", 20, 2000);
     CountObj(ho_SelectedRegions, &hv_Number);
 
     if (0 != (hv_Number>=1))
@@ -343,7 +343,7 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
       double TargetPos[3];    // 火源在Base坐标系下的位置
       CalPlaneLineIntersectPoint(planeVector, planePoint, lineVector, linePoint, TargetPos);
 
-      ROS_INFO_STREAM("Fire data:"<<FireArea<<","<<TargetPos[0]<<","<<TargetPos[1]<<","<<TargetPos[2]);
+      // ROS_INFO_STREAM("Fire data:"<<FireArea<<","<<TargetPos[0]<<","<<TargetPos[1]<<","<<TargetPos[2]);
       res.flag = true;
       res.FirePos.header.stamp = ros::Time().now();
       res.FirePos.header.frame_id = "base_link";
@@ -354,6 +354,7 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
       res.FirePos.point.z = TargetPos[2];
       res.DeltaInPix.x = delta_x;
       res.DeltaInPix.y = delta_y;
+      ROS_INFO_STREAM("Fire data:"<<FireArea<<","<<delta_x<<","<<delta_y);
       
     }
     else
