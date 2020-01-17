@@ -3,3 +3,4 @@ uint8 cameraUsed
 bool flag
 float64  FireArea
 geometry_msgs/PointStamped FirePos
+geometry_msgs/Pose2D DeltaInPix

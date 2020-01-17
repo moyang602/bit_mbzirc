@@ -157,7 +157,7 @@ def FightFire():
     # 2.1 小车开始自由移动
     CarMove(2.0, 0.0, 0.0*deg2rad)
     # 2.2 机械臂移动直到找到火源
-    offset = [-15*deg2rad, 15*deg2rad, 15*deg2rad, -15*deg2rad]
+    offset = [-0*deg2rad, 0*deg2rad, 0*deg2rad, -0*deg2rad]
     count = 0   #搜索次数
     while True:
         MovePos = list(FindFirePos)
@@ -208,35 +208,8 @@ def FightFire():
         VisionData = GetFireVisionData_client(HandEye)
         if VisionData.flag:
             # TODO 根据视觉得到的火源相对于基座的位置，移动小车与机械臂
-
-            # 孙泽源提供方法
-            # # 图像坐标转换为真实数据
-            # deltax = VisionData.FirePos.point.x * Sx 
-            # deltay = VisionData.FirePos.point.y * Sy
-
-            # # TODO 待验证
-            # # 获取光轴仰角
-            # tf_CameraOnBase_R = tf.transformations.quaternion_matrix(tf_CameraOnBase_rot)
-            # Unit_CA = np.dot(tf_CameraOnBase_R,(0,0,1))
-            # Unit_CW = (0,0,-1)
-            # alpha = acos(np.dot(Unit_CA,Unit_CW))
-            
-            # # 获取火源位置仰角
-            # delta_alpha = atan(-deltay/focus)
-
-            # FyOnW = h*tan(alpha+delta_alpha)
-
-            # FxOnW = FyOnW*deltax/focus
-
-            # FOnW = (FxOnW, FyOnW, 0)
-
-            # rot = tf.transformations.euler_matrix(pi/2-alpha, 0, 0)
-            # trans = (0, h*cos(pi/2-alpha), h*sin(pi/2 - alpha))
-            
-            # tf_WOnCamera = tft.fromTranslationRotation(trans,rot)
-            # tf_CameraOnBase = tft.fromTranslationRotation(tf_CameraOnBase_trans,tf_CameraOnBase_rot)
-            # Point_FOnW = (FxOnW,FyOnW,0,1)
-            # tf_FireOnBase = np.dot(tf_CameraOnBase, np.dot(tf_WOnCamera, Point_FOnW))
+            deltax = VisionData.DeltaInPix.x
+            deltay = VisionData.DeltaInPix.y
 
             pose = rob.getl()
             if math.fabs(pose[4] + math.pi)<3*deg2rad:  # 当机械臂末端接近竖直向下时停止
@@ -273,12 +246,12 @@ def FightFire():
         if VisionData.flag:
             #　TODO 根据火源位置调整喷水倾角
 
-            # deltax = VisionData.FirePos.point.x + 17.0       # Todo 标定水枪位置
-            # deltay = VisionData.FirePos.point.y + 20.6
-            # if math.fabs(deltax)<5 and math.fabs(deltay)<5:
-            #     break
-            # pose = [deltax*0.001, -deltay*0.001,0,0,0,0]      
-            # rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
+            deltax = VisionData.DeltaInPix.x + 17.0       # Todo 标定水枪位置
+            deltay = VisionData.DeltaInPix.y + 20.6
+            if math.fabs(deltax)<5 and math.fabs(deltay)<5:
+                break
+            pose = [deltax*0.001, -deltay*0.001,0,0,0,0]      
+            rob.movel(pose, acc=a, vel=0.3*v, wait=False,relative=True)
             rospy.sleep(0.5)
         else:
             break

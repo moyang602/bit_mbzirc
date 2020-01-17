@@ -352,6 +352,9 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
       res.FirePos.point.x = TargetPos[0];
       res.FirePos.point.y = TargetPos[1];
       res.FirePos.point.z = TargetPos[2];
+      res.DeltaInPix.x = delta_x;
+      res.DeltaInPix.y = delta_y;
+      
     }
     else
     {
@@ -363,6 +366,8 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
       res.FirePos.point.x = 0.0;
       res.FirePos.point.y = 0.0;
       res.FirePos.point.z = 0.0;
+      res.DeltaInPix.x = 0.0;
+      res.DeltaInPix.y = 0.0;
     }
   }
   catch (HException &exception)
