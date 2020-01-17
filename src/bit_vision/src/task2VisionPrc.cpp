@@ -1309,34 +1309,32 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
 {
   // Local iconic variables
   HObject  ho_ClassRegions, ho_ColorObjectSelected;
-  HObject  ho_ConnectedRegions1, ho_SelectedRegions, ho_RectangleSelect;
-  HObject  ho_ObjectSelected1, ho_Region, ho_GrayImage, ho_Red;
-  HObject  ho_Green, ho_Blue, ho_Hue, ho_Saturation, ho_Intensity;
-  HObject  ho_ImageMedian, ho_DynRegion, ho_Contours, ho_FilledRegion;
-  HObject  ho_SelectedRegions11, ho_SelectedRegions12, ho_SelectedRegions13;
-  HObject  ho_SelectedRegions14, ho_ImageSub, ho_RegionFillUp;
-  HObject  ho_RegionOpening, ho_SelectedRegions21, ho_SelectedRegions22;
-  HObject  ho_SelectedRegions23, ho_SelectedRegions24, ho_RegionIntersection;
-  HObject  ho_RegionDifference1, ho_RegionDifference2, ho_RegionOpening1;
-  HObject  ho_RegionOpening2, ho_RegionUnion1, ho_RegionUnion;
-  HObject  ho_ConnectedRegions, ho_ObjectSelected, ho_ObjectROI_2;
-  HObject  ho_OrangeRegions, ho_OrangeSelected, ho_Rectangle1;
-  HObject  ho_Rectangle, ho_RectangleLeft, ho_ImageReducedLeft;
-  HObject  ho_LeftRegions, ho_ObjectSelectedLeft, ho_RectangleRight;
-  HObject  ho_ImageReducedRight, ho_RightRegions, ho_ObjectSelectedRight;
-  HObject  ho_Cross, ho_ResultContour, ho_Contour, ho_Cross1;
-  HObject  ho_ROIContour, ho_ClosedContours, ho_RegionROI;
-  HObject  ho_ContoursROI, ho_ContoursSelected, ho_Rectangle2;
+  HObject  ho_RectangleSelect, ho_GrayImage, ho_Red, ho_Green;
+  HObject  ho_Blue, ho_Hue, ho_Saturation, ho_Intensity, ho_ImageMedian;
+  HObject  ho_DynRegion, ho_Contours, ho_FilledRegion, ho_SelectedRegions11;
+  HObject  ho_SelectedRegions12, ho_SelectedRegions13, ho_SelectedRegions14;
+  HObject  ho_ImageSub, ho_RegionFillUp, ho_RegionOpening;
+  HObject  ho_SelectedRegions21, ho_SelectedRegions22, ho_SelectedRegions23;
+  HObject  ho_SelectedRegions24, ho_RegionIntersection, ho_RegionDifference1;
+  HObject  ho_RegionDifference2, ho_RegionOpening1, ho_RegionOpening2;
+  HObject  ho_RegionUnion1, ho_RegionUnion, ho_ConnectedRegions;
+  HObject  ho_ObjectSelected, ho_ObjectROI_2, ho_OrangeRegions;
+  HObject  ho_OrangeSelected, ho_Rectangle1, ho_Rectangle;
+  HObject  ho_RectangleLeft, ho_ImageReducedLeft, ho_LeftRegions;
+  HObject  ho_ObjectSelectedLeft, ho_RectangleRight, ho_ImageReducedRight;
+  HObject  ho_RightRegions, ho_ObjectSelectedRight, ho_Cross;
+  HObject  ho_ResultContour, ho_Contour, ho_Cross1, ho_ROIContour;
+  HObject  ho_ClosedContours, ho_RegionROI, ho_ContoursROI;
+  HObject  ho_ContoursSelected, ho_Rectangle2;
 
   // Local control variables
   HTuple  hv_pathFile, hv_MLPHandle, hv_CamParOriginal;
   HTuple  hv_ImageFiles, hv_Brick_color, hv_coord_label, hv_Index;
   HTuple  hv_pose, hv_Width, hv_Height, hv_RectWidth, hv_RectHeight;
-  HTuple  hv_color_index, hv_Number1, hv_Index2, hv_Rows1;
-  HTuple  hv_Columns1, hv_Number, hv_REC_row, hv_REC_column;
+  HTuple  hv_color_index, hv_Row, hv_Column, hv_Phi, hv_Length1;
+  HTuple  hv_Length2, hv_Number, hv_REC_row, hv_REC_column;
   HTuple  hv_weight, hv_Index1, hv_index, hv_Row2, hv_Column2;
   HTuple  hv_Phi1, hv_Length11, hv_Length21, hv_NumberOrange;
-  HTuple  hv_Row, hv_Column, hv_Phi, hv_Length1, hv_Length2;
   HTuple  hv_AreaAnchor, hv_AreaLeft, hv_Row1, hv_Column1;
   HTuple  hv_AreaRight, hv_CenterY, hv_CenterX, hv_Len1, hv_Len2;
   HTuple  hv_Area, hv_VertexesY, hv_VertexesX, hv_MetrologyHandle;
@@ -1384,22 +1382,31 @@ void rectangle_pose_ZED_new(HObject ho_Image, double Pose[6], bool &Flag, int &O
     GetImageSize(ho_Image, &hv_Width, &hv_Height);
     //颜色分类
     ClassifyImageClassMlp(ho_Image, &ho_ClassRegions, hv_MLPHandle, 0.9);
-    SelectObj(ho_ClassRegions, &ho_ColorObjectSelected, hv_color_index);
-    Connection(ho_ColorObjectSelected, &ho_ConnectedRegions1);
-    SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions, "area", "and", 150, 999999999999);
 
-    CountObj(ho_SelectedRegions, &hv_Number1);
-    GenEmptyRegion(&ho_RectangleSelect);
   
-    HTuple end_val43 = hv_Number1;
-    HTuple step_val43 = 1;
-    for (hv_Index2=1; hv_Index2.Continue(end_val43, step_val43); hv_Index2 += step_val43)
-    {
-      SelectObj(ho_SelectedRegions, &ho_ObjectSelected1, hv_Index2);
-      GetRegionConvex(ho_ObjectSelected1, &hv_Rows1, &hv_Columns1);
-      GenRegionPolygonFilled(&ho_Region, hv_Rows1, hv_Columns1);
-      Union2(ho_RectangleSelect, ho_Region, &ho_RectangleSelect);
-    }
+    SelectObj(ho_ClassRegions, &ho_ColorObjectSelected, hv_color_index);
+
+    //************* 1.1大恒提供的凸边形方法 ******************
+    // Connection(ho_ColorObjectSelected, &ho_ConnectedRegions1);
+    // SelectShape(ho_ConnectedRegions1, &ho_SelectedRegions, "area", "and", 150, 999999999999);
+
+    // CountObj(ho_SelectedRegions, &hv_Number1);
+    // GenEmptyRegion(&ho_RectangleSelect);
+  
+    // HTuple end_val43 = hv_Number1;
+    // HTuple step_val43 = 1;
+    // for (hv_Index2=1; hv_Index2.Continue(end_val43, step_val43); hv_Index2 += step_val43)
+    // {
+    //   SelectObj(ho_SelectedRegions, &ho_ObjectSelected1, hv_Index2);
+    //   GetRegionConvex(ho_ObjectSelected1, &hv_Rows1, &hv_Columns1);
+    //   GenRegionPolygonFilled(&ho_Region, hv_Rows1, hv_Columns1);
+    //   Union2(ho_RectangleSelect, ho_Region, &ho_RectangleSelect);
+    // }
+
+    //************* 1.2 最小外接矩形方法 ******************
+    SmallestRectangle2(ho_ColorObjectSelected, &hv_Row, &hv_Column, &hv_Phi, &hv_Length1, 
+        &hv_Length2);
+    GenRectangle2(&ho_RectangleSelect, hv_Row, hv_Column, hv_Phi, hv_Length1, hv_Length2);
 
     DilationRectangle1(ho_RectangleSelect, &ho_RectangleSelect, 35, 35);
 
@@ -1974,49 +1981,44 @@ void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bo
 
   // Local iconic variables
   HObject  ho_Image1, ho_Image2, ho_Image3;
-  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_Regions1, ho_Regions2;
-  HObject  ho_RegionIntersection, ho_ConnectedRegions, ho_RegionClosing;
-  HObject  ho_SelectedRegions, ho_ImageReduced, ho_Contours;
-  HObject  ho_ContoursSplit, ho_SelectedEdges, ho_UnionContours;
-  HObject  ho_Lines, ho_SortedContours, ho_Line;
+  HObject  ho_ImageResult1, ho_ImageResult2, ho_ImageResult3;
+  HObject  ho_Rectangle, ho_ImageReduced, ho_PartAmp, ho_PartDir;
+  HObject  ho_EdgeRegion, ho_Skeleton, ho_EdgeContours, ho_ContoursSplit;
+  HObject  ho_SelectedContours, ho_UnionContours, ho_Lines;
+  HObject  ho_SortedContours, ho_Line;
 
   // Local control variables
   HTuple  hv_ImageFiles, hv_Index, hv_Width, hv_Height;
-  HTuple  hv_Phi, hv_Ra, hv_Rb, hv_Phi1, hv_theta, hv_Number;
-  HTuple  hv_RowBegin, hv_ColBegin, hv_RowEnd, hv_ColEnd;
-  HTuple  hv_Nr, hv_Nc, hv_Dist, hv_col, hv_row, hv_dist;
+  HTuple  hv_Number, hv_RowBegin, hv_ColBegin, hv_RowEnd;
+  HTuple  hv_ColEnd, hv_Nr, hv_Nc, hv_Dist, hv_col, hv_row;
+  HTuple  hv_dist, hv_theta;
 
   try
   {
-    GetImageSize(ho_Image, &hv_Width, &hv_Height);
-
-    //calculate angle
     Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
-    TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
-        "hsv");
-    Threshold(ho_ImageS, &ho_Regions1, 35, 101);
 
-    Threshold(ho_ImageV, &ho_Regions2, 124, 255);
-    Intersection(ho_Regions1, ho_Regions2, &ho_RegionIntersection);
-    Connection(ho_RegionIntersection, &ho_ConnectedRegions);
+    TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageResult1, &ho_ImageResult2, 
+        &ho_ImageResult3, "hsi");
 
-    ClosingRectangle1(ho_ConnectedRegions, &ho_RegionClosing, 30, 30);
-    SelectShape(ho_RegionClosing, &ho_SelectedRegions, (HTuple("rectangularity").Append("area")), 
-        "and", (HTuple(0.8).Append(10000)), (HTuple(1).Append(100000000)));
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    GenRectangle1(&ho_Rectangle, 5, 5, hv_Height-10, hv_Width-10);
+    ReduceDomain(ho_ImageResult3, ho_Rectangle, &ho_ImageReduced);
 
-    OrientationRegion(ho_SelectedRegions, &hv_Phi);
-    EllipticAxis(ho_SelectedRegions, &hv_Ra, &hv_Rb, &hv_Phi1);
-    //angle
-    hv_theta = hv_Phi1;
+    EdgesImage(ho_ImageReduced, &ho_PartAmp, &ho_PartDir, "mderiche2", 0.3, "nms", 
+        30, 60);
+    Threshold(ho_PartAmp, &ho_EdgeRegion, 50, 255);
 
-    ReduceDomain(ho_ImageV, ho_SelectedRegions, &ho_ImageReduced);
-    GenContourRegionXld(ho_SelectedRegions, &ho_Contours, "border");
-    SegmentContoursXld(ho_Contours, &ho_ContoursSplit, "lines", 5, 8, 3);
-    SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "contour_length", 500, 5000, -0.05, 0.05);
-    SelectContoursXld(ho_ContoursSplit, &ho_SelectedEdges, "direction", -0.4, 0.4, -0.4, 0.4);
-    UnionAdjacentContoursXld(ho_SelectedEdges, &ho_UnionContours, 10, 1, "attr_keep");
+    Skeleton(ho_EdgeRegion, &ho_Skeleton);
+    GenContoursSkeletonXld(ho_Skeleton, &ho_EdgeContours, 1, "filter");
+    SegmentContoursXld(ho_EdgeContours, &ho_ContoursSplit, "lines", 5, 4, 2);
+    SelectContoursXld(ho_ContoursSplit, &ho_SelectedContours, "contour_length", 30, 
+        200000, -0.5, 0.5);
 
-    SelectContoursXld(ho_UnionContours, &ho_Lines, "contour_length", 600, 20000, -0.05, 0.05);
+    UnionCollinearContoursXld(ho_SelectedContours, &ho_UnionContours, 30, 1, 200, 
+        0.3, "attr_keep");
+
+    SelectContoursXld(ho_UnionContours, &ho_Lines, "contour_length", 600, 20000, 
+        -0.05, 0.05);
 
     SortContoursXld(ho_Lines, &ho_SortedContours, "upper_right", "true", "row");
     CountObj(ho_SortedContours, &hv_Number);
@@ -2027,7 +2029,8 @@ void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bo
     hv_col = hv_Width/2;
     hv_row = (hv_Dist-(hv_Nc*hv_col))/hv_Nr;
     hv_dist = hv_Height-hv_row;
-
+    hv_theta = (hv_Nc/hv_Nr).TupleAtan();
+    
     ZED_L_Theta = hv_theta.D();
     ZED_L_dist = hv_dist.D();
     Flag = true;
