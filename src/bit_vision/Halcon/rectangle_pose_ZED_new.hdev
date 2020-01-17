@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="18.05">
+<procedure name="main">
+<interface/>
+<body>
+<l>dev_update_off ()</l>
+<c></c>
+<l>pathFile := '../model/new_segment_four.mlp'</l>
+<l>read_class_mlp (pathFile, MLPHandle)</l>
+<c></c>
+<l>read_cam_par ('../model/campar2_01.dat', CamParOriginal)</l>
+<l>list_files ('/home/mylab/image/ZED/Pose', ['files','follow_links'], ImageFiles)</l>
+<l>tuple_regexp_select (ImageFiles, ['\\.(tif|tiff|gif|bmp|jpg|jpeg|jp2|png|pcx|pgm|ppm|pbm|xwd|ima|hobj)$','ignore_case'], ImageFiles)</l>
+<l>Brick_color := 'O'</l>
+<l>coord_label := 'center'</l>
+<l>for Index := 0 to |ImageFiles| - 1 by 1</l>
+<l>    *Index:=56</l>
+<l>    pose := []</l>
+<l>    read_image(Image,ImageFiles[Index]) </l>
+<l>    get_image_size (Image, Width, Height)</l>
+<c>    *颜色分类</c>
+<l>    classify_image_class_mlp (Image, ClassRegions, MLPHandle, 0.9)</l>
+<c>    </c>
+<l>    if(Brick_color == 'R')</l>
+<l>        RectWidth:=0.2</l>
+<l>        RectHeight:=0.15</l>
+<l>        color_index := 4</l>
+<l>    elseif(Brick_color == 'G')</l>
+<l>        RectWidth:=0.3</l>
+<l>        RectHeight:=0.15</l>
+<l>        color_index := 3</l>
+<l>    elseif(Brick_color == 'B')</l>
+<l>        RectWidth:=0.3</l>
+<l>        RectHeight:=0.15</l>
+<l>        color_index := 2</l>
+<l>    elseif(Brick_color == 'O')</l>
+<l>        RectWidth:=0.19</l>
+<l>        RectHeight:=0.15</l>
+<l>        color_index := 1</l>
+<l>    endif</l>
+<c>    </c>
+<l>    select_obj (ClassRegions, ColorObjectSelected, color_index)</l>
+<c>    ************** 1.1大恒提供的凸边形方法 ******************</c>
+<l>*     connection (ColorObjectSelected, ConnectedRegions1)</l>
+<l>*     select_shape (ConnectedRegions1, SelectedRegions, 'area', 'and', 150, 999999999999)</l>
+<c>    </c>
+<l>*     count_obj (SelectedRegions, Number1)</l>
+<l>*     gen_empty_region (RectangleSelect)</l>
+<c>    </c>
+<l>*     for Index2 := 1 to Number1 by 1</l>
+<l>*         select_obj (SelectedRegions, ObjectSelected1, Index2)</l>
+<l>*         get_region_convex (ObjectSelected1, Rows1, Columns1)</l>
+<l>*         gen_region_polygon_filled (Region, Rows1, Columns1)</l>
+<l>*         union2 (RectangleSelect, Region, RectangleSelect)              </l>
+<l>*     endfor</l>
+<c>    </c>
+<c>    ************** 1.2 最小外接矩形方法 ******************</c>
+<l>    smallest_rectangle2 (ColorObjectSelected, Row, Column, Phi, Length1, Length2)</l>
+<l>    gen_rectangle2 (RectangleSelect, Row, Column, Phi, Length1, Length2)</l>
+<c>    </c>
+<c>    </c>
+<l>    dilation_rectangle1 (RectangleSelect, RectangleSelect, 35, 35)</l>
+<c>      </c>
+<l>    rgb1_to_gray (Image, GrayImage)   </l>
+<c>    </c>
+<l>    decompose3 (Image, Red, Green, Blue)   </l>
+<l>    trans_from_rgb (Red, Green, Blue, Hue, Saturation, Intensity, 'hsv')</l>
+<c>    </c>
+<c>    *方式一</c>
+<l>    median_image (Saturation, ImageMedian, 'square', 9, 'mirrored') </l>
+<l>    var_threshold (ImageMedian, DynRegion, 35, 35, 0.2, 5, 'dark')</l>
+<c></c>
+<l>    gen_contour_region_xld (DynRegion, Contours, 'border')</l>
+<l>    gen_region_contour_xld (Contours, FilledRegion, 'filled')</l>
+<c>    *分开写便于调试参数</c>
+<l>    select_shape (FilledRegion, SelectedRegions11, ['rectangularity'], 'and', [0.75], [1.0])  </l>
+<l>    select_shape (SelectedRegions11, SelectedRegions12, ['rect2_len1','rect2_len2'], 'and', [80,50], [999,999])  </l>
+<l>    select_gray (SelectedRegions12, ImageMedian, SelectedRegions13, 'mean', 'and', 0, 70)</l>
+<l>    select_gray (SelectedRegions13, ImageMedian, SelectedRegions14, 'deviation', 'and', 0, 50)</l>
+<c>    </c>
+<c>    *方式二</c>
+<l>    sub_image (GrayImage, Saturation, ImageSub, 1, 0)   </l>
+<l>    median_image (ImageSub, ImageMedian, 'square', 9, 'mirrored') </l>
+<l>    var_threshold (ImageMedian, DynRegion, 35, 35, 0.2, 5, 'light')</l>
+<l>    fill_up (DynRegion, RegionFillUp) </l>
+<l>    opening_circle (RegionFillUp, RegionOpening, 15.5)</l>
+<l>    gen_contour_region_xld (RegionOpening, Contours, 'border')</l>
+<l>    gen_region_contour_xld (Contours, FilledRegion, 'filled')</l>
+<c>    *分开写便于调试参数</c>
+<l>    select_shape (FilledRegion, SelectedRegions21, ['rectangularity'], 'and', [0.75], [1.0])  </l>
+<l>    select_shape (SelectedRegions21, SelectedRegions22, ['rect2_len1','rect2_len2'], 'and', [80,50], [999,999])  </l>
+<l>    select_gray (SelectedRegions22, ImageMedian, SelectedRegions23, 'mean', 'and', 70, 255)</l>
+<l>    select_gray (SelectedRegions23, ImageMedian, SelectedRegions24, 'deviation', 'and', 0, 50)</l>
+<c>        </c>
+<c>    *方式一与方式二结果合并</c>
+<l>    intersection (SelectedRegions14, SelectedRegions24, RegionIntersection)</l>
+<l>    difference (SelectedRegions14, SelectedRegions24, RegionDifference1)</l>
+<l>    difference (SelectedRegions24, SelectedRegions14, RegionDifference2)</l>
+<c>    </c>
+<l>    opening_circle (RegionDifference1, RegionOpening1, 15)</l>
+<l>    opening_circle (RegionDifference2, RegionOpening2, 15)</l>
+<l>    union2 (RegionIntersection, RegionOpening1, RegionUnion1)</l>
+<l>    union2 (RegionUnion1, RegionOpening2, RegionUnion)</l>
+<c>    </c>
+<l>    connection (RegionUnion, ConnectedRegions)</l>
+<c>    </c>
+<l>    intersection (RectangleSelect, ConnectedRegions, ConnectedRegions)</l>
+<c>       </c>
+<c>    </c>
+<l>    connection (ConnectedRegions, ConnectedRegions)</l>
+<l>    select_shape (ConnectedRegions, ConnectedRegions, 'convexity', 'and', 0.90, 1)</l>
+<l>    select_shape (ConnectedRegions, ConnectedRegions, ['rect2_len1','rect2_len2'], 'and', [80,50], [999,999])  </l>
+<c></c>
+<c>    </c>
+<l>    count_obj (ConnectedRegions, Number)</l>
+<c>    </c>
+<c>    *判断合并后的结果是否为空</c>
+<l>    if(Number == 0)</l>
+<c>        *如果是空</c>
+<l>        dev_display (Image)</l>
+<l>        stop()</l>
+<l>        continue</l>
+<l>    else</l>
+<c>        *如果含有多个,自己定义选择</c>
+<l>        region_features (ConnectedRegions, 'row', REC_row)</l>
+<l>        region_features (ConnectedRegions, 'column', REC_column)</l>
+<l>        weight := []</l>
+<l>        for Index1 := 0 to Number-1 by 1</l>
+<l>            weight[Index1]:= (Height - REC_row[Index1])*(Height - REC_row[Index1]) + (Width/2 - REC_column[Index1])*(Width/2 - REC_column[Index1]) </l>
+<l>        endfor</l>
+<l>        tuple_sort_index(weight, index)</l>
+<l>        select_obj (ConnectedRegions, ObjectSelected, index[0]+1)</l>
+<l>        ObjectROI_2 := ObjectSelected</l>
+<c>        *only one region selected</c>
+<l>    endif</l>
+<c>    </c>
+<c>    * judge the color is orange?</c>
+<l>    if(Brick_color == 'O')</l>
+<c>        </c>
+<l>        classify_image_class_mlp (Image, OrangeRegions, MLPHandle, 0.9)</l>
+<l>        select_obj (OrangeRegions, OrangeSelected, 1)</l>
+<l>        smallest_rectangle2 (OrangeSelected, Row2, Column2, Phi1, Length11, Length21)</l>
+<l>        gen_rectangle2 (Rectangle1, Row2, Column2, Phi1, Length11, Length21)</l>
+<l>        intersection (Rectangle1, ObjectSelected, RegionIntersection)</l>
+<l>        count_obj (RegionIntersection, NumberOrange)</l>
+<c>        *</c>
+<l>        if (NumberOrange == 0)</l>
+<l>            return ()</l>
+<l>        endif</l>
+<c>        </c>
+<l>        smallest_rectangle2 (RegionIntersection, Row, Column, Phi, Length1, Length2)</l>
+<l>        gen_rectangle2 (Rectangle, Row, Column, Phi, Length1, Length2)</l>
+<l>        area_center (Rectangle, AreaAnchor, Row, Column)</l>
+<c>        </c>
+<c>        *Left region</c>
+<l>        gen_rectangle2 (RectangleLeft, Row-2*Length1*sin(-Phi), Column-2*Length1*cos(-Phi), Phi, Length1, Length2)</l>
+<l>        reduce_domain (Image, RectangleLeft, ImageReducedLeft)</l>
+<l>        classify_image_class_mlp (ImageReducedLeft, LeftRegions, MLPHandle, 0.9)</l>
+<l>        select_obj (LeftRegions, ObjectSelectedLeft, 1)</l>
+<l>        area_center (ObjectSelectedLeft, AreaLeft, Row1, Column1)</l>
+<c>        </c>
+<c>        *Right Region</c>
+<l>        gen_rectangle2 (RectangleRight, Row+2*Length1*sin(-Phi), Column+2*Length1*cos(-Phi), Phi, Length1, Length2)</l>
+<l>        reduce_domain (Image, RectangleRight, ImageReducedRight)</l>
+<l>        classify_image_class_mlp (ImageReducedRight, RightRegions, MLPHandle, 0.9)</l>
+<l>        select_obj (RightRegions, ObjectSelectedRight, 1)</l>
+<l>        area_center (ObjectSelectedRight, AreaRight, Row1, Column1)</l>
+<c>        </c>
+<l>        if (AreaLeft &gt; AreaAnchor*0.4)</l>
+<l>            if(AreaRight &gt; AreaAnchor*0.4)</l>
+<l>                coord_label := 'center'  </l>
+<l>            else</l>
+<l>                coord_label := 'right'</l>
+<l>            endif</l>
+<l>        else</l>
+<l>            coord_label := 'left'            </l>
+<l>        endif</l>
+<l>        ObjectSelected := RegionIntersection   </l>
+<l>    endif</l>
+<c>    </c>
+<l>    smallest_rectangle2 (ObjectSelected, CenterY, CenterX, Phi, Len1, Len2)</l>
+<c>    </c>
+<l>    try</l>
+<l>        area_center (ObjectSelected, Area, Row, Column)</l>
+<l>        if(Area==0)</l>
+<l>            stop()</l>
+<l>        endif</l>
+<c>        </c>
+<l>        gen_rectangle2 (Rectangle, CenterY, CenterX, Phi, Len1, Len2)</l>
+<l>        get_rectangle2_points (CenterY, CenterX, Phi, Len1, Len2, VertexesY, VertexesX)</l>
+<l>        gen_cross_contour_xld (Cross, VertexesY, VertexesX, 60, Phi)</l>
+<c>        </c>
+<c>        </c>
+<l>        create_metrology_model (MetrologyHandle)</l>
+<l>        set_metrology_model_image_size (MetrologyHandle, Width, Height)</l>
+<c>        </c>
+<l>        LineRow1 :=    [VertexesY[0],VertexesY[1],VertexesY[2],VertexesY[3]]</l>
+<l>        LineColumn1 := [VertexesX[0],VertexesX[1],VertexesX[2],VertexesX[3]]</l>
+<l>        LineRow2 :=    [VertexesY[1],VertexesY[2],VertexesY[3],VertexesY[0]]</l>
+<l>        LineColumn2 := [VertexesX[1],VertexesX[2],VertexesX[3],VertexesX[0]]</l>
+<c>        </c>
+<l>        Tolerance := 50</l>
+<l>        Thresh:=25</l>
+<l>        add_metrology_object_line_measure (MetrologyHandle, LineRow1, LineColumn1, LineRow2, LineColumn2, Tolerance, 5, 1.5, Thresh, [], [], Index1)</l>
+<l>        set_metrology_object_param (MetrologyHandle, Index1, 'num_instances', 1)</l>
+<l>        set_metrology_object_param (MetrologyHandle, Index1, 'measure_select', 'first')</l>
+<l>        set_metrology_object_param (MetrologyHandle, Index1, 'min_score', .7)</l>
+<c>        </c>
+<l>        *apply_metrology_model (Saturation, MetrologyHandle)</l>
+<l>         apply_metrology_model (GrayImage, MetrologyHandle)</l>
+<c>        * </c>
+<c>        * Access results</c>
+<l>        get_metrology_object_result_contour (ResultContour, MetrologyHandle, 'all', 'all', 1.5)</l>
+<l>        get_metrology_object_measures (Contour, MetrologyHandle, 'all', 'all', Row1, Column1)</l>
+<l>        gen_cross_contour_xld (Cross1, Row1, Column1, 16, 0.785398)</l>
+<c>        </c>
+<l>        fit_line_contour_xld (ResultContour, 'tukey', -1, 0, 5, 2, RowBegin, ColBegin, RowEnd, ColEnd, Nr, Nc, Dist)</l>
+<c>        * Find intersection points [Rows, Columns]</c>
+<l>        for J := 0 to 3 by 1</l>
+<l>            intersection_lines (RowBegin[J], ColBegin[J], RowEnd[J], ColEnd[J], RowBegin[(J + 1) % 4], ColBegin[(J + 1) % 4], RowEnd[(J + 1) % 4], ColEnd[(J + 1) % 4], Row, Column, IsOverlapping)</l>
+<l>            gen_cross_contour_xld (Cross, Row, Column, 60, 0.785398)</l>
+<l>            Rows[J] := Row</l>
+<l>            Columns[J] := Column</l>
+<l>        endfor</l>
+<c>        </c>
+<l>        gen_contour_polygon_xld (ROIContour, Rows, Columns)</l>
+<l>        close_contours_xld (ROIContour, ClosedContours)</l>
+<c>        </c>
+<l>        gen_region_contour_xld (ClosedContours, RegionROI, 'filled')</l>
+<l>        gen_contour_region_xld (RegionROI, ContoursROI, 'border')</l>
+<c>        </c>
+<l>        try</l>
+<l>            get_rectangle_pose (ContoursROI, CamParOriginal, RectWidth, RectHeight, 'tukey', 1, Pose, CovPose, Error)        </l>
+<l>        catch (Exception)</l>
+<l>            gen_contour_region_xld (ObjectROI_2, ContoursSelected, 'border')</l>
+<l>            get_rectangle_pose (ContoursSelected, CamParOriginal, RectWidth, RectHeight, 'tukey', 1, Pose, CovPose, Error)</l>
+<l>        endtry</l>
+<l>    catch (Exception)</l>
+<l>        smallest_rectangle2 (ObjectSelected, Row3, Column3, Phi2, Length12, Length22)</l>
+<l>        gen_rectangle2 (Rectangle2, Row3, Column3, Phi2, Length12, Length22)</l>
+<l>        gen_contour_region_xld (Rectangle2, ContoursSelected, 'border')</l>
+<l>        get_rectangle_pose (ContoursSelected, CamParOriginal, RectWidth, RectHeight, 'tukey', 1, Pose, CovPose, Error)</l>
+<c>        </c>
+<l>    endtry</l>
+<l>    dev_clear_window ()</l>
+<l>    dev_display (GrayImage)</l>
+<l>    dev_display (ContoursROI)</l>
+<l>    stop()</l>
+<l>endfor</l>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="get_rectangle2_points">
+<interface>
+<ic>
+<par name="CenterY" base_type="ctrl" dimension="0"/>
+<par name="CenterX" base_type="ctrl" dimension="0"/>
+<par name="Phi" base_type="ctrl" dimension="0"/>
+<par name="Len1" base_type="ctrl" dimension="0"/>
+<par name="Len2" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="VertexesY" base_type="ctrl" dimension="0"/>
+<par name="VertexesX" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>*Initialize the variable for coordinate of vertexes of rectangle2</c>
+<c></c>
+<l>VertexesY:=[]</l>
+<c></c>
+<l>VertexesX:=[]</l>
+<c></c>
+<c></c>
+<c></c>
+<c>*Initialize the temperary variables</c>
+<c></c>
+<l>RowTem:=0</l>
+<c></c>
+<l>ColTem:=0</l>
+<c></c>
+<c>*Judge the rectangle if it is available</c>
+<c></c>
+<l>if(Len1&lt;0 or Len2&lt;0)</l>
+<c></c>
+<l>    return()</l>
+<c></c>
+<l>endif</l>
+<c></c>
+<c>*Compute the sine and cosine of tuple Phi</c>
+<c></c>
+<l>tuple_cos(Phi,Cos)</l>
+<c></c>
+<l>tuple_sin(Phi,Sin)</l>
+<c></c>
+<c>*Compute the coordinate of the upper-right vertex of rectangle</c>
+<c></c>
+<l>RowTem:=CenterY-Len1*Sin-Len2*Cos</l>
+<c></c>
+<l>ColTem:=CenterX+Len1*Cos-Len2*Sin</l>
+<c></c>
+<l>VertexesY:=[VertexesY,RowTem]</l>
+<c></c>
+<l>VertexesX:=[VertexesX,ColTem]</l>
+<c></c>
+<c> </c>
+<c></c>
+<c>*Compute the coordinate of the upper-left vertex of rectangle</c>
+<c></c>
+<l>RowTem:=CenterY+Len1*Sin-Len2*Cos</l>
+<c></c>
+<l>ColTem:=CenterX-Len1*Cos-Len2*Sin</l>
+<c></c>
+<l>VertexesY:=[VertexesY,RowTem]</l>
+<c></c>
+<l>VertexesX:=[VertexesX,ColTem]</l>
+<c></c>
+<c> </c>
+<c></c>
+<c>*Compute the coordinate of the bottom-left vertex of rectangle</c>
+<c></c>
+<l>RowTem:=CenterY+Len1*Sin+Len2*Cos</l>
+<c></c>
+<l>ColTem:=CenterX-Len1*Cos+Len2*Sin</l>
+<c></c>
+<l>VertexesY:=[VertexesY,RowTem]</l>
+<c></c>
+<l>VertexesX:=[VertexesX,ColTem]</l>
+<c></c>
+<c> </c>
+<c></c>
+<c>*Compute the coordinate of the bottom-right vertex of rectangle</c>
+<c></c>
+<l>RowTem:=CenterY-Len1*Sin+Len2*Cos</l>
+<c></c>
+<l>ColTem:=CenterX+Len1*Cos+Len2*Sin</l>
+<c></c>
+<l>VertexesY:=[VertexesY,RowTem]</l>
+<c></c>
+<l>VertexesX:=[VertexesX,ColTem]</l>
+<c></c>
+<l>return ()</l>
+<l>return ()</l>
+</body>
+<docu id="get_rectangle2_points">
+<parameters>
+<parameter id="CenterX"/>
+<parameter id="CenterY"/>
+<parameter id="Len1"/>
+<parameter id="Len2"/>
+<parameter id="Phi"/>
+<parameter id="VertexesX"/>
+<parameter id="VertexesY"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="select_max_area_region">
+<interface>
+<io>
+<par name="Region" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="ObjectSelected" base_type="iconic" dimension="0"/>
+</oo>
+<oc>
+<par name="Area" base_type="ctrl" dimension="0"/>
+<par name="Row" base_type="ctrl" dimension="0"/>
+<par name="Column" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>area_center (Region, Area1, Row1, Column1)</l>
+<l>tuple_sort_index (Area1, Indices)</l>
+<l>num := |Indices|</l>
+<l>select_obj (Region, ObjectSelected, Indices[num-1] + 1)</l>
+<l>area_center (ObjectSelected, Area, Row, Column)</l>
+<l>return ()</l>
+</body>
+<docu id="select_max_area_region">
+<parameters>
+<parameter id="Area"/>
+<parameter id="Column"/>
+<parameter id="ObjectSelected"/>
+<parameter id="Region"/>
+<parameter id="Row"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="classify_color_regions">
+<interface>
+<io>
+<par name="Image" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="select_region" base_type="iconic" dimension="0"/>
+</oo>
+<ic>
+<par name="MLPHandle" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="class" base_type="ctrl" dimension="0"/>
+<par name="row" base_type="ctrl" dimension="0"/>
+<par name="column" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>classify_image_class_mlp (Image, ClassRegions, MLPHandle, 0.9)</l>
+<c>* </c>
+<l>select_obj (ClassRegions, ClassRed, 1)</l>
+<l>select_obj (ClassRegions, ClassGreen, 2)</l>
+<l>select_obj (ClassRegions, ClassBLue, 3)</l>
+<l>select_obj (ClassRegions, ClassOrange, 4)</l>
+<c>* </c>
+<l>connection (ClassRed, ConnectedRegions1)</l>
+<l>connection (ClassGreen, ConnectedRegions2)</l>
+<l>connection (ClassBLue, ConnectedRegions3)</l>
+<l>connection (ClassOrange, ConnectedRegions4)</l>
+<c>* </c>
+<l>select_max_area_region (ConnectedRegions1, ObjectSelectedRed, Area_1, Row_1, Column_1)</l>
+<l>select_max_area_region (ConnectedRegions2, ObjectSelectedGreen, Area_2, Row_2, Column_2)</l>
+<l>select_max_area_region (ConnectedRegions3, ObjectSelectedBlue, Area_3, Row_3, Column_3)</l>
+<l>select_max_area_region (ConnectedRegions4, ObjectSelectedOrange, Area_4, Row_4, Column_4)</l>
+<c>* </c>
+<c>* </c>
+<c>* 比较3种region的面积 面积最大的作为分类结果</c>
+<l>areas := [Area_1,Area_2,Area_3,Area_4]</l>
+<l>rows := [Row_1,Row_2,Row_3,Row_4]</l>
+<l>columns := [Column_1,Column_2,Column_3,Column_4]</l>
+<c>* </c>
+<l>tuple_sort_index (areas, Indices)</l>
+<l>num := |Indices|</l>
+<l>index := Indices[num-1]</l>
+<c>* </c>
+<l>if (index=0)</l>
+<l>    class := 'red'</l>
+<l>    select_region := ObjectSelectedRed</l>
+<l>elseif (index=1)</l>
+<l>    class := 'green'</l>
+<l>    select_region := ObjectSelectedGreen</l>
+<l>elseif (index=2)</l>
+<l>    class := 'blue'</l>
+<l>    select_region := ObjectSelectedBlue</l>
+<l>elseif (index=3)</l>
+<l>    class := 'orange'</l>
+<l>    select_region := ObjectSelectedOrange</l>
+<l>endif</l>
+<c>* </c>
+<l>row := rows[index]</l>
+<l>column := columns[index]</l>
+<l>return ()</l>
+<c></c>
+</body>
+<docu id="classify_color_regions">
+<parameters>
+<parameter id="Image"/>
+<parameter id="MLPHandle"/>
+<parameter id="class"/>
+<parameter id="column"/>
+<parameter id="row"/>
+<parameter id="select_region"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>
