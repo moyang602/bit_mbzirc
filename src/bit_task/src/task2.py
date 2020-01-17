@@ -132,17 +132,18 @@ a = 0.3
 distanceBTcarlink_brick = 0.5 + 0.6
 
 # 可调用的视觉的接口
-GetBrickPoseMERO =1
-GetBrickPoseMERC =2  
-GetBrickPoseZED = 3  
-GetBrickPoseZEDNew  = 4
-GetBrickLoc =  5
-GetPutPos =    6
-GetPutAngle =  7
-GetLPose =     8
-GetLVSData =   9
-GetLPoseOnCamera =  10
-NotRun =       0
+GetBrickPoseMERO    =   1
+GetBrickPoseMERC    =   2  
+GetBrickPoseZED     =   3  
+GetBrickPoseZEDNew  =   4
+GetBrickLoc         =   5
+GetPutPos           =   6
+GetPutAngle         =   7
+GetLPose            =   8
+GetLVSData          =   9
+GetLPosePrecise    =   10
+GetLPosePrecise     =   11
+NotRun              =   0
 
 SUCCESS = 1
 FAIL = 0
@@ -197,16 +198,6 @@ def GetVisionData_client(ProcAlgorithm, BrickType):
         return respl.VisionData
     except rospy.ServiceException as e:
         print("Service GetVisionData call failed: %s"%e)
-
-def GetL_KPS_client():
-    rospy.wait_for_service('Get_L_KPS')
-    try:
-        get_vision_data = rospy.ServiceProxy('Get_L_KPS',L_KPS_srv)
-        respl = get_vision_data()
-        return respl
-    except rospy.ServiceException as e:
-        print("Service Get_L_KPS call failed: %s"%e)
-
 
 def Laser_client(BrickType):
     rospy.wait_for_service('LaserProc')
@@ -358,7 +349,6 @@ class pick_put_act(object):
         # self.SetHei(400,20)
         
 
-
     def show_tell(self, info):
         rospy.loginfo(info)
         self._feedback.task_feedback = info
@@ -372,7 +362,8 @@ class pick_put_act(object):
         wait()
         try: 
             rospy.sleep(2.0)
-            self.MoveAlongL(-1.0)
+            # self.MoveAlongL(-1.0)
+            self.FindL()
             return 0
             self.SetHei(320,50)
             #================ 0. 准备 ===================#
@@ -882,7 +873,7 @@ class pick_put_act(object):
         while True:
             if math.fabs(height_now - hei_cmd) < wait_until:
                 break
-    def FindL(self):
+    def FindL(self, using_vision = True):
         #================ 0. 准备 ===================#
         rospy.loginfo("Start to Find L!")
         pose = rob.getl()
@@ -892,13 +883,17 @@ class pick_put_act(object):
         #================ 1. 遍历场地寻找L架 ===================#
         # 1.1 小车遍历场地， 基于视觉寻找L架
         # TODO 加小车移动
-        while(not rospy.is_shutdown()):         
-            VisionData = GetVisionData_client(GetLPoseOnCamera, "N")    # 数据是在map坐标系下的
-            if VisionData.Flag:     # 能够看到
-                rospy.loginfo("Found L frame")
-                break
-            else:
-                rospy.logwarn("Looking for L frame")
+        if use_vision:
+            while(not rospy.is_shutdown()):         
+                VisionData = GetVisionData_client(GetLPosePrecise, "N")    # 数据是在map坐标系下的
+                if VisionData.Flag:     # 能够看到
+                    rospy.loginfo("Found L frame")
+                    break
+                else:
+                    rospy.logwarn("Looking for L frame")
+        else:
+            pass    # 不使用深度学习检测时L架与map坐标系重合
+
         rospy.loginfo("Got L frame pos")
         # 1.2 找到L架后，移动至L架观察位姿
         # 分成四种不同情况运动
@@ -965,7 +960,16 @@ class pick_put_act(object):
                 pass    # 错误条件判断
 
         # 1.5 依据精确测量结果矫正L架姿态
-
+        if use_vision:
+            while(not rospy.is_shutdown()):         
+                VisionData = GetVisionData_client(GetLPosePrecise, "N")    # 数据是在map坐标系下的
+                if VisionData.Flag:     # 能够看到
+                    rospy.loginfo("Got L frame precise pose")
+                    break
+                else:
+                    rospy.logwarn("Can't find L frame corner")
+        else:
+            pass    # 不使用深度学习检测时L架与map坐标系重合
 
 
     def MoveAlongL(self,MoveDistance):
@@ -1208,13 +1212,9 @@ class pick_put_act(object):
         except Exception as e:
             rospy.loginfo(e)
             
-            
-
 
 # ================== END CLASS ===========================#
 
-
-# ================== END CLASS ===========================#
 
 if __name__ == '__main__':
 

@@ -56,6 +56,7 @@ using namespace cv;
 # define GetLAngle          8
 # define GetLVSData         9
 # define GetLPoseOnCamera   10
+# define GetLPosePrecise    11
 # define NotRun             0
 
 int algorithm = GetBrickPoseMERO;     // 当前算法
@@ -2143,6 +2144,26 @@ void L_Object_Pose(double Pose[6], bool &Flag)
 
 }
 
+
+// 8 L架坐标系在相机坐标系下的精确位姿
+void L_precise_Pose(HObject ho_Image, double Pose[6], bool &Flag)
+{
+   // Local iconic variables
+  HObject  ho_Image1, ho_Image2, ho_Image3;
+  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_Regions, ho_RegionOpening;
+  HObject  ho_ConnectedRegions, ho_SelectedRegions, ho_ObjectSelected;
+  HObject  ho_RegionClosing, ho_Contour, ho_ContoursSplit;
+  HObject  ho_SelectedEdges, ho_UnionContours, ho_UnionContours2;
+
+  // Local control variables
+  HTuple  hv_RectWidth, hv_RectHeight, hv_CamParOriginal;
+  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_Pose, hv_CovPose;
+  HTuple  hv_Error, hv_Exception;
+  
+
+}
+
+
 //初始化halcon对象
 HObject  ho_ImageL, ho_ImageR, ho_ImageMER;
 
@@ -2238,8 +2259,16 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             ROS_INFO_STREAM("Vision data LVS:"<<ZED_L_Theta<<","<<ZED_L_dist);
             break;
         case GetLPoseOnCamera:
+            // 获取L架粗略位置
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/CenterNet/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
             L_Object_Pose(ZEDPose, ZED_flag);
-            ROS_INFO_STREAM("Vision data:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
+            ROS_INFO_STREAM("Vision data L1:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
+            break;
+        case GetLPosePrecise:
+            // 获取L架精确位置
+            WriteImage(ho_ImageR, "jpeg", 0, "/home/ugvcontrol/image/ZED/LCorner/R"+hv_Month+"-"+hv_Day+"-"+hv_Hour+"-"+hv_Minute+"-"+hv_Second+".jpg");
+            L_precise_Pose(ho_ImageR, ZEDPose, ZED_flag);
+            ROS_INFO_STREAM("Vision data L2:"<<ZEDPose[0]<<","<<ZEDPose[1]<<","<<ZEDPose[2]<<","<<ZEDPose[3]<<","<<ZEDPose[4]<<","<<ZEDPose[5]);
             break;
         default:
             break;
@@ -2251,6 +2280,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
 
         tf::Transform transform_TargetOnMER;
         tf::Transform transform_TargetOnZED;
+        tf::Transform transform_LOnZEDR;
         tf::Quaternion q;
         switch (algorithm)
         {
@@ -2297,14 +2327,18 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
           case GetLVSData:
             break;
           case GetLPoseOnCamera:
-          {
-            tf::Transform transform_LOnZEDR;
             transform_LOnZEDR.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
             q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
             transform_LOnZEDR.setRotation(q);
             transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
-            ROS_INFO_STREAM("L frame position has been renew");
-          }
+            ROS_INFO_STREAM("L frame position has been renewed");
+            break;
+          case GetLPosePrecise:
+            transform_LOnZEDR.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
+            q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
+            transform_LOnZEDR.setRotation(q);
+            transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
+            ROS_INFO_STREAM("L frame precise position has been renewed");
             break;
           default:
             break;
@@ -2371,6 +2405,10 @@ int main(int argc, char *argv[])
   tf::TransformListener listener;
   tf::TransformBroadcaster br;
   
+  transform_LOnMap.setOrigin(tf::Vector3(0.0, 0.0, 0.0));
+  tf::Quaternion qtmp;
+  qtmp.setRPY(0.0, 0.0, 0.0);
+  transform_LOnMap.setRotation(qtmp);
 
   ros::Rate rate(15.0);
   while(ros::ok()) 
@@ -2381,7 +2419,6 @@ int main(int argc, char *argv[])
         listener.lookupTransform("base_link", "zed_linkL", ros::Time(0), transform_ZEDLOnBase);
         listener.lookupTransform("base_link", "zed_linkR", ros::Time(0), transform_ZEDROnBase);
         listener.lookupTransform("map", "zed_linkR", ros::Time(0), transform_ZEDROnMap);
-        
       }
       catch (tf::TransformException ex){
         ros::Duration(1.0).sleep();

@@ -25,7 +25,7 @@ class opts(object):
     self.parser.add_argument('--demo', default='',
                              help='path to image/ image folders/ video. '
                                   'or "webcam"')
-    self.parser.add_argument('--load_model', default='/home/mylab/bit_mbzirc/src/bit_centernet/exp/model_best.pth',
+    self.parser.add_argument('--load_model', default='/home/ugvcontrol/bit_mbzirc/src/bit_centernet/exp/model_best.pth',
                              help='path to pretrained model') #/media/srt/resource/Project_December/Last_Week/CenterNet/exp/KPS/L_Shelf_HP/formal_models/model_235.pth
                                                               #/media/srt/resource/Project_December/Last_Week/CenterNet/exp/KPS/L_Shelf_HP/model_best.pth
                                                               #/media/srt/resource/2020_01/CenterNet/exp/KPS/L_Shelf_HP/model_best.pth

@@ -131,7 +131,7 @@ if __name__ == '__main__':
     cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size = 1) # to move the robot
     pub_middle = rospy.Publisher('move_base_simple/goal',PoseStamped,queue_size=1)
     scan_sub = rospy.Subscriber('scan', LaserScan, scan_callback)   # to read the laser scanner
-    rospy.init_node('maze_explorer')
+    rospy.init_node('approach_door')
 
     s = rospy.Service('LaserProc_Door', LaserProc, LaserProcHandle)
     rate = rospy.Rate(10)
