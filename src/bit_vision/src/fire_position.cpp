@@ -26,6 +26,7 @@
 #include <bit_vision_msgs/FirePosition.h>
 #include "halcon_image.h"
 #include <tf/transform_listener.h>
+#include <math.h>
 
 # define HandEye        1   
 # define StereoEye      2
@@ -36,6 +37,7 @@ using namespace HalconCpp;
 //初始化halcon对象
 HObject  ho_ImageL, ho_ImageR;
 tf::StampedTransform transform_IRLOnBase;
+tf::StampedTransform transform_BaseOnCar;
 
 //读入相机标定参数  双目三维定位
 void fire_position_StereoEye(HObject ho_ImageL, HObject ho_ImageR, HTuple &fire_X, HTuple &fire_Y, HTuple &fire_Z, bool &data_flag)
@@ -239,6 +241,40 @@ void Imagecallback(const sensor_msgs::Image::ConstPtr& LeftImage, const sensor_m
     ho_ImageR = *halcon_bridge_imagePointerR->image;
 }
 
+void CalPlaneLineIntersectPoint(double* planeVector, double* planePoint, double* lineVector, double* linePoint, double* TargetPos) 
+{
+  double vp1, vp2, vp3, n1, n2, n3, v1, v2, v3, m1, m2, m3, t, vpt;
+  vp1 = planeVector[0]; 
+  vp2 = planeVector[1];  
+  vp3 = planeVector[2];  
+  n1 = planePoint[0];  
+  n2 = planePoint[1];  
+  n3 = planePoint[2];  
+  v1 = lineVector[0];  
+  v2 = lineVector[1];  
+  v3 = lineVector[2];  
+  m1 = linePoint[0];  
+  m2 = linePoint[1];  
+  m3 = linePoint[2];
+
+  vpt = v1 * vp1 + v2 * vp2 + v3 * vp3;  
+  //首先判断直线是否与平面平行  
+  if (vpt == 0)  
+  {  
+    TargetPos[0] = 0;
+    TargetPos[1] = 1;
+    TargetPos[2] = 2;  
+  }  
+  else  
+  {  
+    t = ((n1 - m1) * vp1 + (n2 - m2) * vp2 + (n3 - m3) * vp3) / vpt;  
+    TargetPos[0] = m1 + v1 * t;  
+    TargetPos[1] = m2 + v2 * t;  
+    TargetPos[2] = m3 + v3 * t;  
+  }  
+  return;  
+} 
+
 // service 回调函数，输入参数req，输出参数res
 bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
                      bit_vision_msgs::FirePosition::Response& res)
@@ -277,21 +313,51 @@ bool GetFirePosition(bit_vision_msgs::FirePosition::Request&  req,
     
     if (Flag)
     {
-      ROS_INFO_STREAM("Fire data:"<<FireArea<<","<<delta_x<<","<<delta_y);
+      double Sx = 17*1e-6;      // 像元尺寸
+      double Sy = 17*1e-6;      // 像元尺寸
+      double focus = 4*1e-3;    // 焦距
+      // 获取图像平面中目标点距离光轴的真实距离
+      double XOnImage = delta_x * Sx;
+      double YOnImage = delta_y * Sy;
+
+      double rot_X = atan2(-YOnImage, focus);
+      double rot_Y = atan2(-XOnImage, focus);
+
+      tf::Transform transformTargetOnCamera;
+      transformTargetOnCamera.setOrigin(tf::Vector3(0.0, 0.0, 0.0));
+      tf::Quaternion q;
+      q.setRPY(rot_X, rot_Y, 0);
+      transformTargetOnCamera.setRotation(q);
+
+      tf::Transform transformTargetOnBase;
+      transformTargetOnBase = transform_IRLOnBase * transformTargetOnCamera;
+      tf::Vector3 Line = tf::Matrix3x3(transformTargetOnBase.getRotation()).getColumn(2);
+
+      // 获取光轴仰角
+      /// 求一条直线与平面的交点  
+      double Z_offset_Camera = 0.0; // TODO 待确定相机坐标系Z位置
+      double planeVector[3] = {0.0, 0.0, 1.0};  // 平面法向量为基座坐标系Z轴
+      double planePoint[3] = {0.0, 0.0, -transform_BaseOnCar.getOrigin().z()};  // 平面上一点为基座正下方点
+      double linePoint[3] = {transform_IRLOnBase.getOrigin().x(), transform_IRLOnBase.getOrigin().y(), transform_IRLOnBase.getOrigin().z() + Z_offset_Camera};  //直线过相机坐标系原点
+      double lineVector[3] = {Line.x(), Line.y(), Line.z()};  // 直线方向向量
+      double TargetPos[3];    // 火源在Base坐标系下的位置
+      CalPlaneLineIntersectPoint(planeVector, planePoint, lineVector, linePoint, TargetPos);
+
+      ROS_INFO_STREAM("Fire data:"<<FireArea<<","<<TargetPos[0]<<","<<TargetPos[1]<<","<<TargetPos[2]);
       res.flag = true;
       res.FirePos.header.stamp = ros::Time().now();
-      res.FirePos.header.frame_id = "infrared_link";
+      res.FirePos.header.frame_id = "base_link";
 
       res.FireArea = FireArea;
-      res.FirePos.point.x = delta_x;
-      res.FirePos.point.y = delta_y;
-      res.FirePos.point.z = 0;
+      res.FirePos.point.x = TargetPos[0];
+      res.FirePos.point.y = TargetPos[1];
+      res.FirePos.point.z = TargetPos[2];
     }
     else
     {
       res.flag = false;
       res.FirePos.header.stamp = ros::Time().now();
-      res.FirePos.header.frame_id = "infrared_link";
+      res.FirePos.header.frame_id = "base_link";
 
       res.FireArea = 0.0;
       res.FirePos.point.x = 0.0;
@@ -334,6 +400,7 @@ int main(int argc, char *argv[])
       // 获取 infrared_link 在 base_link下的坐标
       try{
       listener.lookupTransform("base_link", "infrared_link", ros::Time(0), transform_IRLOnBase);
+      listener.lookupTransform("car_link", "base_link", ros::Time(0), transform_BaseOnCar);
       }
       catch (tf::TransformException ex){
       //ROS_ERROR("%s",ex.what());
