@@ -5,7 +5,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
 import _init_paths
+
+import sys
+# if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
+#     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
+
 import rospy
 from bit_vision_msgs.srv import *
 from sensor_msgs.msg import Image
@@ -15,7 +22,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import os
 import torch
 from opts import opts
-from detectors.detector_factory import detector_factory
+
 
 import numpy as np
 from progress.bar import Bar
@@ -40,10 +47,7 @@ from utils.debugger import Debugger
 
 from detectors.base_detector import BaseDetector
 
-import sys
-# if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
-#     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
-sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
+
 import cv2
 
 #检测是否成功标志
@@ -141,23 +145,22 @@ class KPSDetector(BaseDetector):
         global kps_x_list
         global kps_y_list
         self.opt.vis_thresh = 0.5
-        for j in range(1, self.num_classes + 1):
-            for bbox in results[j]:
-                if bbox[4] > self.opt.vis_thresh:
-                    Detection_Flag = True
-                    kps_x_list = bbox[5:11]
-                    kps_y_list = bbox[11:17]
-                    print (kps_x_list)
-                    print (kps_y_list)
+        # for j in range(1, self.num_classes + 1):
+        for bbox in results[1]:
+            if bbox[4] > self.opt.vis_thresh:
+                Detection_Flag = True
+                kps_x_list = bbox[5:11]
+                kps_y_list = bbox[11:17]
+                print (kps_x_list)
+                print (kps_y_list)
 
 
-ImageL = np.zeros((2209,1243,3))
+ImageL = np.zeros((1242,2208,3))
 #定义回调函数
 def callback(imgmsg):
-    global im, flag_im
+    global flag_im, ImageL
     bridge = CvBridge()
-    im = bridge.imgmsg_to_cv2(imgmsg, 'bgr8')
-    ImageL = im
+    ImageL = bridge.imgmsg_to_cv2(imgmsg, desired_encoding="passthrough")
     flag_im = True  
 
 
@@ -188,7 +191,7 @@ def get_detection_result(req):
 
 if __name__ == '__main__':
     opt = opts().init()
-    rospy.init_node('Shelf_KPS_Detection')
+    rospy.init_node('KPS_Detection')
     rospy.Subscriber("/zed/zed_node/left/image_rect_color", Image, callback) #/zed/zed_node/left/image_rect_color    /CameraMER/ContinuousImage
     s = rospy.Service('Get_L_KPS', L_KPS_srv, get_detection_result)
     rospy.loginfo("Ready to handle the request:")
