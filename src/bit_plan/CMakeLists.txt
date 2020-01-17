@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   geometry_msgs
   bit_task_msgs
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -227,5 +228,13 @@ add_executable(uav_sim
 )
 add_dependencies(uav_sim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(uav_sim
+  ${catkin_LIBRARIES}
+)
+
+add_executable(draw_map
+  src/draw_map.cpp
+)
+add_dependencies(draw_map ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(draw_map
   ${catkin_LIBRARIES}
 )

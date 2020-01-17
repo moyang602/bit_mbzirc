@@ -161,6 +161,7 @@ global ee
 global push
 global cancel_id
 global status
+global FinishFlag
 FinishFlag = 0
 
 
@@ -355,6 +356,7 @@ class pick_put_act(object):
         set_height = rospy.ServiceProxy('Setheight',SetHeight)
 
         # self.SetHei(400,20)
+        
 
 
     def show_tell(self, info):
@@ -369,6 +371,9 @@ class pick_put_act(object):
         print(goal)
         wait()
         try: 
+            rospy.sleep(2.0)
+            self.MoveAlongL(-1.0)
+            return 0
             self.SetHei(320,50)
             #================ 0. 准备 ===================#
             rospy.loginfo("Begining!")
@@ -484,7 +489,7 @@ class pick_put_act(object):
         except Exception as e:
             print("error", e)
             self._result.finish_state = FAIL
-            self._as.set_aborted(self._result)
+            # self._as.set_aborted(self._result)
             rob.stopl()
         finally:
             if self._result.finish_state == SUCCESS:
@@ -966,26 +971,102 @@ class pick_put_act(object):
     def MoveAlongL(self,MoveDistance):
         self.SetHei(320, 50)
         rob.movej(LookForLEdge, acc=a, vel=3*v,wait=True)           # TODO  确定位姿
+
+        x_tolerance=0.05
+        y_tolerance=0.05
+        rot_tolerance=0.02
+
+        angular_p = 1.0
+        angular_i = 0.02
+        sum_err = 0
+        ang_i_limit = 15 #min_angular_vel / angular_i
+    
+        # 初始化运动命令
+        move_cmd = Twist()
+
         while(not rospy.is_shutdown()):
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
-                deltaTheta = 0 - VisionData.L_Theta
-                self.Bit_move(0, 0, deltaTheta)
+                delta_angle = VisionData.L_Theta - 0
+                sum_err += delta_angle
+                if sum_err * delta_angle < 0:
+                    sum_err = 0
+                if sum_err > ang_i_limit:
+                    sum_err = ang_i_limit
+                elif sum_err < -ang_i_limit:
+                    sum_err = -ang_i_limit
+                move_cmd.angular.z = delta_angle * angular_p + sum_err * angular_i
+                if move_cmd.angular.z > 0.3:
+                    move_cmd.angular.z = 0.3
+                elif move_cmd.angular.z < -0.3:
+                    move_cmd.angular.z = -0.3
+                if move_cmd.angular.z > 0 and move_cmd.angular.z < 0.15:
+                    move_cmd.angular.z = 0.15
+                if move_cmd.angular.z < 0 and move_cmd.angular.z > -0.15:
+                    move_cmd.angular.z = -0.15
 
-        y_record = 0
-        while(not rospy.is_shutdown()):
-            VisionData = GetVisionData_client(GetLVSData, "N")
-            if VisionData.Flag:
-                deltaX = 0.1 * (200 - VisionData.L_dist )       # TODO 需要确定L架边缘在相机空间中的距离
-                deltaY = 0.1 * (MoveDistanc - y_record)
-                y_record += deltaY
-                self.Bit_move(deltaX, deltaY, 0)
-
-                if math.fabs(deltaY)<0.01:
+                if math.fabs(delta_angle ) < rot_tolerance:
+                    move_cmd.linear.x = 0.0
+                    move_cmd.linear.y = 0.0
+                    move_cmd.angular.z = 0.0
+                    for i in range(0,3):
+                        cmdvel_pub.publish(move_cmd)
+                        rospy.sleep(0.005)
                     break
+                cmdvel_pub.publish(move_cmd)
+                rospy.sleep(0.05)
             else:
-                rospy.logwarn("Can't find L")
-                pass
+                rospy.logwarn("Can't Find L")
+
+
+        # 设定速度
+        # 得到开始的姿态信息（位置和转角）    
+        x_start = tf_CarOnMap_trans[0]
+        y_start = tf_CarOnMap_trans[1]
+        rotate = tf.transformations.euler_from_quaternion(tf_CarOnMap_rot)
+        rot_start=rotate[2]
+
+        # 随时掌控机器人行驶的距离
+        distance_x = 0
+        distance_y = 0
+        distance_rot = 0
+
+        # 进入循环移动
+        while not rospy.is_shutdown(): 
+
+            VisionData = GetVisionData_client(GetLVSData, "N")
+            if VisionData.Flag:
+
+                distance_x = 0.001 *( VisionData.L_dist - 200 )
+                carlink_now_y = -(tf_CarOnMap_trans[0] - x_start) * math.sin(rot_start) + (tf_CarOnMap_trans[1] - y_start) * math.cos(rot_start)
+
+                distance_y = MoveDistance - carlink_now_y
+
+                move_cmd.linear.x = 0.8 * distance_x
+                move_cmd.linear.y = 0.3 * np.sign(distance_y)
+                move_cmd.angular.z = 0
+    
+                if math.fabs(distance_x) <= x_tolerance and math.fabs(distance_y) <= y_tolerance:
+                    move_cmd.linear.x = 0
+                    move_cmd.linear.y = 0
+                
+                if (not move_cmd.linear.x) and (not move_cmd.linear.y):
+                    rospy.loginfo("Moving complish!")
+                    for i in range(0,3):
+                        cmdvel_pub.publish(move_cmd)
+                        rospy.sleep(0.005)
+                    break
+                cmdvel_pub.publish(move_cmd)
+                rospy.sleep(0.05)
+                # 发布一次Twist消息 和 sleep 0.05秒    
+            else:
+                move_cmd.linear.x = 0.0
+                move_cmd.linear.y = 0.0
+                move_cmd.angular.z = 0.0
+                for i in range(0,3):
+                    cmdvel_pub.publish(move_cmd)
+                    rospy.sleep(0.005)
+                rospy.logwarn("Can't Find L")    
     
 
     def Build_on_L(self, goal):
@@ -1036,7 +1117,7 @@ class pick_put_act(object):
 
             min_angular_vel = 0.15
 
-            angular_p = 0.6
+            angular_p = 1.0
             angular_i = 0.01
             sum_err = 0
             ang_i_limit = 15 #min_angular_vel / angular_i
@@ -1169,7 +1250,7 @@ if __name__ == '__main__':
             
             # TF 计算
             listener = tf.TransformListener()
-            while not FinishFlag:
+            while not rospy.is_shutdown():
                 try:
                     global tf_CarOnMap_trans
                     global tf_CarOnMap_rot
@@ -1185,6 +1266,7 @@ if __name__ == '__main__':
             if normal == 1:
                 rob.stopl()
                 rob.close()
+                sys.exit(0)
     sys.exit(0)
     
 #=========================记录可以使用的api==================

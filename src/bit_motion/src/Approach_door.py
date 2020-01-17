@@ -25,9 +25,9 @@ global InRangeDistance,LineLikeThreshold,DistanceBTCarlink2Brick,needTolerance,T
 
 Map_size = 10                               # 激光雷达画的图的大小，单位：米
 resolution = 0.05                           # 地图分辨率，单位：米
-InRangeDistance = 3.0                       # 激光雷达可以接手的距离
-LineLikeThreshold = 0.1                   # 在遍历直线时认为是直线的阈值
-DistanceBTCarlink2Brick = 1.0 + LineLikeThreshold/2        # 0.628为激光雷达到car_link的距离
+InRangeDistance = 8.0                       # 激光雷达可以接手的距离
+LineLikeThreshold = 0.1                     # 在遍历直线时认为是直线的阈值
+DistanceBTCarlink2Brick = 1.0 + LineLikeThreshold       # 0.628为激光雷达到car_link的距离
 needTolerance = 0.1                         # 认为是需要的线段长度的阈值，+-，单位：米 
 ThinkLineLength = 0.3                       # 认为霍夫变换的结果是一条直线的最小长度，单位：米
 
@@ -35,7 +35,7 @@ def scan_callback(msg):
 
     global ranges,image,h,theta,d,imagesize,delta_angle,min_angle,horizion_num
     
-    ranges = np.array(msg.ranges)
+    ranges = np.array(msg.ranges) * 0.9998476951563913
     min_angle = msg.angle_min
     max_angle = msg.angle_max
     delta_angle = msg.angle_increment
@@ -67,14 +67,9 @@ def LaserProcHandle(req):
     res = LaserProcResponse()
     pos = Pose()
 
-    if req.BrickType == "O":
-        need = 1.8
-    elif req.BrickType == "R":
-        need = 0.3
-    elif req.BrickType == "G":
-        need = 0.6
-    elif req.BrickType == "B":
-        need = 1.2
+    if req.BrickType == "D":
+        need= 2.0
+        pass
     else:
         rospy.logwarn("LaserProc ERROR: WRONG BRICK TYPE")
         res.VisionData.Flag = 0
@@ -136,9 +131,9 @@ if __name__ == '__main__':
     cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size = 1) # to move the robot
     pub_middle = rospy.Publisher('move_base_simple/goal',PoseStamped,queue_size=1)
     scan_sub = rospy.Subscriber('scan', LaserScan, scan_callback)   # to read the laser scanner
-    rospy.init_node('approach_brick')
+    rospy.init_node('maze_explorer')
 
-    s = rospy.Service('LaserProc', LaserProc, LaserProcHandle)
+    s = rospy.Service('LaserProc_Door', LaserProc, LaserProcHandle)
     rate = rospy.Rate(10)
 
     image = np.zeros((100,100))
@@ -196,9 +191,6 @@ if __name__ == '__main__':
             elif turnangle < -pi:
                 turnangle += 2*pi
 
-            if math.fabs(turnangle) > 70*pi/180.0:
-                continue
-
             # 开始直线遍历，阈值为LineLikeThreshold
             if a* resolution > ThinkLineLength:
                 
@@ -209,7 +201,8 @@ if __name__ == '__main__':
                 
                 # 遍历直线上的激光雷达数据
                 for i in range( startAngle , endAngle, dir):
-                    
+                    if math.fabs(turnangle) > 80*pi/180.0:
+                        continue
                     # 得到距离差
                     delta_dist= math.fabs(ranges[i % horizion_num] * math.cos(pi -  i*delta_angle - turnangle)) - dist_center
 
@@ -217,11 +210,11 @@ if __name__ == '__main__':
                     d_dist = math.fabs(delta_dist) < LineLikeThreshold
                     
                     # 检测上升沿和下降沿，上升沿开始，下降沿停止，取出一段直线，存在segment中
-                    if d_dist == True:
-                        if lastDist == False:
-                            startpoint = i
                     if d_dist == False:
                         if lastDist == True:
+                            startpoint = i
+                    if d_dist == True:
+                        if lastDist == False:
                             endpoint = lastI 
                             segment.append([startpoint,endpoint])
                     lastDist = d_dist
@@ -245,26 +238,17 @@ if __name__ == '__main__':
                 
             except:
                 print("no result in Line")
-            
-            good = 0
 
             # 遍历所有找到的直线段的长度，从中点的记录中计算目标
             for l in range(len(leng)):
-                if math.fabs(leng[l] - 1.8) < needTolerance\
-                 or math.fabs(leng[l] - 1.2) < needTolerance\
-                  or math.fabs(leng[l] - 0.6) < needTolerance\
-                   or math.fabs(leng[l] - 0.3) < needTolerance:
-                   good += 1
-
-            print(len(leng),good)
-            if good >= 1:
-                use_xy_M = xy_M
-                use_turnangle = turnangle
-                FindReady = 1
-                break
-            else:
-                FindReady = 0
-                continue
+                if math.fabs(leng[l] - 2.0) < needTolerance:
+                    use_xy_M = xy_M
+                    use_turnangle = turnangle
+                    FindReady = 1
+                    break
+                else:
+                    FindReady = 0
+                    continue
                     
         plt.show()
         plt.pause(0.1)

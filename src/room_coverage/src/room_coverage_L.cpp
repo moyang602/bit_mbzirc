@@ -28,7 +28,7 @@ void Init_WayPoints()
        for(int j=0;j<=max;j++){
             double dx = ((i+1)%2)*j*length/max+(i%2)*(max-j)*length/max;
             double dy = (i*left-(max-i)*right)/max;
-            tf_a = tf::Transform(tf::createQuaternionFromYaw(  (j == max ? (-1.57): (i%2)*3.14) - 1.57 ),tf::Vector3(dy,-dx,0));
+            tf_a = tf::Transform(tf::createQuaternionFromYaw( j == max ? (-1.57): (i%2)*3.14 ),tf::Vector3(dx,dy,0));
     
     // ROS_INFO("%f,%f,%f",map_current_pose.getRotation().getY(),map_current_pose.getRotation().getZ(),map_current_pose.getRotation().getW());
             // ori = tf::Transform(map_current_pose.getRotation(), map_current_pose.getOrigin());
@@ -129,8 +129,8 @@ int main(int argc, char** argv)
 
     try{
         ros::Time now = ros::Time::now();
-        listener.waitForTransform("map", "base_link", now, ros::Duration(15.0));
-        listener.lookupTransform("map", "base_link", ros::Time(0), map_current_pose);
+        listener.waitForTransform("map", "car_link", now, ros::Duration(15.0));
+        listener.lookupTransform("map", "car_link", ros::Time(0), map_current_pose);
     }
         catch (tf::TransformException ex){
         ros::Duration(1.0).sleep();
