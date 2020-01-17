@@ -118,9 +118,9 @@ global tf_CarOnLXOut
 global tf_CarOnLYOut
 tf_OrignOnMap = tft.fromTranslationRotation((0,0,0),(0,0,0,1))  # 开启的时候初始化为单位阵，直到找到之后更新之
 tf_CarOnLXAxis = tft.fromTranslationRotation((5,0,0),(0,0,1,0)) # x 5m 180°
-tf_CarOnLYAxis = tft.fromTranslationRotation((5.5,0,0),(0,0,-0.70710678,0.70710678)) # y 5.5m -90°
-tf_CarOnLXOut = tft.fromTranslationRotation((2,-1,0),(0,0,0.70710678,0.70710678))  # x 2m y -1m 90°
-tf_CarOnLYOut = tft.fromTranslationRotation((-1,2,0),(0,0,0,1))  # x -1m y 2m 0°
+tf_CarOnLYAxis = tft.fromTranslationRotation((0,5.5,0),(0,0,-0.70710678,0.70710678)) # y 5.5m -90°
+tf_CarOnLXOut = tft.fromTranslationRotation((3,-1,0),(0,0,0.70710678,0.70710678))  # x 2m y -1m 90°
+tf_CarOnLYOut = tft.fromTranslationRotation((-1,3,0),(0,0,0,1))  # x -1m y 2m 0°
 
 
 # 机械臂移动的速度和加速度  
@@ -251,7 +251,7 @@ def CarMove(x,y,theta,frame_id="car_link",wait = False):        # 小车移动
     # 发布位置
     simp_goal_pub.publish(this_target)
     # rospy.sleep(0.1)    # 更换为等待任务开始
-    while True:
+    while (not rospy.is_shutdown()):
         try:
             if status != GoalStatus.ACTIVE:
                 pass
@@ -361,10 +361,10 @@ class pick_put_act(object):
         print(goal)
         wait()
         try: 
-            rospy.sleep(2.0)
-            # self.MoveAlongL(-1.0)
-            self.FindL()
-            return 0
+            # rospy.sleep(2.0)
+            # # self.MoveAlongL(-1.0)
+            # self.FindL(using_vision = False)
+            # return 0
             self.SetHei(320,50)
             #================ 0. 准备 ===================#
             rospy.loginfo("Begining!")
@@ -372,8 +372,8 @@ class pick_put_act(object):
             initj = rob.getj()
 
 
-            # #================ 1. 寻找砖堆 ================#
-            # # 1.1 机械臂移动至观察砖堆准备位姿
+            #================ 1. 寻找砖堆 ================#
+            # 1.1 机械臂移动至观察砖堆准备位姿
             # rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
             # # 1.2 小车遍历场地， 基于视觉寻找砖堆
@@ -448,29 +448,29 @@ class pick_put_act(object):
                 
             # self.Push(ON)
             # self.show_tell("Got all bricks, go to build")
-            # wait()
+            # # wait()
 
-            # #================ 3. 到达L架 ================#
-            self.FindL()
-            # # 3.1 移动至L架
-            # # 3.1.2 如果无信息，场地遍历，寻找L架
-            # if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
-            #     rospy.loginfo("There is !NO! L location, try to find by myself")
-            #     wait()
-            #     while True:         # TODO 避免进入死循环
-            #         VisionData = GetVisionData_client(GetLPose, "O")    # 数据是在base_link坐标系下的
-            #         if VisionData.Flag:     # 能够看到
-            #             theta = math.atan2(VisionData.Pose.position.x,-VisionData.Pose.position.y)
-            #             CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
-            #         else:
-            #             # 遍历场地 TODO
-            #             pass
-            # # 3.1.1 如果有信息，直接运动至指定位置
-            # else:   
-            #     rospy.loginfo("There !EXSISTS! L location, move to it")
-            #     wait()
+            # # #================ 3. 到达L架 ================#
+            # # self.FindL()
+            # # # 3.1 移动至L架
+            # # # 3.1.2 如果无信息，场地遍历，寻找L架
+            # # if (np.all(np.isclose(tf_OrignOnMap,np.identity(4) )) == True):
+            # #     rospy.loginfo("There is !NO! L location, try to find by myself")
+            # #     wait()
+            # #     while True:         # TODO 避免进入死循环
+            # #         VisionData = GetVisionData_client(GetLPose, "O")    # 数据是在base_link坐标系下的
+            # #         if VisionData.Flag:     # 能够看到
+            # #             theta = math.atan2(VisionData.Pose.position.x,-VisionData.Pose.position.y)
+            # #             CarMove(VisionData.Pose.position.x,VisionData.Pose.position.y,theta,"car_link")
+            # #         else:
+            # #             # 遍历场地 TODO
+            # #             pass
+            # # # 3.1.1 如果有信息，直接运动至指定位置
+            # # else:   
+            # #     rospy.loginfo("There !EXSISTS! L location, move to it")
+            # #     wait()
 
-            #================ 3. 找到L架，开始搭建 ================#
+            # #================ 3. 找到L架，开始搭建 ================#
             self.Build_on_L(goal)
 
             global FinishFlag
@@ -498,7 +498,7 @@ class pick_put_act(object):
         self.show_tell("arrived pre-pick position")
 
         # 视觉搜索目标砖块位置
-        while True:         # TODO 避免进入死循环
+        while (not rospy.is_shutdown()):         # TODO 避免进入死循环
             VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
             if VisionData.Flag:
                 self.show_tell("Got BrickPos results from Vision")
@@ -552,7 +552,7 @@ class pick_put_act(object):
         pose[5] = 0 
         rob.movel(pose, acc=a, vel=2* v, wait=True)
 
-        while True:         # TODO 避免进入死循环
+        while (not rospy.is_shutdown()):         # TODO 避免进入死循环
             VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
             if VisionData.Flag:
                 self.show_tell("Got SECOND BrickPos results from Vision")
@@ -644,7 +644,7 @@ class pick_put_act(object):
         pose[4] = -pi 
         pose[5] = -5*deg2rad
         pose2 = list(pose)
-        pose[2] -= 0.25
+        pose2[2] -= 0.25
         rob.movels([pose, pose2], acc=a, vel=1.5* v,radius=0.1, wait=True)
 
         self.forceDown(0.15, goal.type)
@@ -656,7 +656,7 @@ class pick_put_act(object):
 
     def takeOneBrickOnCar(self, goal, useVisionToGetBrickOnCar_ = False):
         
-        num = goal.Sequence
+        num =  5-goal.Sequence
         try: 
             # 开始臂车运动
             rospy.loginfo("begining %d" % num)
@@ -684,7 +684,7 @@ class pick_put_act(object):
 
             # 视觉处理
             if useVisionToGetBrickOnCar_:
-                while True:         # TODO 避免进入死循环
+                while (not rospy.is_shutdown()):         # TODO 避免进入死循环
                     VisionData = GetVisionData_client(GetBrickPoseZEDNew, goal.type)
                     if VisionData.Flag:
                         # 判断是否在工作空间，不是则动车  
@@ -745,7 +745,7 @@ class pick_put_act(object):
             pass
 
     def putOneBrickOnCar(self, goal, useVisionToGetBrickOnCar_ = False):
-        num = goal.Sequence
+        num = 5 - goal.Sequence
         try: 
             # 开始臂车运动
             rospy.loginfo("begining %d" %num)
@@ -870,7 +870,7 @@ class pick_put_act(object):
 
     def SetHei(self, hei_cmd, wait_until):
         set_height(hei_cmd)
-        while True:
+        while (not rospy.is_shutdown()):
             if math.fabs(height_now - hei_cmd) < wait_until:
                 break
     def FindL(self, using_vision = True):
@@ -883,7 +883,7 @@ class pick_put_act(object):
         #================ 1. 遍历场地寻找L架 ===================#
         # 1.1 小车遍历场地， 基于视觉寻找L架
         # TODO 加小车移动
-        if use_vision:
+        if using_vision:
             while(not rospy.is_shutdown()):         
                 VisionData = GetVisionData_client(GetLPosePrecise, "N")    # 数据是在map坐标系下的
                 if VisionData.Flag:     # 能够看到
@@ -898,39 +898,48 @@ class pick_put_act(object):
         # 1.2 找到L架后，移动至L架观察位姿
         # 分成四种不同情况运动
         CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
+        print "CarOnL_theta =",CarOnL_theta
         tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
         if CarOnL_theta <= pi/4 and CarOnL_theta >= 0: # 0~45°
+            print "case 1"
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXAxis)
-            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
+            print target_rot
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
-
+            
             rospy.sleep(1)
 
+            tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXOut)
-            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         elif CarOnL_theta > pi/4 and CarOnL_theta <= pi/2: # 45~90°
+            print "case 2"
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYAxis)
-            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
+            
 
             rospy.sleep(1)
-            
+            tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYOut)
-            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         elif (CarOnL_theta > pi/2 and CarOnL_theta <= pi) or (CarOnL_theta > -3*pi/4 and CarOnL_theta < -pi): # 90~225°
+            print "case 3"
+            
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYOut)
-            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         elif CarOnL_theta < 0 and CarOnL_theta > -3*pi/4: # 225~360° 
+            print "case 4"
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXOut)
-            target_rot = tf.transformations.quaternion_from_matrix(target_tf)
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
         
@@ -953,14 +962,14 @@ class pick_put_act(object):
         if VisionData.Flag:     # 如果寻找到L架
             CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
             if CarOnL_theta < 0 and CarOnL_theta > -3*pi/4:     # 在 225~360°处 ，X轴下侧
-                MoveAlongL(2)
+                self.MoveAlongL(3)
             elif CarOnL_theta < pi and CarOnL_theta > pi/2:     # 在 90~180°处 ，Y轴左侧
-                MoveAlongL(-2)
+                self.MoveAlongL(-3)
             else:
                 pass    # 错误条件判断
 
         # 1.5 依据精确测量结果矫正L架姿态
-        if use_vision:
+        if using_vision:
             while(not rospy.is_shutdown()):         
                 VisionData = GetVisionData_client(GetLPosePrecise, "N")    # 数据是在map坐标系下的
                 if VisionData.Flag:     # 能够看到
@@ -1101,7 +1110,7 @@ class pick_put_act(object):
             self.Push(OFF)
             
             for attempt in range(0,3):  # 最大尝试次数3
-                result_ = self.buildWall(goal.bricks[brickIndex])
+                result_ = self.buildWall(goal.bricks[5-brickIndex])
                 if result_ == SUCCESS:
                     # 记录当前点为这种砖的位置
                     self.show_tell("finished !BUILD! brick %d,go get next" %brickIndex)

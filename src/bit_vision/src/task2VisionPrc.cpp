@@ -1994,9 +1994,9 @@ void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bo
     Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
     TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
         "hsv");
-    Threshold(ho_ImageS, &ho_Regions1, 1, 73);
+    Threshold(ho_ImageS, &ho_Regions1, 35, 101);
 
-    Threshold(ho_ImageV, &ho_Regions2, 114, 255);
+    Threshold(ho_ImageV, &ho_Regions2, 124, 255);
     Intersection(ho_Regions1, ho_Regions2, &ho_RegionIntersection);
     Connection(ho_RegionIntersection, &ho_ConnectedRegions);
 
@@ -2378,6 +2378,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         res.VisionData.L_dist = 0;
     }
     algorithm = NotRun;
+    return true;
 }
 
 

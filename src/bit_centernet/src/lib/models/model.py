@@ -26,10 +26,20 @@ def create_model(arch, heads, head_conv):
   model = get_model(num_layers=num_layers, heads=heads, head_conv=head_conv)
   return model
 
+global checkpointSV
+flagRead = 0
 def load_model(model, model_path, optimizer=None, resume=False, 
                lr=None, lr_step=None):
   start_epoch = 0
-  checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
+  global flagRead
+  global checkpointSV
+  if flagRead == 0:
+    checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
+    checkpointSV = checkpoint
+    flagRead = 1
+  else:
+    checkpoint = checkpointSV
+
   print('loaded {}, epoch {}'.format(model_path, checkpoint['epoch']))
   state_dict_ = checkpoint['state_dict']
   state_dict = {}
