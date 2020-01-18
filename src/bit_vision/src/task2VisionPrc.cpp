@@ -2034,6 +2034,15 @@ void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bo
     ZED_L_Theta = hv_theta.D();
     ZED_L_dist = hv_dist.D();
     Flag = true;
+    if (ZED_L_Theta>60*Deg2Rad)
+    {
+      Flag = false;
+    }
+    else if (ZED_L_Theta<-60*Deg2Rad)
+    {
+      Flag = false;
+    }
+        
   }
   catch (HException &exception)
   {
