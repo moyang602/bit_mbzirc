@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 
     /* 读取建筑蓝图 下发指令*/
     vector<vector<double>> Task;
-    vector<string> brick_in_car{"R","R","R","R","G","G","B"};
+    vector<string> brick_in_car{"B","G","G","R","R","R","R"};
     for (size_t i = 0; i < 7; i++)
     {
         if (i<2)
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
         for (size_t j = 0; j < Task.size(); j++)
         {
             // 砖块信息赋值
-            brick.Sequence = j; 
+            brick.Sequence = Task.size() - j - 1; 
             if (i<2)
             {
                 brick.type = "O";

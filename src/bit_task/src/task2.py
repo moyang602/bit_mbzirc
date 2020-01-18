@@ -342,13 +342,13 @@ class pick_put_act(object):
         self._as.start()
         rospy.loginfo("%s server ready! ", name)
 
-        rospy.wait_for_service('Setheight')
-        global set_height
-        set_height = rospy.ServiceProxy('Setheight',SetHeight)
+        # rospy.wait_for_service('Setheight')
+        # global set_height
+        # set_height = rospy.ServiceProxy('Setheight',SetHeight)
 
-        rospy.wait_for_service('Teach_robot')
-        global get_movepoint
-        get_movepoint = rospy.ServiceProxy('Teach_robot',teach_robot)
+        # rospy.wait_for_service('Teach_robot')
+        # global get_movepoint
+        # get_movepoint = rospy.ServiceProxy('Teach_robot',teach_robot)
 
         # self.SetHei(400,20)
         
@@ -384,7 +384,10 @@ class pick_put_act(object):
             out = 0
             while True:         # TODO 避免进入死循环
                 # 遍历标点
+                # if first:
                 self.coverage()
+                # else:
+                #     move()
 
                 # 进行视觉砖堆定位检测
                 VisionBrickData = GetVisionData_client(GetBrickLoc, goal.bricks[0].type)
@@ -423,7 +426,7 @@ class pick_put_act(object):
                 if out :        # 【出口】激光雷达识别到
                     break
             
-            rospy.logwarn("Got Laser ")
+            rospy.logwarn("Got Laser")
             rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
             CarMove(LaserData.Pose.position.x, LaserData.Pose.position.y,rpy[2],frame_id=LaserData.header.frame_id,wait = True)
             self.show_tell("Arrived Bricks Position!")
@@ -432,17 +435,16 @@ class pick_put_act(object):
             # #================ 2. 到达砖堆橙色处，开始取砖 ================#
             
             # brickIndex = 0
-            # last_type = goal.bricks[brickIndex].type
-            # while brickIndex <  goal.Num:
-            # #     # 2.1 小车运动至期望砖堆处
-            
-
+            # last_type = goal.bricks[0].type
+            # while brickIndex < goal.Num:
+            #     # 2.1 小车运动至期望砖堆处
+        
             #     # # 2.2 机械臂取砖
             #     for attempt in range(0,3):  # 最大尝试次数3
             #         result_ = self.goGetBrick(goal.bricks[brickIndex])
             #         if result_ == SUCCESS:
             #             # 记录当前点为这种砖的位置
-            #             self.show_tell("finished !PICK! brick %d,go get next in %d" %(brickIndex, goal.Num))
+            #             self.show_tell("finished !PICK! brick %d,go get next in %d" %brickIndex, goal.Num))
             #             brickIndex = brickIndex + 1     # 成功了就取下一块  
             #             break
             #     # brickIndex = brickIndex + 1     # 成功了就取下一块  
@@ -474,7 +476,7 @@ class pick_put_act(object):
             # # wait()
 
             #================ 3. 到达L架 ================#
-            self.FindL()
+            # self.FindL()
             # 3.1 移动至L架
             # 3.1.2 如果无信息，场地遍历，寻找L架
             if not Found_L:
@@ -674,10 +676,10 @@ class pick_put_act(object):
 
     def takeOneBrickOnCar(self, goal, useVisionToGetBrickOnCar_ = False):
         
-        num =  5-goal.Sequence
+        num = goal.Sequence
         try: 
             # 开始臂车运动
-            rospy.loginfo("begining %d" % num)
+            rospy.loginfo("Begining Take %d" % num)
             # pose = rob.getl()
             # initj = rob.getj()
             print(goal.type)
@@ -724,7 +726,7 @@ class pick_put_act(object):
                
             else:
                 rob.translate((0.0,0.15,-0.30), acc=a, vel=1.5* v,wait=True)   #模拟视觉处理后磁体对准铁片
-                # return FAIL
+                error_x = 0.0
 
             self.forceDown(0.2)         # 伪力控下落
             self.turnEndEffect(ON)      # 操作末端
@@ -763,7 +765,7 @@ class pick_put_act(object):
             pass
 
     def putOneBrickOnCar(self, goal, useVisionToGetBrickOnCar_ = False):
-        num = 5 - goal.Sequence
+        num = goal.Sequence
         try: 
             # 开始臂车运动
             rospy.loginfo("begining %d" %num)
@@ -1103,8 +1105,8 @@ class pick_put_act(object):
 
     def Build_on_L(self, goal):
 
-        brickIndex = 0
-        while brickIndex < goal.Num :
+        brickIndex = goal.Num - 1
+        while brickIndex >= 0:
             tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
             
             tf_BrickOnOrign = tft.fromTranslationRotation((goal.bricks[brickIndex].x, goal.bricks[brickIndex].y, 0),(0,0,0,1))
@@ -1117,7 +1119,6 @@ class pick_put_act(object):
                 tf_CarOnBrick = tft.fromTranslationRotation((0,-distanceBTcarlink_brick,0),rot_)      # 砖外0.5m
             else:
                 self.show_tell("WRONG TASK INDEX, Check the plan!")
-                # TODO 序列出现问题的处理
 
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now),  np.dot(tf_BrickOnOrign, tf_CarOnBrick) )
             target_rot = tf.transformations.euler_from_matrix(target_tf)
@@ -1129,11 +1130,11 @@ class pick_put_act(object):
             self.Push(OFF)
             
             for attempt in range(0,3):  # 最大尝试次数3
-                result_ = self.buildWall(goal.bricks[5-brickIndex])
+                result_ = self.buildWall(goal.bricks[brickIndex])
                 if result_ == SUCCESS:
                     # 记录当前点为这种砖的位置
                     self.show_tell("finished !BUILD! brick %d,go get next" %brickIndex)
-                    brickIndex = brickIndex + 1     # 成功了就取下一块 
+                    brickIndex = brickIndex - 1     # 成功了就取下一块 
                     break 
         self.show_tell("Build all bricks")
  
@@ -1278,13 +1279,13 @@ if __name__ == '__main__':
     
     while(not rospy.is_shutdown()):
         try :
-            global rob
-            rob = urx.Robot("192.168.50.60",use_rt = True) 
-            normal = 1
-            rospy.loginfo('robot ok')
-            # TODO 根据实际末端负载与工具中心设置
-            rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
-            rob.set_payload(0.76, (0.011, -0.042, 0.003))
+            # global rob
+            # rob = urx.Robot("192.168.50.60",use_rt = True) 
+            # normal = 1
+            # rospy.loginfo('robot ok')
+            # # TODO 根据实际末端负载与工具中心设置
+            # rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
+            # rob.set_payload(0.76, (0.011, -0.042, 0.003))
 
             pick_put_act("ugv_building")     # rospy.get_name())
             
