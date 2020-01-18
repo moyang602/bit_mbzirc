@@ -1178,6 +1178,11 @@ class pick_put_act(object):
             angular_i = 0.01
             sum_err = 0
             ang_i_limit = 15 #min_angular_vel / angular_i
+
+            px = 0.3
+            py = 0.3
+            vxlimit = 0.5
+            vylimit = 0.5
         
             # 初始化运动命令
             move_cmd = Twist()
@@ -1205,9 +1210,18 @@ class pick_put_act(object):
                 
                 # print(carlink_now_x, carlink_now_y,rot_start )
 
-                v_x = linear_speed * math.cos( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
-                v_y = linear_speed * math.sin( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
+                v_x = px * (goal_distance_y - carlink_now_y) # linear_speed * math.cos( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
+                v_y = py * (goal_distance_y - carlink_now_y) # linear_speed * math.sin( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
 
+                if v_x > vxlimit :
+                    v_x = vxlimit
+                elif v_x < -vxlimit :
+                    v_x = -vxlimit
+                
+                if v_y > vylimit:
+                    v_y = vylimit
+                elif v_y < -vylimit:
+                    v_y = -vylimit
                 # 计算相对于开始位置的位姿
                 distance_x= math.fabs(carlink_now_x - goal_distance_x)
                 distance_y= math.fabs(carlink_now_y - goal_distance_y)
