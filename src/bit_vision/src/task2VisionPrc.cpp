@@ -2076,8 +2076,8 @@ void L_Object_Pose(double Pose[6], bool &Flag)
   {
     for (size_t i = 0; i < 6; i++)
     {
-      KPS_Row[i] = srv.response.X_list[i];
-      KPS_Column[i] = srv.response.Y_list[i];
+      KPS_Column[i] = srv.response.X_list[i];
+      KPS_Row[i] = srv.response.Y_list[i];
     }
 
   }
@@ -2322,7 +2322,7 @@ void L_precise_Pose(HObject ho_Image, double Pose[6], bool &Flag)
     Intersection(ho_Circle, ho_LObjectSelected, &ho_CircleRegionIntersection);
     AreaCenter(ho_CircleRegionIntersection, &hv_Area1, &hv_Row1, &hv_Column1);
     TupleSortIndex(hv_Area1, &hv_MeanIndices);
-
+    
     hv_MinIndex = ((const HTuple&)hv_MeanIndices)[0];
     hv_WorldX.Clear();
     hv_WorldX[0] = 0.0;
@@ -2564,7 +2564,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
               if (tf_CameraOnTarget.getOrigin().getZ()<0)   //如果与相机方向相同
               {
                 tf_LOnTarget.setOrigin(tf::Vector3(0.2, 0.2, 0));
-                q.setRPY(180*Deg2Rad, 0*Deg2Rad, -90*Deg2Rad);
+                q.setRPY(180*Deg2Rad, 0*Deg2Rad, 90*Deg2Rad);
                 tf_LOnTarget.setRotation(q);  
                 transform_LOnZEDR = tf_TargetOnCamera*tf_LOnTarget;
               }

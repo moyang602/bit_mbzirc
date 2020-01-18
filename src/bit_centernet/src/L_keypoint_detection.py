@@ -192,7 +192,7 @@ def get_detection_result(req):
 if __name__ == '__main__':
     opt = opts().init()
     rospy.init_node('KPS_Detection')
-    rospy.Subscriber("/zed/zed_node/left/image_rect_color", Image, callback) #/zed/zed_node/left/image_rect_color    /CameraMER/ContinuousImage
+    rospy.Subscriber("/zed/zed_node/right/image_rect_color", Image, callback) #/zed/zed_node/left/image_rect_color    /CameraMER/ContinuousImage
     s = rospy.Service('Get_L_KPS', L_KPS_srv, get_detection_result)
     rospy.loginfo("Ready to handle the request:")
 
