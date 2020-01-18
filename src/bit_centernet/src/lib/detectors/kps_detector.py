@@ -104,3 +104,20 @@ class KPSDetector(BaseDetector):
                 debugger.add_coco_bbox(bbox[:4], 0, bbox[4], img_id='multi_pose')
                 debugger.add_KPS_hp(bbox[5:17], img_id='multi_pose')
         debugger.show_all_imgs(pause=self.pause)
+
+    
+    def generate_results(self, debugger, image, results):
+        debugger.add_img(image, img_id='ctdet')
+        global Detection_Flag
+        global kps_x_list
+        global kps_y_list
+        self.opt.vis_thresh = 0.5
+        # for j in range(1, self.num_classes + 1):
+        for bbox in results[1]:
+            if bbox[4] > self.opt.vis_thresh:
+                Detection_Flag = True
+                kps_x_list = bbox[5:11]
+                kps_y_list = bbox[11:17]
+                print(bbox[4])
+                print (kps_x_list)
+                print (kps_y_list)

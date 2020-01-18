@@ -143,8 +143,9 @@ class BaseDetector(object):
     merge_time += end_time - post_process_time
     tot_time += end_time - start_time
 
-    if self.opt.debug >= 1:
-      # self.show_results(debugger, image, results)
+    if self.opt.debug == 1:
+      self.show_results(debugger, image, results)
+    if self.opt.debug == 2:
       self.generate_results(debugger, image, results)
 
     #如果debug = 7 则只输出包围框的坐标值,不显示图像

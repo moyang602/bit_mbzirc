@@ -16,13 +16,13 @@ class opts(object):
                              help='L_Shelf|coco | kitti | coco_hp | pascal')
     self.parser.add_argument('--exp_id', default='L_Shelf_HP')
     self.parser.add_argument('--test', action='store_true')
-    self.parser.add_argument('--debug', type=int, default= 2 ,
+    self.parser.add_argument('--debug', type=int, default= 2,
                              help='level of visualization.'
                                   '1: only show the final detection results'
                                   '2: show the network output features'
                                   '3: use matplot to display' # useful when lunching training with ipython notebook
                                   '4: save all visualizations to disk')
-    self.parser.add_argument('--demo', default='',
+    self.parser.add_argument('--demo', default='/home/ugvcontrol/image/ZED/test',
                              help='path to image/ image folders/ video. '
                                   'or "webcam"')
     self.parser.add_argument('--load_model', default='/home/ugvcontrol/bit_mbzirc/src/bit_centernet/exp/model_best.pth',

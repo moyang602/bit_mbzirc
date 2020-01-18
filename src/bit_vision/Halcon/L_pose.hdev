@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="18.05">
+<procedure name="main">
+<interface/>
+<body>
+<c>* Determine the pose of the object ...</c>
+<l>read_image (Image, '/home/ugvcontrol/image/ZED/CenterNet/R1-18-21-50-54.jpg')</l>
+<l>read_cam_par ('/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat', CamParam)</l>
+<c></c>
+<l>dev_close_window ()</l>
+<l>get_image_size (Image, Width, Height)</l>
+<l>dev_open_window (0, 0, Width/2, Height/2, 'black', WindowHandle)</l>
+<l>* dev_display (Image)</l>
+<l>* Row:=[]</l>
+<l>* Column :=[]</l>
+<l>* for index := 0 to 5 by 1</l>
+<l>*     draw_circle (WindowHandle, row, column, Radius)</l>
+<l>*     gen_circle (Circle, row, column, Radius)</l>
+<l>*     Row[index] := row</l>
+<l>*     Column[index] := column</l>
+<l>* endfor</l>
+<c></c>
+<l>* stop()</l>
+<c></c>
+<l>Row := [1855.4794921875, 887.6012573242188, 720.4783935546875, 512.7048950195312, 456.25701904296875, 857.2218017578125]</l>
+<l>Column := [1328.51611328125, 1024.3966064453125, 1949.4541015625, 969.7545776367188, 209.96141052246094, 942.4188842773438]</l>
+<l>ControlX := [4,4,0,0,0.4,0.4]</l>
+<l>ControlY := [0.4,0,0,4.4,4.4,0.4]</l>
+<l>ControlZ := [0,0,0,0,0,0]</l>
+<c></c>
+<l>RowCenter:= Row</l>
+<l>ColCenter:= Column</l>
+<c>*获取L架在相机坐标系下的位姿</c>
+<l>vector_to_pose (ControlX, ControlY, ControlZ, RowCenter, ColCenter, CamParam, 'iterative', 'error', PoseOfObject, Errors)</l>
+<c></c>
+<l>dev_display (Image)</l>
+<l>disp_3d_coord_system (WindowHandle, CamParam, PoseOfObject, 0.05)</l>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="determine_control_points">
+<interface>
+<io>
+<par name="Image" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="Intersections" base_type="iconic" dimension="0"/>
+</oo>
+<oc>
+<par name="RowCenter" base_type="ctrl" dimension="0"/>
+<par name="ColCenter" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>threshold (Image, Region, 128, 255)</l>
+<l>connection (Region, ConnectedRegions)</l>
+<l>select_shape_std (ConnectedRegions, SelectedRegions, 'max_area', 70)</l>
+<l>fill_up (SelectedRegions, RegionFillUp)</l>
+<l>difference (RegionFillUp, SelectedRegions, Holes)</l>
+<l>connection (Holes, SeparateHoles)</l>
+<l>area_center (SeparateHoles, Area, Row1, Column)</l>
+<l>IndicesArea := sort_index(Area)</l>
+<c>* Determine the coordinates of the centers of the three holes</c>
+<l>RowCenter := []</l>
+<l>ColCenter := []</l>
+<c>* Get the corners by intersecting the detected sides</c>
+<l>fill_up (SelectedRegions, ElementFull)</l>
+<l>dilation_circle (ElementFull, RegionDilation, 3.5)</l>
+<l>erosion_circle (ElementFull, RegionErosion, 3.5)</l>
+<l>difference (RegionDilation, RegionErosion, ROI)</l>
+<l>reduce_domain (Image, ROI, ImageReduced)</l>
+<l>edges_sub_pix (ImageReduced, Edges, 'lanser2', 0.5, 10, 40)</l>
+<l>segment_contours_xld (Edges, Contours, 'lines', 3, 7, 7)</l>
+<l>fit_line_contour_xld (Contours, 'tukey', -1, 10, 5, 1, RowBegin, ColBegin, RowEnd, ColEnd, Nr, Nc, Dist)</l>
+<l>intersection_lines (RowBegin[0], ColBegin[0], RowEnd[0], ColEnd[0], RowBegin[2], ColBegin[2], RowEnd[2], ColEnd[2], RowC1, ColC1, IsOverlappingS1)</l>
+<l>intersection_lines (RowBegin[4], ColBegin[4], RowEnd[4], ColEnd[4], RowBegin[2], ColBegin[2], RowEnd[2], ColEnd[2], RowC2, ColC2, IsOverlappingS1)</l>
+<c>* Prepare visualisation of the intersection</c>
+<l>gen_empty_obj (Intersections)</l>
+<l>calc_directions_norm (RowEnd[0] - RowBegin[0], ColEnd[0] - ColBegin[0], DRow, DCol)</l>
+<l>gen_contour_polygon_xld (LineFragment, RowEnd[0] + DRow * [0,-60], ColEnd[0] + DCol * [0,-60])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>gen_contour_polygon_xld (LineFragment, RowEnd[0] + DRow * [40,70], ColEnd[0] + DCol * [40,70])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>calc_directions_norm (RowEnd[2] - RowBegin[2], ColEnd[2] - ColBegin[2], DRow, DCol)</l>
+<l>gen_contour_polygon_xld (LineFragment, RowBegin[2] + DRow * [-40,-70], ColBegin[2] + DCol * [-40,-70])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>gen_contour_polygon_xld (LineFragment, [RowBegin[2],RowEnd[2]], [ColBegin[2],ColEnd[2]])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>gen_contour_polygon_xld (LineFragment, RowEnd[2] + DRow * [40,70], ColEnd[2] + DCol * [40,70])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>calc_directions_norm (RowEnd[4] - RowBegin[4], ColEnd[4] - ColBegin[4], DRow, DCol)</l>
+<l>gen_contour_polygon_xld (LineFragment, RowBegin[4] + DRow * [-40,-70], ColBegin[4] + DCol * [-40,-70])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>gen_contour_polygon_xld (LineFragment, RowBegin[4] + DRow * [0,60], ColBegin[4] + DCol * [0,60])</l>
+<l>concat_obj (Intersections, LineFragment, Intersections)</l>
+<l>RowCenter := [RowCenter,RowC1,RowC2]</l>
+<l>ColCenter := [ColCenter,ColC1,ColC2]</l>
+<c>* Get the second and third largest hole</c>
+<l>for i := |IndicesArea| - 2 to |IndicesArea| - 3 by -1</l>
+<l>    select_obj (SeparateHoles, CircularHole, IndicesArea[i] + 1)</l>
+<l>    dilation_circle (CircularHole, RegionDilation, 3.5)</l>
+<l>    erosion_circle (CircularHole, RegionErosion, 3.5)</l>
+<l>    difference (RegionDilation, RegionErosion, ROI)</l>
+<l>    reduce_domain (Image, ROI, ImageReduced)</l>
+<l>    edges_sub_pix (ImageReduced, Edges, 'lanser2', 0.7, 20, 40)</l>
+<l>    longest_closed_contour (Edges, LongestClosedContour)</l>
+<l>    fit_ellipse_contour_xld (LongestClosedContour, 'fitzgibbon', -1, 1, 0, 200, 3, 1, Row, Col, Phi, Radius1, Radius2, StartPhi, EndPhi, PointOrder)</l>
+<l>    RowCenter := [RowCenter,Row]</l>
+<l>    ColCenter := [ColCenter,Col]</l>
+<l>endfor</l>
+<l>gen_contour_polygon_xld (ThreeCenterPoints, RowCenter[1:3], ColCenter[1:3])</l>
+<l>area_center_xld (ThreeCenterPoints, Area1, Row2, Column1, PointOrder)</l>
+<l>if (PointOrder == 'positive')</l>
+<l>    RowCenter := subset(RowCenter,[0,1,3,2])</l>
+<l>    ColCenter := subset(ColCenter,[0,1,3,2])</l>
+<l>endif</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="determine_control_points">
+<short lang="en_US">Determines the coordinates of the centers of two circular holes and of one rectangular hole.</short>
+<parameters>
+<parameter id="ColCenter"/>
+<parameter id="Image"/>
+<parameter id="Intersections"/>
+<parameter id="RowCenter"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="longest_closed_contour">
+<interface>
+<io>
+<par name="Edges" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="LongestClosedContour" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<l>select_contours_xld (Edges, ClosedContours, 'closed', 0.5, 200, -0.5, 0.5)</l>
+<l>length_xld (ClosedContours, Length)</l>
+<l>IndicesLength := sort_index(Length)</l>
+<l>IndexOfLongestClosedContour := IndicesLength[|IndicesLength| - 1]</l>
+<l>select_obj (ClosedContours, LongestClosedContour, IndexOfLongestClosedContour + 1)</l>
+<l>return ()</l>
+</body>
+<docu id="longest_closed_contour">
+<short lang="en_US">Returns the longest closed contour.</short>
+<parameters>
+<parameter id="Edges"/>
+<parameter id="LongestClosedContour"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="disp_coordinate_system_3d">
+<interface>
+<ic>
+<par name="WindowHandle" base_type="ctrl" dimension="0"/>
+<par name="CamPar" base_type="ctrl" dimension="0"/>
+<par name="HomMat_WCS_to_CCS" base_type="ctrl" dimension="0"/>
+<par name="NameCS" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<l>dev_set_window (WindowHandle)</l>
+<l>ArrowLength := 0.02</l>
+<l>ArrowX_WCS := [0,ArrowLength,0,0]</l>
+<l>ArrowY_WCS := [0,0,ArrowLength,0]</l>
+<l>ArrowZ_WCS := [0,0,0,ArrowLength]</l>
+<l>affine_trans_point_3d (HomMat_WCS_to_CCS, ArrowX_WCS, ArrowY_WCS, ArrowZ_WCS, ArrowX_CCS, ArrowY_CCS, ArrowZ_CCS)</l>
+<l>project_3d_point (ArrowX_CCS, ArrowY_CCS, ArrowZ_CCS, CamPar, ArrowRow, ArrowColumn)</l>
+<l>disp_arrow (WindowHandle, ArrowRow[0], ArrowColumn[0], ArrowRow[1], ArrowColumn[1], 1)</l>
+<l>disp_arrow (WindowHandle, ArrowRow[0], ArrowColumn[0], ArrowRow[2], ArrowColumn[2], 1)</l>
+<l>disp_arrow (WindowHandle, ArrowRow[0], ArrowColumn[0], ArrowRow[3], ArrowColumn[3], 1)</l>
+<l>set_tposition (WindowHandle, ArrowRow[0], ArrowColumn[0])</l>
+<l>write_string (WindowHandle, NameCS)</l>
+<l>set_tposition (WindowHandle, ArrowRow[1], ArrowColumn[1])</l>
+<l>write_string (WindowHandle, 'x')</l>
+<l>set_tposition (WindowHandle, ArrowRow[2], ArrowColumn[2])</l>
+<l>write_string (WindowHandle, 'y')</l>
+<l>set_tposition (WindowHandle, ArrowRow[3], ArrowColumn[3])</l>
+<l>write_string (WindowHandle, 'z')</l>
+<l>return ()</l>
+</body>
+<docu id="disp_coordinate_system_3d">
+<parameters>
+<parameter id="CamPar"/>
+<parameter id="HomMat_WCS_to_CCS"/>
+<parameter id="NameCS"/>
+<parameter id="WindowHandle"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="calc_directions_norm">
+<interface>
+<ic>
+<par name="DRow" base_type="ctrl" dimension="0"/>
+<par name="DCol" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="DRowNorm" base_type="ctrl" dimension="0"/>
+<par name="DColNorm" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>Norm := 1.0 / sqrt(DRow * DRow + DCol * DCol)</l>
+<l>DRowNorm := Norm * DRow</l>
+<l>DColNorm := Norm * DCol</l>
+<l>return ()</l>
+</body>
+<docu id="calc_directions_norm">
+<parameters>
+<parameter id="DCol"/>
+<parameter id="DColNorm"/>
+<parameter id="DRow"/>
+<parameter id="DRowNorm"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>

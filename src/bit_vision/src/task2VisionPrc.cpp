@@ -1995,6 +1995,7 @@ void L_VisualServo(HObject ho_Image, double &ZED_L_Theta, double &ZED_L_dist, bo
 
   try
   {
+    ZoomImageSize(ho_Image, &ho_Image, 1104, 621, "constant");
     Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
 
     TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageResult1, &ho_ImageResult2, 
