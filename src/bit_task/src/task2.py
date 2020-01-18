@@ -1064,7 +1064,7 @@ class pick_put_act(object):
         x_start = tf_CarOnMap_trans[0]
         y_start = tf_CarOnMap_trans[1]
         rotate = tf.transformations.euler_from_quaternion(tf_CarOnMap_rot)
-        rot_start=rotate[2]
+        rot_start = rotate[2]
 
         # 随时掌控机器人行驶的距离
         distance_x = 0
@@ -1076,14 +1076,32 @@ class pick_put_act(object):
 
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
-
+                if VisionData.L_dist < 0.0:
+                    VisionData.L_dist = 0.0
                 distance_x = 0.001 *( VisionData.L_dist - 200 )
                 carlink_now_y = -(tf_CarOnMap_trans[0] - x_start) * math.sin(rot_start) + (tf_CarOnMap_trans[1] - y_start) * math.cos(rot_start)
+                # 计算相对于开始位置的位姿
+                rotate = tf.transformations.euler_from_quaternion(tf_CarOnMap_rot)
+                angle_now_ = rotate[2]
 
+                try:
+                    if angle_now_ - last_rot < -pi:
+                        fix_2pi += 2*pi
+                    if angle_now_ - last_rot > pi:
+                        fix_2pi -= 2*pi
+                    angle_now = angle_now_ + fix_2pi
+                    last_rot = angle_now_
+                except:
+                    angle_now = angle_now_ + fix_2pi
+                    last_rot = angle_now_
+                distance_rot= angle_now - rot_start
                 distance_y = MoveDistance - carlink_now_y
 
-                move_cmd.linear.x = 0.8 * distance_x
-                move_cmd.linear.y = 0.3 * np.sign(distance_y)
+                vx = 0.8 * distance_x
+                vy = 0.3 * distance_y
+
+                move_cmd.linear.x = v_x * math.cos(distance_rot) + v_y * math.sin(distance_rot)
+                move_cmd.linear.y = -v_x * math.sin(distance_rot) + v_y * math.cos(distance_rot)
                 move_cmd.angular.z = 0
     
                 if math.fabs(distance_x) <= x_tolerance and math.fabs(distance_y) <= y_tolerance:
