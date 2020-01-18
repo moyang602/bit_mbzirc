@@ -30,40 +30,51 @@ global health
 global first
 first = True
 
+global tft
+tft = tf.TransformerROS()
+
 def callback(atti, posi, vel, ang):
-    global first, last_time
+    global first, last_time, T_S_D
     odom.header.frame_id = "gps_odom"
     odom.header.stamp = rospy.Time.now()
     
-    odom.pose.pose.orientation = atti.quaternion
+    if first:
+        ori = []
+        ori.append(atti.quaternion.x)
+        ori.append(atti.quaternion.y)
+        ori.append(atti.quaternion.z)
+        ori.append(atti.quaternion.w)
+        T_S_D = tf.transformations.quaternion_matrix(ori)
+        # last_time = now
+        first =False
+    
     ori = []
     ori.append(atti.quaternion.x)
     ori.append(atti.quaternion.y)
     ori.append(atti.quaternion.z)
     ori.append(atti.quaternion.w)
     R = tf.transformations.quaternion_matrix(ori)
-    
+    T_N_D = tft.fromTranslationRotation([posi.point.x, posi.point.y, posi.point.z],ori)
+
+    T_N_S = np.dot( np.linalg.pinv(T_S_D) , T_N_D )
+    quat = tf.transformations.quaternion_from_matrix(T_N_S)
+    trans = tf.transformations.translation_from_matrix(T_N_S)
+
+    odom.pose.pose.position.x = trans[0] #+= veln[0] * (now - last_time) # = posi.point
+    odom.pose.pose.position.y = trans[1] #+= veln[1] * (now - last_time) # = posi.point
+    odom.pose.pose.position.z = trans[2] #+= veln[2] * (now - last_time) # = posi.point
+    odom.pose.pose.orientation.x = quat[0]
+    odom.pose.pose.orientation.y = quat[1]
+    odom.pose.pose.orientation.z = quat[2]
+    odom.pose.pose.orientation.w = quat[3]
+    # last_time = now
+
     veln = []
     veln.append(vel.vector.x)
     veln.append(vel.vector.y)
     veln.append(vel.vector.z)
     veln.append(1)
     veln = np.dot(R, veln)
-    
-    now = odom.header.stamp.to_sec()
-    
-    if first:
-        last_time = now
-        first =False
-    
-    # print(np.dot(R, veln), np.dot(np.transpose(R), veln))
-    
-
-    odom.pose.pose.position.x += veln[0] * (now - last_time) # = posi.point
-    odom.pose.pose.position.y += veln[1] * (now - last_time) # = posi.point
-    odom.pose.pose.position.z += veln[2] * (now - last_time) # = posi.point
-
-    last_time = now
 
     odom.twist.twist.linear.x = veln[0]
     odom.twist.twist.linear.y = veln[1]
@@ -80,7 +91,7 @@ def callback(atti, posi, vel, ang):
 
     try:
         print(health)
-        if health > -1:
+        if health >= 2:
             pub_odom.publish(odom)
         # print(atti,posi)
         # print("end")
