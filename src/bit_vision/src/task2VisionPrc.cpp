@@ -2586,6 +2586,11 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
                 transform_LOnZEDR = tf_TargetOnCamera*tf_LOnTarget;
               }
               transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
+              double tempX;
+              tempX = transform_LOnMap.getOrigin().getX();
+              double tempY;
+              tempY = transform_LOnMap.getOrigin().getY();
+              transform_LOnMap.setOrigin(tf::Vector3(tempX, tempY, 0.003));
               ROS_INFO_STREAM("L frame precise position has been renewed");
             }
             break;
