@@ -15,11 +15,14 @@ static std::vector<geometry_msgs::Pose> rec;
 
 #define START 0
 #define REC   1
-#define GET   2
-#define FINISH 3
+#define FINISH2 2
+#define FINISH3 3
+#define GET2   4
+#define GET3   5
 
 using namespace std;
-bool first = true;
+bool first2 = true;
+bool first3 = true;
 
 int index_temp = 0;
 
@@ -82,18 +85,21 @@ void generate_point(int ia, float x, float y){
 }
 
 static int i;
-static int get_index;
+static int get_index2;
+static int get_index3;
 bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
                 bit_task_msgs::teach_robot::Response  &res)
 {
     ROS_INFO("in%d",req.kind);
     if (req.kind == START)
     {
-        first = true;
+        first2 = true;
+        first3 = true;
         i = 0;
         S_CarOnMap = tf_CarOnMap;
         generate_point(i, tf_CarOnMap.getOrigin().getX(), tf_CarOnMap.getOrigin().getY());
-        get_index = 0;
+        get_index2 = 0;
+        get_index3 = 0;
     }
     else if (req.kind == REC)
     {
@@ -110,11 +116,11 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
         generate_point(i, tf_CarOnMap.getOrigin().getX(), tf_CarOnMap.getOrigin().getY());
 
     }
-    else if (req.kind == FINISH)
+    else if (req.kind == FINISH3)
     {
-        first = true;
+        first3 = true;
 
-        std::fstream f("pose_teach.txt", ios::out);
+        std::fstream f("pose_teach3.txt", ios::out);
         if(f.bad())
         {
             std::cout << "打开文件出错" << std::endl;
@@ -129,10 +135,29 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
         rec.clear();
      
     }
-    else if (req.kind == GET)
+    else if (req.kind == FINISH2)
+    {
+        first2 = true;
+
+        std::fstream f("pose_teach2.txt", ios::out);
+        if(f.bad())
+        {
+            std::cout << "打开文件出错" << std::endl;
+            return false;
+        }
+        
+        for(int index = 0;index < rec.size(); index ++ )
+        {
+            f << index <<"\t" << rec[index].position.x << "\t" << rec[index].position.y << "\t" << rec[index].orientation.x << "\t" << rec[index].orientation.y << "\t" << rec[index].orientation.z << "\t" << rec[index].orientation.w << "\t" <<std::endl; 
+        } 
+        f.close();
+        rec.clear();
+     
+    }
+    else if (req.kind == GET3)
     {
         
-        if (first){
+        if (first3){
             double x;
             double y;
             double ox;
@@ -140,9 +165,9 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
             double oz;
             double ow;
 
-            first = false;
+            first3 = false;
             fstream fin;
-            fin.open("pose_teach.txt",ios::in);    
+            fin.open("pose_teach3.txt",ios::in);    
         
             if(!fin)
             {
@@ -171,12 +196,61 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
             fin.close();
         }
         
-        if (get_index == index_temp){
-            get_index = 0;
+        if (get_index3 == index_temp){
+            get_index3 = 0;
         }
-        res.num = get_index;
-        res.pose = rec[get_index];
-        get_index ++;
+        res.num = get_index3;
+        res.pose = rec[get_index3];
+        get_index3 ++;
+    }
+    else if (req.kind == GET2)
+    {
+        
+        if (first2){
+            double x;
+            double y;
+            double ox;
+            double oy;
+            double oz;
+            double ow;
+
+            first2 = false;
+            fstream fin;
+            fin.open("pose_teach2.txt",ios::in);    
+        
+            if(!fin)
+            {
+                std::cout << "打开文件出错" << std::endl;
+                return false;
+            }
+            std::cout<<"文件打开成功，按行读入"<<std::endl;
+            //如果知道数据格式，可以直接用>>读入
+
+            
+            geometry_msgs::Pose temp;
+            while(!fin.eof())
+            {
+                fin >> index_temp >> x >> y >> ox >> oy >> oz >> ow ; 
+                temp.position.x = x;
+                temp.position.y = y;
+                temp.position.z = 0.15;
+                temp.orientation.x = ox;
+                temp.orientation.y = oy;
+                temp.orientation.z = oz;
+                temp.orientation.w = ow;
+                rec.push_back(temp);
+                std::cout << "Read In: " << index_temp << std::endl;
+            }
+    
+            fin.close();
+        }
+        
+        if (get_index2 == index_temp){
+            get_index2 = 0;
+        }
+        res.num = get_index2;
+        res.pose = rec[get_index2];
+        get_index2 ++;
     }
 
     

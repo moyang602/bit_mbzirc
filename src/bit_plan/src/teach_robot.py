@@ -16,10 +16,12 @@ global tf_TargetOnMap_rot
 global tf_TargetOnStart_trans
 global tf_TargetOnStart_rot 
 
-START = 0
-REC = 1
-GET = 2
-FINISH = 3
+START   = 0
+REC     = 1
+FINISH2 = 2
+FINISH3 = 3
+GET2    = 4
+GET3    = 5
 
 def readchar():
     fd = sys.stdin.fileno()
@@ -58,10 +60,21 @@ if __name__ == '__main__':
         if key=='r': 
             teach_point_draw(REC)
         if key=='f': 
-            teach_point_draw(FINISH)
-        if key=='g': 
-            a = teach_point_draw(GET)
-            print(a)
+            print("Task?")
+            while True:
+                key=readkey()
+                if key == '2':
+                    teach_point_draw(FINISH2)
+                    break
+                elif key == '3':
+                    teach_point_draw(FINISH3)
+                    break
+                else:
+                    print("Wrong input")
+                    continue
+        # if key=='g': 
+        #     a = teach_point_draw(GET)
+        #     print(a)
         if key=='e':
             break
         

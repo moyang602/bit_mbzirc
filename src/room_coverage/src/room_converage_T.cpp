@@ -167,7 +167,7 @@ int main(int argc, char** argv)
         ROS_INFO("Go to the WayPoint[%d]",srv_get.response.num);
         ac.sendGoal(newgoal);
 
-        ac.waitForResult(ros::Duration(50.0));
+        ac.waitForResult(ros::Duration(5.0));
 
         if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
         {

@@ -37,6 +37,10 @@ a = 0.3       # 机械臂关节运动加速度
 HandEye = 1   
 status = 0       # move_base状态量
 
+# 遍历点获得状态量
+GET2    = 4
+GET3    = 5
+
 # 相机参数
 Sx = 17*1e-6
 Sy = 17*1e-6
@@ -153,31 +157,25 @@ def FightFire():
     rob.movej(FindFirePos, acc=a, vel=3*v, wait=True, relative=False)
 
     #----- 2. 车臂移动探索火源 -------#
-    # 2.1 小车开始自由移动
-    CarMove(2.0, 0.0, 0.0*deg2rad)
-    # 2.2 机械臂移动直到找到火源
-    offset = [-0*deg2rad, 0*deg2rad, 0*deg2rad, -0*deg2rad]
-    count = 0   #搜索次数
-    while (not rospy.is_shutdown()):
-        MovePos = list(FindFirePos)
-        MovePos[0] = MovePos[0]+offset[count%4]
-        count = count+1
-        rob.movej(MovePos,acc=a, vel=5*v,wait=True)
-        rospy.sleep(0.5)
-        VisionData = GetFireVisionData_client(HandEye)
-        rospy.loginfo("MovePos[0] = %f",MovePos[0])
-        if (VisionData.flag or count>20) and VisionData.DeltaInPix.y < 100:  
-            # 取消运动
-            CarStop()
-            rospy.loginfo("car motion has been canceled")
-            break
+    # # 2.1 小车开始自由移动
+    # CarMove(2.0, 0.0, 0.0*deg2rad)
+    # # 2.2 机械臂移动直到找到火源
+    # offset = [-0*deg2rad, 0*deg2rad, 0*deg2rad, -0*deg2rad]
+    # count = 0   #搜索次数
+    # while (not rospy.is_shutdown()):
+    #     MovePos = list(FindFirePos)
+    #     MovePos[0] = MovePos[0]+offset[count%4]
+    #     count = count+1
+    #     rob.movej(MovePos,acc=a, vel=5*v,wait=True)
+    #     rospy.sleep(0.5)
+    #     VisionData = GetFireVisionData_client(HandEye)
+    #     rospy.loginfo("MovePos[0] = %f",MovePos[0])
+    #     if (VisionData.flag or count>20) and VisionData.DeltaInPix.y < 100:  
+    #         # 取消运动
+    #         CarStop()
+    #         rospy.loginfo("car motion has been canceled")
+    #         break
 
-    if VisionData.flag:
-        rospy.loginfo("Fire pos has been found")
-    else:
-        rospy.logwarn("Timeout, can't find Fire pos")
-        return
-    
     #--------- 机械臂移动直到火源在图像中心线 -------#
     rospy.sleep(0.5)
     while (not rospy.is_shutdown()):
@@ -299,7 +297,28 @@ def FightFire():
     #----- 8. 机械臂复原-------#
     rob.movej(FindFirePos,acc=a, vel=2*v,wait=True)
     
+def Orientation2Euler(orientation):
+    ori = []
+    ori.append(orientation.x)
+    ori.append(orientation.y)
+    ori.append(orientation.z)
+    ori.append(orientation.w)
+    ori = tf.transformations.euler_from_quaternion(ori)
+    return ori[2]
 
+ def coverage(now):
+    try:
+        if status == GoalStatus.SUCCEEDED or (now - last_time) > 15.0:
+            last_time = now
+            a_ = get_movepoint(GET3)
+            ori_ = Orientation2Euler(a_.pose.orientation)
+    except:
+        last_time = now
+        a_ = get_movepoint(GET3)
+        ori_ = Orientation2Euler(a_.pose.orientation)
+    finally:
+        CarMove(a_.pose.position.x, a_.pose.position.y, ori_, "map")
+            
 if __name__ == '__main__':
 
     rospy.init_node('task3_node', anonymous=False)
@@ -332,6 +351,10 @@ if __name__ == '__main__':
     cmdvel_pub = rospy.Publisher('/cmd_vel_plan',Twist,queue_size=1)   
     # 末端执行器
     EndEffector_pub = rospy.Publisher('endeffCmd',EndEffector, queue_size=1)
+
+    rospy.wait_for_service('Teach_robot')
+    global get_movepoint
+    get_movepoint = rospy.ServiceProxy('Teach_robot',teach_robot)
     
     #---------- 1. 机器人移动至门口附近 -------------#
     MoveToBuilding()
@@ -342,8 +365,16 @@ if __name__ == '__main__':
 
 
     #---------- 3. 机器人室内移动寻找火源 -------------#
-    FightFire()
-
+    while True:
+        VisionData = GetFireVisionData_client(HandEye)
+        self.coverage(rospy.Time.now().to_sec())
+        if VisionData.flag:
+            rospy.loginfo("Fire pos has been found")
+            CarStop()
+            FightFire()
+              
+        else:
+            rospy.logwarn("Timeout, can't find Fire pos")
 
     #---------- 4. 程序结束 -------------#
     rob.stop()
