@@ -160,7 +160,8 @@ ImageL = np.zeros((1242,2208,3))
 def callback(imgmsg):
     global flag_im, ImageL
     bridge = CvBridge()
-    ImageL = bridge.imgmsg_to_cv2(imgmsg, desired_encoding="passthrough")
+    ImageL = bridge.imgmsg_to_cv2(imgmsg, 'bgr8')
+    
     flag_im = True  
 
 

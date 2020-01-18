@@ -366,8 +366,8 @@ class pick_put_act(object):
         wait()
         try: 
             # rospy.sleep(2.0)
-            # # self.MoveAlongL(-1.0)
-            self.FindL(using_vision = False)
+            self.MoveAlongL(-1.0)
+            # self.FindL(using_vision = False)
             return 0
             # self.SetHei(320,50)
             #================ 0. 准备 ===================#
@@ -376,8 +376,8 @@ class pick_put_act(object):
             initj = rob.getj()
 
 
-            # #================ 1. 寻找砖堆 ================#
-            # # 1.1 机械臂移动至观察砖堆准备位姿
+            #================ 1. 寻找砖堆 ================#
+            # 1.1 机械臂移动至观察砖堆准备位姿
             # rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
             # # 1.2 小车遍历场地， 基于视觉寻找砖堆
@@ -385,9 +385,9 @@ class pick_put_act(object):
             # while True:         # TODO 避免进入死循环
             #     # 遍历标点
             #     # if first:
-            #     self.coverage()
-            #     # else:
-            #     #     move()
+            #     # self.coverage()
+            #     # # else:
+            #     # #     move()
 
             #     # 进行视觉砖堆定位检测
             #     VisionBrickData = GetVisionData_client(GetBrickLoc, goal.bricks[0].type)
@@ -415,13 +415,13 @@ class pick_put_act(object):
             #                 continue
             #     else:
             #         rospy.loginfo("Mei Found Brick Dui")
-            #         if not Found_L:         # 没有L架的信息，检测一次，并继续
-            #             # 进行L架检测
-            #             VisionLData = GetVisionData_client(GetLPose, "N")    # 数据是在base_link坐标系下的
-            #             if VisionLData.Flag:        # 【入口】 检测到L架，确定L架
-            #                 Found_L = self.FindL()
-            #             else:
-            #                 continue        # L架找不到继续循环
+            #         # if not Found_L:         # 没有L架的信息，检测一次，并继续
+            #         #     # 进行L架检测
+            #         #     VisionLData = GetVisionData_client(GetLPose, "N")    # 数据是在base_link坐标系下的
+            #         #     if VisionLData.Flag:        # 【入口】 检测到L架，确定L架
+            #         #         Found_L = self.FindL()
+            #         #     else:
+            #         #         continue        # L架找不到继续循环
 
             #     if out :        # 【出口】激光雷达识别到
             #         break
@@ -444,7 +444,7 @@ class pick_put_act(object):
             #         result_ = self.goGetBrick(goal.bricks[brickIndex])
             #         if result_ == SUCCESS:
             #             # 记录当前点为这种砖的位置
-            #             self.show_tell("finished !PICK! brick %d,go get next in %d" %brickIndex, goal.Num))
+            #             self.show_tell("finished !PICK! brick %d,go get next in %d" %(brickIndex, goal.Num))
             #             brickIndex = brickIndex + 1     # 成功了就取下一块  
             #             break
             #     # brickIndex = brickIndex + 1     # 成功了就取下一块  
@@ -473,10 +473,10 @@ class pick_put_act(object):
                 
             # self.Push(ON)
             # self.show_tell("Got all bricks, go to build")
-            # # wait()
+            # wait()
 
             #================ 3. 到达L架 ================#
-            # self.FindL()
+            self.FindL(using_vision = False)
             # 3.1 移动至L架
             # 3.1.2 如果无信息，场地遍历，寻找L架
             # if not Found_L:
@@ -949,7 +949,7 @@ class pick_put_act(object):
             target_rot = tf.transformations.euler_from_matrix(target_tf)
             target_trans = tf.transformations.translation_from_matrix(target_tf)
             self.Bit_move(target_trans[0], target_trans[1], target_rot[2])
-        elif (CarOnL_theta > pi/2 and CarOnL_theta <= pi) or (CarOnL_theta > -3*pi/4 and CarOnL_theta < -pi): # 90~225°
+        elif (CarOnL_theta > pi/2 and CarOnL_theta <= pi) or (CarOnL_theta < -3*pi/4 and CarOnL_theta > -pi): # 90~225°
             print "case 3"
             
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLYOut)
@@ -1010,18 +1010,22 @@ class pick_put_act(object):
         y_tolerance=0.05
         rot_tolerance=0.02
 
-        angular_p = 1.0
+        angular_p = 0.5
         angular_i = 0.02
         sum_err = 0
         ang_i_limit = 15 #min_angular_vel / angular_i
     
         # 初始化运动命令
         move_cmd = Twist()
-
+        last = rospy.Time.now().to_sec()
         while(not rospy.is_shutdown()):
+            now = rospy.Time.now().to_sec()
+            print "time = " , now - last
+            
             VisionData = GetVisionData_client(GetLVSData, "N")
             if VisionData.Flag:
                 delta_angle = VisionData.L_Theta - 0
+                # print delta_angle
                 sum_err += delta_angle
                 if sum_err * delta_angle < 0:
                     sum_err = 0
@@ -1051,6 +1055,8 @@ class pick_put_act(object):
                 rospy.sleep(0.05)
             else:
                 rospy.logwarn("Can't Find L")
+
+            last = now
 
 
         # 设定速度
@@ -1120,11 +1126,11 @@ class pick_put_act(object):
             else:
                 self.show_tell("WRONG TASK INDEX, Check the plan!")
 
-            # target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now),  np.dot(tf_BrickOnOrign, tf_CarOnBrick) )
-            # target_rot = tf.transformations.euler_from_matrix(target_tf)
-            # target_trans = tf.transformations.translation_from_matrix(target_tf)
+            target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now),  np.dot(tf_BrickOnOrign, tf_CarOnBrick) )
+            target_rot = tf.transformations.euler_from_matrix(target_tf)
+            target_trans = tf.transformations.translation_from_matrix(target_tf)
 
-            # self.Bit_move(target_trans[0]  ,target_trans[1] , target_rot[2] )
+            self.Bit_move(target_trans[0]  ,target_trans[1] , target_rot[2] )
 
             self.show_tell("Got the %d brick place"% brickIndex)
             self.Push(OFF)

@@ -2178,7 +2178,8 @@ void L_precise_Pose(HObject ho_Image, double Pose[6], bool &Flag)
 
   try
   {
-    ReadCamPar("../model/campar2_01.dat", &hv_CameraParam);
+    ReadCamPar("/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat", &hv_CameraParam);
+    
     Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
     TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
         "hsv");
