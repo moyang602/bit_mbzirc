@@ -2151,17 +2151,231 @@ void L_Object_Pose(double Pose[6], bool &Flag)
 // 8 L架坐标系在相机坐标系下的精确位姿
 void L_precise_Pose(HObject ho_Image, double Pose[6], bool &Flag)
 {
-   // Local iconic variables
+// Local iconic variables
   HObject  ho_Image1, ho_Image2, ho_Image3;
-  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_Regions, ho_RegionOpening;
-  HObject  ho_ConnectedRegions, ho_SelectedRegions, ho_ObjectSelected;
-  HObject  ho_RegionClosing, ho_Contour, ho_ContoursSplit;
-  HObject  ho_SelectedEdges, ho_UnionContours, ho_UnionContours2;
+  HObject  ho_ImageH, ho_ImageS, ho_ImageV, ho_ImageMedian;
+  HObject  ho_Region, ho_ConnectedRegions, ho_RegionFillUp;
+  HObject  ho_LObjectSelected, ho_RegionDilation, ho_RegionDifference;
+  HObject  ho_Rectangle, ho_RegionIntersection, ho_Skeletons;
+  HObject  ho_ConnectedSkeleton, ho_Skeleton, ho_Contours;
+  HObject  ho_ContoursSplit, ho_SelectedContours, ho_UnionContours;
+  HObject  ho_ObjectSelected1, ho_ObjectSelected2, ho_Cross;
+  HObject  ho_Contour, ho_ClosedContours, ho_ClosedContoursRegion;
+  HObject  ho_Circle, ho_CircleRegionIntersection;
 
   // Local control variables
-  HTuple  hv_RectWidth, hv_RectHeight, hv_CamParOriginal;
-  HTuple  hv_REC, hv_index, hv_indexes_REC, hv_Pose, hv_CovPose;
-  HTuple  hv_Error, hv_Exception;
+  HTuple  hv_WindowHandle, hv_CameraParam, hv_ImageFiles;
+  HTuple  hv_Index, hv_UsedThreshold, hv_Area, hv_Row, hv_Column;
+  HTuple  hv_Indices, hv_Width, hv_Height, hv_Number, hv_RowBegins;
+  HTuple  hv_ColBegins, hv_RowEnds, hv_ColEnds, hv_I, hv_Length;
+  HTuple  hv_ContLengthIndices, hv_RowBegin, hv_ColBegin;
+  HTuple  hv_RowEnd, hv_ColEnd, hv_Nr, hv_Nc, hv_Dist, hv_CrossRows;
+  HTuple  hv_CrossColumns, hv_CrossRow, hv_CrossColumn, hv_IsOverlapping;
+  HTuple  hv_J, hv_Angle, hv_M, hv_N, hv_Radus, hv_Area1;
+  HTuple  hv_Row1, hv_Column1, hv_MeanIndices, hv_MinIndex;
+  HTuple  hv_WorldX, hv_WorldY, hv_WorldZ, hv_ImageRow, hv_ImageColumn;
+  HTuple  hv_Pose, hv_Quality;
+
+  try
+  {
+    ReadCamPar("../model/campar2_01.dat", &hv_CameraParam);
+    Decompose3(ho_Image, &ho_Image1, &ho_Image2, &ho_Image3);
+    TransFromRgb(ho_Image1, ho_Image2, ho_Image3, &ho_ImageH, &ho_ImageS, &ho_ImageV, 
+        "hsv");
+
+    MedianImage(ho_ImageV, &ho_ImageMedian, "circle", 25, "mirrored");
+
+    BinaryThreshold(ho_ImageMedian, &ho_Region, "max_separability", "light", &hv_UsedThreshold);
+
+    //区域联通选择最大的
+    Connection(ho_Region, &ho_ConnectedRegions);
+    FillUp(ho_ConnectedRegions, &ho_RegionFillUp);
+    AreaCenter(ho_RegionFillUp, &hv_Area, &hv_Row, &hv_Column);
+    TupleSortIndex(hv_Area, &hv_Indices);
+    SelectObj(ho_RegionFillUp, &ho_LObjectSelected, HTuple(hv_Indices[(hv_Indices.TupleLength())-1])+1);
+
+    //膨胀做差找边
+    DilationCircle(ho_LObjectSelected, &ho_RegionDilation, 1.5);
+    Difference(ho_RegionDilation, ho_LObjectSelected, &ho_RegionDifference);
+
+    GetImageSize(ho_Image, &hv_Width, &hv_Height);
+    GenRectangle1(&ho_Rectangle, 5, 5, hv_Height-10, hv_Width-10);
+    Intersection(ho_Rectangle, ho_RegionDifference, &ho_RegionIntersection);
+
+    //提取骨架
+    Skeleton(ho_RegionIntersection, &ho_Skeletons);
+    Connection(ho_Skeletons, &ho_ConnectedSkeleton);
+    CountObj(ho_ConnectedSkeleton, &hv_Number);
+
+    if (hv_Number!=2)
+    {
+      Flag = false;
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = 0.0;
+      }
+      ROS_WARN("The number of ConnectedSkeleton is not 2");
+      return;
+    }
+
+    //拟合线
+    hv_RowBegins = HTuple();
+    hv_ColBegins = HTuple();
+    hv_RowEnds = HTuple();
+    hv_ColEnds = HTuple();
+
+    HTuple end_val57 = hv_Number;
+    HTuple step_val57 = 1;
+    for (hv_I=1; hv_I.Continue(end_val57, step_val57); hv_I += step_val57)
+    {
+      SelectObj(ho_ConnectedSkeleton, &ho_Skeleton, hv_I);
+      GenContoursSkeletonXld(ho_Skeleton, &ho_Contours, 1, "filter");
+      SegmentContoursXld(ho_Contours, &ho_ContoursSplit, "lines", 5, 4, 2);
+      SelectContoursXld(ho_ContoursSplit, &ho_SelectedContours, "contour_length", 
+          30, 20000, -0.5, 0.5);
+      UnionCollinearContoursXld(ho_SelectedContours, &ho_UnionContours, 10, 1, 200, 
+          0.1, "attr_keep");
+      LengthXld(ho_UnionContours, &hv_Length);
+      TupleSortIndex(hv_Length, &hv_ContLengthIndices);
+
+      SelectObj(ho_UnionContours, &ho_ObjectSelected1, HTuple(hv_ContLengthIndices[(hv_ContLengthIndices.TupleLength())-1])+1);
+      SelectObj(ho_UnionContours, &ho_ObjectSelected2, HTuple(hv_ContLengthIndices[(hv_ContLengthIndices.TupleLength())-2])+1);
+      FitLineContourXld(ho_ObjectSelected1, "huber", -1, 0, 15, 2, &hv_RowBegin, 
+          &hv_ColBegin, &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+      hv_RowBegins = hv_RowBegins.TupleConcat(hv_RowBegin);
+      hv_ColBegins = hv_ColBegins.TupleConcat(hv_ColBegin);
+      hv_RowEnds = hv_RowEnds.TupleConcat(hv_RowEnd);
+      hv_ColEnds = hv_ColEnds.TupleConcat(hv_ColEnd);
+
+      FitLineContourXld(ho_ObjectSelected2, "huber", -1, 0, 15, 2, &hv_RowBegin, 
+          &hv_ColBegin, &hv_RowEnd, &hv_ColEnd, &hv_Nr, &hv_Nc, &hv_Dist);
+      hv_RowBegins = hv_RowBegins.TupleConcat(hv_RowBegin);
+      hv_ColBegins = hv_ColBegins.TupleConcat(hv_ColBegin);
+      hv_RowEnds = hv_RowEnds.TupleConcat(hv_RowEnd);
+      hv_ColEnds = hv_ColEnds.TupleConcat(hv_ColEnd);
+
+    }
+
+    if ((hv_RowBegins.TupleLength())!=4)
+    {
+      Flag = false;
+      for(int i=0;i<6;i++)
+      {
+        Pose[i] = 0.0;
+      }
+      ROS_WARN("The number of Line is not 4");
+      return;
+    }
+
+    //求交点
+    hv_CrossRows = HTuple();
+    hv_CrossColumns = HTuple();
+
+    IntersectionLines(HTuple(hv_RowBegins[0]), HTuple(hv_ColBegins[0]), HTuple(hv_RowEnds[0]), 
+        HTuple(hv_ColEnds[0]), HTuple(hv_RowBegins[1]), HTuple(hv_ColBegins[1]), 
+        HTuple(hv_RowEnds[1]), HTuple(hv_ColEnds[1]), &hv_CrossRow, &hv_CrossColumn, 
+        &hv_IsOverlapping);
+    hv_CrossRows = hv_CrossRows.TupleConcat(hv_CrossRow);
+    hv_CrossColumns = hv_CrossColumns.TupleConcat(hv_CrossColumn);
+    for (hv_J=2; hv_J<=3; hv_J+=1)
+    {
+      AngleLl(HTuple(hv_RowBegins[1]), HTuple(hv_ColBegins[1]), HTuple(hv_RowEnds[1]), 
+          HTuple(hv_ColEnds[1]), HTuple(hv_RowBegins[hv_J]), HTuple(hv_ColBegins[hv_J]), 
+          HTuple(hv_RowEnds[hv_J]), HTuple(hv_ColEnds[hv_J]), &hv_Angle);
+      if (0 != (HTuple(HTuple(((hv_Angle.TupleDeg()).TupleAbs())>45).TupleAnd(((hv_Angle.TupleDeg()).TupleAbs())<135)).TupleOr(HTuple(((hv_Angle.TupleDeg()).TupleAbs())>225).TupleAnd(((hv_Angle.TupleDeg()).TupleAbs())<315))))
+      {
+        IntersectionLines(HTuple(hv_RowBegins[1]), HTuple(hv_ColBegins[1]), HTuple(hv_RowEnds[1]), 
+            HTuple(hv_ColEnds[1]), HTuple(hv_RowBegins[hv_J]), HTuple(hv_ColBegins[hv_J]), 
+            HTuple(hv_RowEnds[hv_J]), HTuple(hv_ColEnds[hv_J]), &hv_CrossRow, &hv_CrossColumn, 
+            &hv_IsOverlapping);
+        hv_CrossRows = hv_CrossRows.TupleConcat(hv_CrossRow);
+        hv_CrossColumns = hv_CrossColumns.TupleConcat(hv_CrossColumn);
+        break;
+      }
+    }
+
+    hv_M = hv_J;
+    hv_N = (3-hv_M)+2;
+    IntersectionLines(HTuple(hv_RowBegins[hv_M]), HTuple(hv_ColBegins[hv_M]), HTuple(hv_RowEnds[hv_M]), 
+        HTuple(hv_ColEnds[hv_M]), HTuple(hv_RowBegins[hv_N]), HTuple(hv_ColBegins[hv_N]), 
+        HTuple(hv_RowEnds[hv_N]), HTuple(hv_ColEnds[hv_N]), &hv_CrossRow, &hv_CrossColumn, 
+        &hv_IsOverlapping);
+    hv_CrossRows = hv_CrossRows.TupleConcat(hv_CrossRow);
+    hv_CrossColumns = hv_CrossColumns.TupleConcat(hv_CrossColumn);
+    IntersectionLines(HTuple(hv_RowBegins[hv_N]), HTuple(hv_ColBegins[hv_N]), HTuple(hv_RowEnds[hv_N]), 
+        HTuple(hv_ColEnds[hv_N]), HTuple(hv_RowBegins[0]), HTuple(hv_ColBegins[0]), 
+        HTuple(hv_RowEnds[0]), HTuple(hv_ColEnds[0]), &hv_CrossRow, &hv_CrossColumn, 
+        &hv_IsOverlapping);
+    hv_CrossRows = hv_CrossRows.TupleConcat(hv_CrossRow);
+    hv_CrossColumns = hv_CrossColumns.TupleConcat(hv_CrossColumn);
+
+    GenCrossContourXld(&ho_Cross, hv_CrossRows, hv_CrossColumns, 200, 0.785398);
+    GenContourPolygonXld(&ho_Contour, hv_CrossRows, hv_CrossColumns);
+    CloseContoursXld(ho_Contour, &ho_ClosedContours);
+    GenRegionContourXld(ho_ClosedContours, &ho_ClosedContoursRegion, "filled");
+    GenContourRegionXld(ho_ClosedContoursRegion, &ho_ClosedContours, "border");
+
+
+    TupleGenConst(hv_CrossRows.TupleLength(), 100, &hv_Radus);
+    GenCircle(&ho_Circle, hv_CrossRows, hv_CrossColumns, hv_Radus);
+
+    Intersection(ho_Circle, ho_LObjectSelected, &ho_CircleRegionIntersection);
+    AreaCenter(ho_CircleRegionIntersection, &hv_Area1, &hv_Row1, &hv_Column1);
+    TupleSortIndex(hv_Area1, &hv_MeanIndices);
+
+    hv_MinIndex = ((const HTuple&)hv_MeanIndices)[0];
+    hv_WorldX.Clear();
+    hv_WorldX[0] = 0.0;
+    hv_WorldX[1] = 0.4;
+    hv_WorldX[2] = 0.4;
+    hv_WorldX[3] = 0.0;
+    hv_WorldY.Clear();
+    hv_WorldY[0] = 0.0;
+    hv_WorldY[1] = 0.0;
+    hv_WorldY[2] = 0.4;
+    hv_WorldY[3] = 0.4;
+    hv_WorldZ.Clear();
+    hv_WorldZ[0] = 0.0;
+    hv_WorldZ[1] = 0.0;
+    hv_WorldZ[2] = 0.0;
+    hv_WorldZ[3] = 0.0;
+
+    hv_ImageRow.Clear();
+    hv_ImageRow.Append(HTuple(hv_CrossRows[hv_MinIndex]));
+    hv_ImageRow.Append(HTuple(hv_CrossRows[(hv_MinIndex+1)%4]));
+    hv_ImageRow.Append(HTuple(hv_CrossRows[(hv_MinIndex+2)%4]));
+    hv_ImageRow.Append(HTuple(hv_CrossRows[(hv_MinIndex+3)%4]));
+    hv_ImageColumn.Clear();
+    hv_ImageColumn.Append(HTuple(hv_CrossColumns[hv_MinIndex]));
+    hv_ImageColumn.Append(HTuple(hv_CrossColumns[(hv_MinIndex+1)%4]));
+    hv_ImageColumn.Append(HTuple(hv_CrossColumns[(hv_MinIndex+2)%4]));
+    hv_ImageColumn.Append(HTuple(hv_CrossColumns[(hv_MinIndex+3)%4]));
+
+    VectorToPose(hv_WorldX, hv_WorldY, hv_WorldZ, hv_ImageRow, hv_ImageColumn, hv_CameraParam, 
+        "iterative", "error", &hv_Pose, &hv_Quality);
+    
+    // 判断Z轴方向，进行相应转换
+    for(int i=0;i<6;i++)
+    {
+      Pose[i] = hv_Pose[i].D();
+    }
+
+    Flag = true;
+  }
+  catch (HException &exception) // 停止视觉算法
+  {
+    Flag = false;
+    for(int i=0;i<6;i++)
+    {
+      Pose[i] = 0.0;
+    }
+    ROS_ERROR("Error #%u in %s: %s\n", exception.ErrorCode(),
+        (const char *)exception.ProcName(),
+        (const char *)exception.ErrorMessage());
+  }
+  
+
+  
   
 
 }
@@ -2337,11 +2551,33 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
             ROS_INFO_STREAM("L frame position has been renewed");
             break;
           case GetLPosePrecise:
-            transform_LOnZEDR.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
-            q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
-            transform_LOnZEDR.setRotation(q);
-            transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
-            ROS_INFO_STREAM("L frame precise position has been renewed");
+            {
+              // 判断图像中Z轴向上还是向下
+              tf::Transform tf_TargetOnCamera;
+              tf::Transform tf_CameraOnTarget;
+              tf::Transform tf_LOnTarget;
+              tf::Quaternion q;
+              tf_TargetOnCamera.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
+              q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
+              tf_TargetOnCamera.setRotation(q);
+              tf_CameraOnTarget = tf_TargetOnCamera.inverse();
+              if (tf_CameraOnTarget.getOrigin().getZ()<0)   //如果与相机方向相同
+              {
+                tf_LOnTarget.setOrigin(tf::Vector3(0.2, 0.2, 0));
+                q.setRPY(180*Deg2Rad, 0*Deg2Rad, -90*Deg2Rad);
+                tf_LOnTarget.setRotation(q);  
+                transform_LOnZEDR = tf_TargetOnCamera*tf_LOnTarget;
+              }
+              else  // 如果与相机方向相反
+              {
+                tf_LOnTarget.setOrigin(tf::Vector3(0.2, 0.2, 0));
+                q.setRPY(0*Deg2Rad, 0*Deg2Rad, 0*Deg2Rad);
+                tf_LOnTarget.setRotation(q);  
+                transform_LOnZEDR = tf_TargetOnCamera*tf_LOnTarget;
+              }
+              transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
+              ROS_INFO_STREAM("L frame precise position has been renewed");
+            }
             break;
           default:
             break;

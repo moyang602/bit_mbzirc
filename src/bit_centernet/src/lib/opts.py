@@ -78,7 +78,7 @@ class opts(object):
                              'dataset. Will be overriden by input_h | input_w')
     self.parser.add_argument('--input_h', type=int, default=640,
                              help='input height. -1 for default from dataset.')
-    self.parser.add_argument('--input_w', type=int, default=960,
+    self.parser.add_argument('--input_w', type=int, default=640,
                              help='input width. -1 for default from dataset.')
     
     # train
