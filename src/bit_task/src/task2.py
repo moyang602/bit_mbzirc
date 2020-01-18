@@ -342,9 +342,9 @@ class pick_put_act(object):
         self._as.start()
         rospy.loginfo("%s server ready! ", name)
 
-        # rospy.wait_for_service('Setheight')
-        # global set_height
-        # set_height = rospy.ServiceProxy('Setheight',SetHeight)
+        rospy.wait_for_service('Setheight')
+        global set_height
+        set_height = rospy.ServiceProxy('Setheight',SetHeight)
 
         # rospy.wait_for_service('Teach_robot')
         # global get_movepoint
@@ -367,8 +367,8 @@ class pick_put_act(object):
         try: 
             # rospy.sleep(2.0)
             # # self.MoveAlongL(-1.0)
-            # self.FindL(using_vision = False)
-            # return 0
+            self.FindL(using_vision = False)
+            return 0
             # self.SetHei(320,50)
             #================ 0. 准备 ===================#
             rospy.loginfo("Begining!")
@@ -1279,13 +1279,13 @@ if __name__ == '__main__':
     
     while(not rospy.is_shutdown()):
         try :
-            # global rob
-            # rob = urx.Robot("192.168.50.60",use_rt = True) 
-            # normal = 1
-            # rospy.loginfo('robot ok')
-            # # TODO 根据实际末端负载与工具中心设置
-            # rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
-            # rob.set_payload(0.76, (0.011, -0.042, 0.003))
+            global rob
+            rob = urx.Robot("192.168.50.60",use_rt = True) 
+            normal = 1
+            rospy.loginfo('robot ok')
+            # TODO 根据实际末端负载与工具中心设置
+            rob.set_tcp((0, 0, 0.035, 0, 0, 0))     #TASK2 参数 m,rad
+            rob.set_payload(0.76, (0.011, -0.042, 0.003))
 
             pick_put_act("ugv_building")     # rospy.get_name())
             
