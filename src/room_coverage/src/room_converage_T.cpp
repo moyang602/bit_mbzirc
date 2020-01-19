@@ -147,7 +147,7 @@ int main(int argc, char** argv)
         //     nWPIndex = 0;
         //     continue;
         // }
-        srv_get.request.kind = 2;
+        srv_get.request.kind = 5;
         client_get.call(srv_get);
 
         move_base_msgs::MoveBaseGoal newgoal;
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
         ROS_INFO("Go to the WayPoint[%d]",srv_get.response.num);
         ac.sendGoal(newgoal);
 
-        ac.waitForResult(ros::Duration(5.0));
+        ac.waitForResult(ros::Duration(20.0));
 
         if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
         {

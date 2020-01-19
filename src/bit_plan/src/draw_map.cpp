@@ -196,7 +196,7 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
             fin.close();
         }
         
-        if (get_index3 == index_temp){
+        if (get_index3 > index_temp){
             get_index3 = 0;
         }
         res.num = get_index3;
@@ -245,7 +245,7 @@ bool Teach_robot(bit_task_msgs::teach_robot::Request  &req,
             fin.close();
         }
         
-        if (get_index2 == index_temp){
+        if (get_index2 > index_temp){
             get_index2 = 0;
         }
         res.num = get_index2;

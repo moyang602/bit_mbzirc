@@ -65,9 +65,30 @@ if __name__ == '__main__':
                 key=readkey()
                 if key == '2':
                     teach_point_draw(FINISH2)
+                    print("Save Task2 success")
                     break
                 elif key == '3':
                     teach_point_draw(FINISH3)
+                    print("Save Task3 success")
+                    break
+                else:
+                    print("Wrong input")
+                    continue
+
+        if key=='g': 
+            print("Task?")
+            while True:
+                key=readkey()
+                if key == '2':
+                    print("Get once 2")
+                    a = teach_point_draw(GET2)
+                    print (a)
+                elif key == '3':
+                    print("Get once 3")
+                    a = teach_point_draw(GET3)
+                    print (a)
+                elif key == 'g':
+                    print("Finish Get")
                     break
                 else:
                     print("Wrong input")
