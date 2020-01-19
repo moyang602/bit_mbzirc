@@ -2137,11 +2137,12 @@ void L_Object_Pose(double Pose[6], bool &Flag)
     //获取L架在相机坐标系下的位姿
     VectorToPose(hv_ControlX, hv_ControlY, hv_ControlZ, hv_RowCenter, hv_ColCenter, 
       hv_CamParam, "iterative", "error", &hv_PoseOfObject, &hv_Errors);
-      for(int i=0;i<6;i++)
-          {
-            Pose[i] = hv_PoseOfObject[i].D();
-          }
-      Flag = true;
+    ConvertPoseType(hv_PoseOfObject, "Rp+T", "abg", "point", &hv_PoseOfObject);
+    for(int i=0;i<6;i++)
+    {
+      Pose[i] = hv_PoseOfObject[i].D();
+    }
+    Flag = true;
   }
   catch (HException &exception)
   {
@@ -2364,7 +2365,7 @@ void L_precise_Pose(HObject ho_Image, double Pose[6], bool &Flag)
 
     VectorToPose(hv_WorldX, hv_WorldY, hv_WorldZ, hv_ImageRow, hv_ImageColumn, hv_CameraParam, 
         "iterative", "error", &hv_Pose, &hv_Quality);
-    
+    ConvertPoseType(hv_Pose, "Rp+T", "abg", "point", &hv_Pose);
     // 判断Z轴方向，进行相应转换
     for(int i=0;i<6;i++)
     {
@@ -2509,6 +2510,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
         tf::Transform transform_TargetOnMER;
         tf::Transform transform_TargetOnZED;
         tf::Transform transform_LOnZEDR;
+        
         tf::Quaternion q;
         switch (algorithm)
         {
@@ -2574,6 +2576,7 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
               tf_CameraOnTarget = tf_TargetOnCamera.inverse();
               if (tf_CameraOnTarget.getOrigin().getZ()<0)   //如果与相机方向相同
               {
+
                 tf_LOnTarget.setOrigin(tf::Vector3(0.2, 0.2, 0));
                 q.setRPY(180*Deg2Rad, 0*Deg2Rad, 90*Deg2Rad);
                 tf_LOnTarget.setRotation(q);  

@@ -116,8 +116,8 @@ class KPSDetector(BaseDetector):
         for bbox in results[1]:
             if bbox[4] > self.opt.vis_thresh:
                 Detection_Flag = True
-                kps_x_list = bbox[5:11]
-                kps_y_list = bbox[11:17]
+                kps_x_list = [bbox[5],bbox[7],bbox[9],bbox[11],bbox[13],bbox[15]]
+                kps_y_list = [bbox[6],bbox[8],bbox[10],bbox[12],bbox[14],bbox[16]]
                 print(bbox[4])
                 print (kps_x_list)
                 print (kps_y_list)

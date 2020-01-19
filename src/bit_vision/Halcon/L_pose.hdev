@@ -4,13 +4,13 @@
 <interface/>
 <body>
 <c>* Determine the pose of the object ...</c>
-<l>read_image (Image, '/home/ugvcontrol/image/ZED/CenterNet/R1-18-21-50-54.jpg')</l>
+<l>read_image (Image, '/home/ugvcontrol/image/ZED/CenterNet/R1-18-23-41-21.jpg')</l>
 <l>read_cam_par ('/home/ugvcontrol/bit_mbzirc/src/bit_vision/model/campar2_01.dat', CamParam)</l>
 <c></c>
 <l>dev_close_window ()</l>
 <l>get_image_size (Image, Width, Height)</l>
 <l>dev_open_window (0, 0, Width/2, Height/2, 'black', WindowHandle)</l>
-<l>* dev_display (Image)</l>
+<l>dev_display (Image)</l>
 <l>* Row:=[]</l>
 <l>* Column :=[]</l>
 <l>* for index := 0 to 5 by 1</l>
@@ -22,19 +22,30 @@
 <c></c>
 <l>* stop()</l>
 <c></c>
-<l>Row := [1855.4794921875, 887.6012573242188, 720.4783935546875, 512.7048950195312, 456.25701904296875, 857.2218017578125]</l>
-<l>Column := [1328.51611328125, 1024.3966064453125, 1949.4541015625, 969.7545776367188, 209.96141052246094, 942.4188842773438]</l>
+<l>* Row := [     ]</l>
+<l>* Column := [   ]  </l>
+<l>Column := [852.1470947265625,897.9415283203125,1575.7454833984375,933.3721313476562,794.471923828125,1472.5299072265625]</l>
+<l>Row := [340.1424560546875,330.5767822265625,421.047119140625,964.39453125,900.4479370117188,429.180419921875]</l>
 <l>ControlX := [4,4,0,0,0.4,0.4]</l>
 <l>ControlY := [0.4,0,0,4.4,4.4,0.4]</l>
 <l>ControlZ := [0,0,0,0,0,0]</l>
 <c></c>
 <l>RowCenter:= Row</l>
 <l>ColCenter:= Column</l>
+<c></c>
+<l>dev_set_line_width (3)</l>
+<l>for Index := 1 to 6 by 1</l>
+<l>   gen_cross_contour_xld (Cross, Row[Index-1], Column[Index-1], 45, 0.785398) </l>
+<l>   dev_display (Cross)</l>
+<l>endfor</l>
+<c></c>
 <c>*获取L架在相机坐标系下的位姿</c>
 <l>vector_to_pose (ControlX, ControlY, ControlZ, RowCenter, ColCenter, CamParam, 'iterative', 'error', PoseOfObject, Errors)</l>
-<c></c>
-<l>dev_display (Image)</l>
-<l>disp_3d_coord_system (WindowHandle, CamParam, PoseOfObject, 0.05)</l>
+<l>* pose_to_hom_mat3d (PoseOfObject, HomMat3D)</l>
+<l>* hom_mat3d_to_pose (HomMat3D, Pose)</l>
+<l>convert_pose_type (PoseOfObject, 'Rp+T', 'abg', 'point', PoseOfObject)</l>
+<l>* dev_display (Image)</l>
+<l>disp_3d_coord_system (WindowHandle, CamParam, PoseOfObject, 0.5)</l>
 <c></c>
 <c></c>
 </body>
