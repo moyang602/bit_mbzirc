@@ -140,7 +140,7 @@ GetBrickPoseZEDNew  =   4
 GetBrickLoc         =   5
 GetPutPos           =   6
 GetPutAngle         =   7
-GetLPose            =   8
+# GetLPoseOnCamera            =   8
 GetLVSData          =   9
 GetLPoseOnCamera     =   10
 GetLPosePrecise     =   11
@@ -163,7 +163,8 @@ global ee
 global push
 global cancel_id
 global status
-
+global first
+first = True
 
 def forcecallback(data):
     '''ur_force Callback Function'''
@@ -346,6 +347,8 @@ class pick_put_act(object):
         global set_height
         set_height = rospy.ServiceProxy('Setheight',SetHeight)
 
+        global Found_L
+        Found_L = False
         # rospy.wait_for_service('Teach_robot')
         # global get_movepoint
         # get_movepoint = rospy.ServiceProxy('Teach_robot',teach_robot)
@@ -377,22 +380,28 @@ class pick_put_act(object):
 
 
             #================ 1. 寻找砖堆 ================#
-            # 1.1 机械臂移动至观察砖堆准备位姿
+            # # 1.1 机械臂移动至观察砖堆准备位姿
             # rob.movej(lookForwardPos, acc=a, vel=3*v,wait=True)
 
             # # 1.2 小车遍历场地， 基于视觉寻找砖堆
             # out = 0
-            # while True:         # TODO 避免进入死循环
+            # while not rospy.is_shutdown():         # TODO 避免进入死循环
+            #     global first
             #     # 遍历标点
-            #     # if first:
-            #     # self.coverage()
-            #     # # else:
-            #     # #     move()
+            #     if first:
+            #         # self.coverage()
+            #         pass
+            #     else:
+            #         trans_ = tf.transformations.translation_from_matrix(tf_recBrickOnMap)
+            #         rot_ = tf.transformations.euler_from_matrix(tf_recBrickOnMap)
+            #         CarMove(trans_[0], trans_[1], rot_[2], "map")
 
             #     # 进行视觉砖堆定位检测
             #     VisionBrickData = GetVisionData_client(GetBrickLoc, goal.bricks[0].type)
             #     if VisionBrickData.Flag:     # 【入口】能够看到砖堆，进入靠近砖堆
             #         rospy.loginfo("Found Brick Dui")
+            #         # CarStop()
+            #         tf_recBrickOnMap = tft.fromTranslationRotation(tf_CarOnMap_trans,tf_CarOnMap_rot)       #  记录砖堆观察位置，将来使用
             #         theta = math.atan2(-VisionBrickData.Pose.position.y,-VisionBrickData.Pose.position.x)-90*deg2rad
             #         distance = (VisionBrickData.Pose.position.y **2 +VisionBrickData.Pose.position.x**2)**0.5
             #         rospy.logwarn("Vision Distance: %f"%distance)
@@ -404,7 +413,7 @@ class pick_put_act(object):
             #             Laser_limit = 50
             #         # 进行雷达检测
             #         Laser_cnt = 0       # 激光雷达检测计数
-            #         while True:     # 激光雷达接手
+            #         while not rospy.is_shutdown():     # 激光雷达接手
             #             LaserData = Laser_client(goal.bricks[0].type)       # 调用激光雷达检测的服务
             #             Laser_cnt += 1
             #             if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
@@ -412,12 +421,12 @@ class pick_put_act(object):
             #                 out = 1
             #                 break                           # 【出口】 进入激光雷达出口
             #             elif Laser_cnt > Laser_limit:                               # 激光雷达检测10次不到，继续调用
-            #                 continue
+            #                 break
             #     else:
             #         rospy.loginfo("Mei Found Brick Dui")
             #         # if not Found_L:         # 没有L架的信息，检测一次，并继续
             #         #     # 进行L架检测
-            #         #     VisionLData = GetVisionData_client(GetLPose, "N")    # 数据是在base_link坐标系下的
+            #         #     VisionLData = GetVisionData_client(GetLPoseOnCamera, "N")    # 数据是在base_link坐标系下的
             #         #     if VisionLData.Flag:        # 【入口】 检测到L架，确定L架
             #         #         Found_L = self.FindL()
             #         #     else:
@@ -455,13 +464,13 @@ class pick_put_act(object):
             #     # 在不同砖堆之间切换
             #     if goal.bricks[brickIndex].type != last_type:
             #         CarMove(-1.5, 0, 0, frame_id="car_link", wait = True)
-            #         while True:     # 激光雷达接手
+            #         while not rospy.is_shutdown():     # 激光雷达接手
             #             LaserData = Laser_client(goal.bricks[brickIndex].type)       # 调用激光雷达检测的服务
             #             if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
             #                 rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
             #                 self.Bit_move(0, LaserData.Pose.position.y,rpy[2]) 
             #                 break
-            #         while True:     # 激光雷达接手
+            #         while not rospy.is_shutdown():     # 激光雷达接手
             #             LaserData = Laser_client(goal.bricks[brickIndex].type)       # 调用激光雷达检测的服务
             #             if LaserData.Flag:                  # 激光雷达检测到在范围内，并且已经到达
             #                 rpy = tf.transformations.euler_from_quaternion(Orientation2Numpy(LaserData.Pose.orientation))
@@ -473,12 +482,18 @@ class pick_put_act(object):
                 
             # self.Push(ON)
             # self.show_tell("Got all bricks, go to build")
-            # wait()
+            # # wait()
 
-            #================ 3. 到达L架 ================#
-            self.FindL(using_vision = True)
-            # 3.1 移动至L架
+            # # #================ 3. 到达L架 ================#
+            
+            # # # 3.1 移动至L架
+            # self.Bit_move(-2.0, -2.0, -pi)
             # 3.1.2 如果无信息，场地遍历，寻找L架
+            global Found_L
+            if not Found_L:
+                Found_L = self.FindL(using_vision = True)
+            else:
+                pass
             # if not Found_L:
             #     while True:     # TODO  超时检测
             #         rospy.loginfo("There is !NO! L location, try to find by myself")
@@ -486,9 +501,7 @@ class pick_put_act(object):
             #         VisionLData = GetVisionData_client(GetLPose, "N")    # 数据是在base_link坐标系下的
             #         if VisionLData.Flag:        # 【入口】 检测到L架，确定L架
             #             Found_L = self.FindL()
-            #         else:
-            #             continue        # L架找不到继续循环
-              
+            #         elsFalse   #             continue        # L架找不到继续循环
             # # 3.1.1 如果有信息，直接运动至指定位置
             # else:   
             #     rospy.loginfo("There !EXSISTS! L location, move to it")
@@ -496,6 +509,7 @@ class pick_put_act(object):
 
             # #================ 3. 找到L架，开始搭建 ================#
             self.Build_on_L(goal)
+            first = False
 
         except Exception as e:
             print("error", e)
@@ -903,8 +917,9 @@ class pick_put_act(object):
         #================ 1. 遍历场地寻找L架 ===================#
         # 1.1 小车遍历场地， 基于视觉寻找L架
         # TODO 加小车移动
-        if using_vision:
-            while(not rospy.is_shutdown()):         
+        if False:
+            while(not rospy.is_shutdown()):   
+                CarMove(0.5, 0.0, 0.0, "car_link", wait= False)      
                 VisionData = GetVisionData_client(GetLPoseOnCamera, "N")    # 数据是在map坐标系下的
                 if VisionData.Flag:     # 能够看到
                     rospy.loginfo("Found L frame")
@@ -913,7 +928,8 @@ class pick_put_act(object):
                     rospy.logwarn("Looking for L frame")
         else:
             pass    # 不使用深度学习检测时L架与map坐标系重合
-
+        
+        wait()
         rospy.loginfo("Got L frame pos")
         # 1.2 找到L架后，移动至L架观察位姿
         # 分成四种不同情况运动
@@ -983,9 +999,9 @@ class pick_put_act(object):
         if VisionData.Flag:     # 如果寻找到L架
             CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
             if CarOnL_theta < 0 and CarOnL_theta > -3*pi/4:     # 在 225~360°处 ，X轴下侧
-                self.MoveAlongL(3)
+                self.MoveAlongL(2.7)
             elif CarOnL_theta < pi and CarOnL_theta > pi/2:     # 在 90~180°处 ，Y轴左侧
-                self.MoveAlongL(-3)
+                self.MoveAlongL(-2.7)
             else:
                 pass    # 错误条件判断
 
@@ -1317,7 +1333,7 @@ class pick_put_act(object):
             
 
 
-    def covetage(self):
+    def coverage(self):
         try:
             if status == GoalStatus.SUCCEEDED:
                 a_ = get_movepoint(4)
@@ -1350,6 +1366,8 @@ if __name__ == '__main__':
     normal = 0
   
     rospy.sleep(1.0)
+    global tf_recBrickOnMap
+    tf_recBrickOnMap = tft.fromTranslationRotation([0,0,0],[0,0,0,1])
     
     while(not rospy.is_shutdown()):
         try :
@@ -1365,6 +1383,7 @@ if __name__ == '__main__':
             
             # TF 计算
             listener = tf.TransformListener()
+            br = tf.TransformBroadcaster()
             while not rospy.is_shutdown():
                 try:
                     global tf_CarOnMap_trans
@@ -1375,6 +1394,8 @@ if __name__ == '__main__':
                     (tf_CarOnL_trans,tf_CarOnL_rot) = listener.lookupTransform("L_frame","car_link", rospy.Time(0))                    
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     continue
+
+                br.sendTransform(tf.transformations.translation_from_matrix(tf_recBrickOnMap), tf.transformations.quaternion_from_matrix(tf_recBrickOnMap), rospy.Time.now(), "map", "lookedbrick_frame" )
         except:
             time.sleep(2.0)
         finally:

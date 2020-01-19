@@ -19,6 +19,7 @@ from bit_control_msgs.msg import EndEffector
 # 视觉相关
 from bit_vision_msgs.srv import FirePosition
 from geometry_msgs.msg import *
+from bit_task_msgs.srv import *
 #---- 变量初始化 ----#
 cancel_id = 0  # MoveBase 正在运行任务ID
 status = 0
@@ -48,6 +49,7 @@ focus = 4*1e-3
 
 global tft
 tft = tf.TransformerROS()
+global map_current_pose
 
 # 获取Movebase ID
 def move_base_feedback(a):
@@ -157,24 +159,24 @@ def FightFire():
     rob.movej(FindFirePos, acc=a, vel=3*v, wait=True, relative=False)
 
     #----- 2. 车臂移动探索火源 -------#
-    # # 2.1 小车开始自由移动
-    # CarMove(2.0, 0.0, 0.0*deg2rad)
-    # # 2.2 机械臂移动直到找到火源
-    # offset = [-0*deg2rad, 0*deg2rad, 0*deg2rad, -0*deg2rad]
-    # count = 0   #搜索次数
-    # while (not rospy.is_shutdown()):
-    #     MovePos = list(FindFirePos)
-    #     MovePos[0] = MovePos[0]+offset[count%4]
-    #     count = count+1
-    #     rob.movej(MovePos,acc=a, vel=5*v,wait=True)
-    #     rospy.sleep(0.5)
-    #     VisionData = GetFireVisionData_client(HandEye)
-    #     rospy.loginfo("MovePos[0] = %f",MovePos[0])
-    #     if (VisionData.flag or count>20) and VisionData.DeltaInPix.y < 100:  
-    #         # 取消运动
-    #         CarStop()
-    #         rospy.loginfo("car motion has been canceled")
-    #         break
+    # 2.1 小车开始自由移动
+    CarMove(2.0, 0.0, 0.0*deg2rad)
+    # 2.2 机械臂移动直到找到火源
+    offset = [-0*deg2rad, 0*deg2rad, 0*deg2rad, -0*deg2rad]
+    count = 0   #搜索次数
+    while (not rospy.is_shutdown()):
+        MovePos = list(FindFirePos)
+        MovePos[0] = MovePos[0]+offset[count%4]
+        count = count+1
+        rob.movej(MovePos,acc=a, vel=5*v,wait=True)
+        rospy.sleep(0.5)
+        VisionData = GetFireVisionData_client(HandEye)
+        rospy.loginfo("MovePos[0] = %f",MovePos[0])
+        if (VisionData.flag or count>20) and VisionData.DeltaInPix.y < 100:  
+            # 取消运动
+            CarStop()
+            rospy.loginfo("car motion has been canceled")
+            break
 
     #--------- 机械臂移动直到火源在图像中心线 -------#
     rospy.sleep(0.5)
@@ -238,7 +240,7 @@ def FightFire():
                 #     break
                 rob.movel(pose, acc=a, vel=0.2*v, wait=False,relative=True)
                 
-            CarMove(0.25, 0.0, deltax*0.08*deg2rad)      # 偏航角通过小车调整
+            CarMove(0.35, 0.0, deltax*0.08*deg2rad)      # 偏航角通过小车调整
             rospy.sleep(0.5)
         else:
             break
@@ -303,21 +305,29 @@ def Orientation2Euler(orientation):
     ori.append(orientation.y)
     ori.append(orientation.z)
     ori.append(orientation.w)
-    ori = tf.transformations.euler_from_quaternion(ori)
-    return ori[2]
+    # ori = tf.transformations.euler_from_quaternion(ori)
+    return ori
 
- def coverage(now):
+def coverage(now):
+    global map_current_pose
     try:
         if status == GoalStatus.SUCCEEDED or (now - last_time) > 15.0:
             last_time = now
             a_ = get_movepoint(GET3)
             ori_ = Orientation2Euler(a_.pose.orientation)
+            atrans = (a_.pose.position.x,a_.pose.position.y,a_.pose.position.z)
     except:
         last_time = now
         a_ = get_movepoint(GET3)
         ori_ = Orientation2Euler(a_.pose.orientation)
+        atrans = (a_.pose.position.x,a_.pose.position.y,a_.pose.position.z)
     finally:
-        CarMove(a_.pose.position.x, a_.pose.position.y, ori_, "map")
+        tf_a = tft.fromTranslationRotation(atrans,ori_)
+        target = np.dot(map_current_pose,tf_a)
+        trans_=tf.transformations.translation_from_matrix(target)
+        quat_ = tf.transformations.euler_from_matrix(target)
+        print(trans_[0], trans_[1], quat_[2])
+        CarMove(trans_[0], trans_[1], quat_[2], "map")
             
 if __name__ == '__main__':
 
@@ -352,9 +362,18 @@ if __name__ == '__main__':
     # 末端执行器
     EndEffector_pub = rospy.Publisher('endeffCmd',EndEffector, queue_size=1)
 
-    rospy.wait_for_service('Teach_robot')
-    global get_movepoint
-    get_movepoint = rospy.ServiceProxy('Teach_robot',teach_robot)
+    # rospy.wait_for_service('Teach_robot')
+    # global get_movepoint,map_current_pose
+    # get_movepoint = rospy.ServiceProxy('Teach_robot',teach_robot)
+    listener = tf.TransformListener()
+    # try:
+    #     # now = rospy.Time.now()
+    #     listener.waitForTransform("map", "car_link", rospy.Time(0), rospy.Duration(15.0))
+    #     a,b = listener.lookupTransform("map", "car_link", rospy.Time(0))
+    #     map_current_pose = tft.fromTranslationRotation(a,b)
+    
+    # except(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+    #     pass
     
     #---------- 1. 机器人移动至门口附近 -------------#
     MoveToBuilding()
@@ -363,19 +382,19 @@ if __name__ == '__main__':
     #---------- 2. 机器人寻找门口进入室内 -------------#
     GoIntoDoor()
 
-
+    print("ok")
     #---------- 3. 机器人室内移动寻找火源 -------------#
-    while True:
-        VisionData = GetFireVisionData_client(HandEye)
-        self.coverage(rospy.Time.now().to_sec())
-        if VisionData.flag:
-            rospy.loginfo("Fire pos has been found")
-            CarStop()
-            FightFire()
+    # while True:
+    #     VisionData = GetFireVisionData_client(HandEye)
+    #     coverage(rospy.Time.now().to_sec())
+    #     if VisionData.flag:
+    #         rospy.loginfo("Fire pos has been found")
+    #         CarStop()
+    #         FightFire()
               
-        else:
-            rospy.logwarn("Timeout, can't find Fire pos")
-
+    #     else:
+    #         rospy.logwarn("Can't find Fire pos")
+    FightFire()
     #---------- 4. 程序结束 -------------#
     rob.stop()
     rob.close()

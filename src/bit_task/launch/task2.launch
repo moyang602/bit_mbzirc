@@ -1,6 +1,5 @@
 <launch>
 
-
   <include file="$(find bit_task)/launch/vision_task2.launch" />
 
   <!--bringup robot-->  
@@ -11,9 +10,8 @@
 
   <!--bringup zed-->  
 
-  
-  <!--运行协同规划节点
-  <node pkg="bit_plan" type="task2" name="task2" respawn="false" />-->
+  <!--运行协同规划节点-->
+  <node pkg="bit_motion" type="Approaching.py" name="approach_brick" respawn="false" />
 
   <!--运行任务节点-->
   <!--<node pkg="bit_task" type="task2_action_test_know" name="task2_action" output="screen" respawn="true" />-->
