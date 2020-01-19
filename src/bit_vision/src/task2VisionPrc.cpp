@@ -2557,11 +2557,23 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
           case GetLVSData:
             break;
           case GetLPoseOnCamera:
+          {
             transform_LOnZEDR.setOrigin(tf::Vector3(ZEDPose[0], ZEDPose[1], ZEDPose[2]));
             q.setRPY(ZEDPose[3]*Deg2Rad, ZEDPose[4]*Deg2Rad, ZEDPose[5]*Deg2Rad);
             transform_LOnZEDR.setRotation(q);
             transform_LOnMap = transform_ZEDROnMap * transform_LOnZEDR;
+            double tempX;
+            tempX = transform_LOnMap.getOrigin().getX();
+            double tempY;
+            tempY = transform_LOnMap.getOrigin().getY();
+            transform_LOnMap.setOrigin(tf::Vector3(tempX, tempY, 0.003));
+
+            tf::Vector3 X_temp = tf::Matrix3x3(transform_LOnMap.getRotation()).getColumn(0);
+            double rotate_theta = atan2(X_temp.y(),X_temp.x());
+            q.setRPY(0.0, 0.0, rotate_theta);
+            transform_LOnMap.setRotation(q);
             ROS_INFO_STREAM("L frame position has been renewed");
+          }
             break;
           case GetLPosePrecise:
             {
@@ -2595,6 +2607,11 @@ bool GetVisionData(bit_vision_msgs::VisionProc::Request&  req,
               double tempY;
               tempY = transform_LOnMap.getOrigin().getY();
               transform_LOnMap.setOrigin(tf::Vector3(tempX, tempY, 0.003));
+              
+              tf::Vector3 X_temp = tf::Matrix3x3(transform_LOnMap.getRotation()).getColumn(0);
+              double rotate_theta = atan2(X_temp.y(),X_temp.x());
+              q.setRPY(0.0, 0.0, rotate_theta);
+              transform_LOnMap.setRotation(q);
               ROS_INFO_STREAM("L frame precise position has been renewed");
             }
             break;
