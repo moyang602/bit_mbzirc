@@ -121,7 +121,7 @@ tf_OrignOnMap = tft.fromTranslationRotation((0,0,0),(0,0,0,1))  # 开启的时�
 tf_CarOnLXAxis = tft.fromTranslationRotation((5,0,0),(0,0,1,0)) # x 5m 180°
 tf_CarOnLYAxis = tft.fromTranslationRotation((0,5.5,0),(0,0,-0.70710678,0.70710678)) # y 5.5m -90°
 tf_CarOnLXOut = tft.fromTranslationRotation((3,-1,0),(0,0,0.70710678,0.70710678))  # x 2m y -1m 90°
-tf_CarOnLYOut = tft.fromTranslationRotation((-1,3,0),(0,0,0,1))  # x -1m y 2m 0°
+tf_CarOnLYOut = tft.fromTranslationRotation((-1.5,3,0),(0,0,0,1))  # x -1m y 2m 0°
 
 
 # 机械臂移动的速度和加速度  
@@ -142,7 +142,7 @@ GetPutPos           =   6
 GetPutAngle         =   7
 GetLPose            =   8
 GetLVSData          =   9
-GetLPosePrecise     =   10
+GetLPoseOnCamera     =   10
 GetLPosePrecise     =   11
 NotRun              =   0
 
@@ -366,9 +366,9 @@ class pick_put_act(object):
         wait()
         try: 
             # rospy.sleep(2.0)
-            self.MoveAlongL(-1.0)
-            # self.FindL(using_vision = False)
-            return 0
+            # self.MoveAlongL(-3.0)
+            # # self.FindL(using_vision = False)
+            # return 0
             # self.SetHei(320,50)
             #================ 0. 准备 ===================#
             rospy.loginfo("Begining!")
@@ -476,7 +476,7 @@ class pick_put_act(object):
             # wait()
 
             #================ 3. 到达L架 ================#
-            self.FindL(using_vision = False)
+            self.FindL(using_vision = True)
             # 3.1 移动至L架
             # 3.1.2 如果无信息，场地遍历，寻找L架
             # if not Found_L:
@@ -905,7 +905,7 @@ class pick_put_act(object):
         # TODO 加小车移动
         if using_vision:
             while(not rospy.is_shutdown()):         
-                VisionData = GetVisionData_client(GetLPosePrecise, "N")    # 数据是在map坐标系下的
+                VisionData = GetVisionData_client(GetLPoseOnCamera, "N")    # 数据是在map坐标系下的
                 if VisionData.Flag:     # 能够看到
                     rospy.loginfo("Found L frame")
                     break
@@ -920,6 +920,7 @@ class pick_put_act(object):
         CarOnL_theta = atan2(tf_CarOnL_trans[1],tf_CarOnL_trans[0])
         print "CarOnL_theta =",CarOnL_theta
         tf_CarOnL_now = tft.fromTranslationRotation(tf_CarOnL_trans,tf_CarOnL_rot)
+        print(tf_CarOnL_now)
         if CarOnL_theta <= pi/4 and CarOnL_theta >= 0: # 0~45°
             print "case 1"
             target_tf = np.dot(np.linalg.pinv(tf_CarOnL_now), tf_CarOnLXAxis)
@@ -1008,10 +1009,10 @@ class pick_put_act(object):
 
         x_tolerance=0.05
         y_tolerance=0.05
-        rot_tolerance=0.02
+        rot_tolerance=0.05
 
-        angular_p = 0.5
-        angular_i = 0.02
+        angular_p = 0.2
+        angular_i = 0.005
         sum_err = 0
         ang_i_limit = 15 #min_angular_vel / angular_i
     
@@ -1070,6 +1071,10 @@ class pick_put_act(object):
         distance_x = 0
         distance_y = 0
         distance_rot = 0
+        fix_2pi = 0
+
+        vxlimit = 0.5
+        vylimit = 0.5
 
         # 进入循环移动
         while not rospy.is_shutdown(): 
@@ -1097,18 +1102,49 @@ class pick_put_act(object):
                 distance_rot= angle_now - rot_start
                 distance_y = MoveDistance - carlink_now_y
 
-                vx = 0.8 * distance_x
-                vy = 0.3 * distance_y
-
-                move_cmd.linear.x = v_x * math.cos(distance_rot) + v_y * math.sin(distance_rot)
-                move_cmd.linear.y = -v_x * math.sin(distance_rot) + v_y * math.cos(distance_rot)
-                move_cmd.angular.z = 0
-    
-                if math.fabs(distance_x) <= x_tolerance and math.fabs(distance_y) <= y_tolerance:
-                    move_cmd.linear.x = 0
-                    move_cmd.linear.y = 0
+                delta_angle = VisionData.L_Theta - 0
+                # print delta_angle
+                sum_err += delta_angle
+                if sum_err * delta_angle < 0:
+                    sum_err = 0
+                if sum_err > ang_i_limit:
+                    sum_err = ang_i_limit
+                elif sum_err < -ang_i_limit:
+                    sum_err = -ang_i_limit
+                move_cmd.angular.z = delta_angle * angular_p + sum_err * angular_i
+                if move_cmd.angular.z > 0.3:
+                    move_cmd.angular.z = 0.3
+                elif move_cmd.angular.z < -0.3:
+                    move_cmd.angular.z = -0.3
+                if move_cmd.angular.z > 0 and move_cmd.angular.z < 0.15:
+                    move_cmd.angular.z = 0.15
+                if move_cmd.angular.z < 0 and move_cmd.angular.z > -0.15:
+                    move_cmd.angular.z = -0.15
                 
-                if (not move_cmd.linear.x) and (not move_cmd.linear.y):
+                vx = 0.8 * distance_x
+                vy = 0.7 * distance_y
+
+                if vx > vxlimit :
+                    vx = vxlimit
+                elif vx < -vxlimit :
+                    vx = -vxlimit
+                
+                if vy > vylimit:
+                    vy = vylimit
+                elif vy < -vylimit:
+                    vy = -vylimit
+
+                move_cmd.linear.x = vx * math.cos(distance_rot) + vy * math.sin(distance_rot)
+                move_cmd.linear.y = -vx * math.sin(distance_rot) + vy * math.cos(distance_rot)
+    
+                if math.fabs(distance_x) <= x_tolerance:
+                    move_cmd.linear.x = 0.0
+                if math.fabs(distance_y) <= y_tolerance:
+                    move_cmd.linear.y = 0.0
+                if math.fabs(delta_angle) <= rot_tolerance:
+                    move_cmd.angular.z = 0.0
+                
+                if (not move_cmd.linear.x) and (not move_cmd.linear.y) and  (not move_cmd.angular.z):
                     rospy.loginfo("Moving complish!")
                     for i in range(0,3):
                         cmdvel_pub.publish(move_cmd)
@@ -1210,18 +1246,18 @@ class pick_put_act(object):
                 
                 # print(carlink_now_x, carlink_now_y,rot_start )
 
-                v_x = px * (goal_distance_y - carlink_now_y) # linear_speed * math.cos( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
-                v_y = py * (goal_distance_y - carlink_now_y) # linear_speed * math.sin( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x))
+                v_x =  linear_speed * math.cos( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x)) # px * (goal_distance_y - carlink_now_y) #
+                v_y =  linear_speed * math.sin( math.atan2(goal_distance_y - carlink_now_y , goal_distance_x - carlink_now_x)) # py * (goal_distance_y - carlink_now_y) #
 
-                if v_x > vxlimit :
-                    v_x = vxlimit
-                elif v_x < -vxlimit :
-                    v_x = -vxlimit
+                # if v_x > vxlimit :
+                #     v_x = vxlimit
+                # elif v_x < -vxlimit :
+                #     v_x = -vxlimit
                 
-                if v_y > vylimit:
-                    v_y = vylimit
-                elif v_y < -vylimit:
-                    v_y = -vylimit
+                # if v_y > vylimit:
+                #     v_y = vylimit
+                # elif v_y < -vylimit:
+                #     v_y = -vylimit
                 # 计算相对于开始位置的位姿
                 distance_x= math.fabs(carlink_now_x - goal_distance_x)
                 distance_y= math.fabs(carlink_now_y - goal_distance_y)
